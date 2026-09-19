@@ -153,7 +153,7 @@ class SimulatePipelineIntegrationTest {
         assertEquals("SIMULATE_BREAKOUT", events.get(0).getTriggerType());
         assertFalse(new String(events.get(0).getEvidenceRefEnc(), StandardCharsets.ISO_8859_1)
                 .contains("不想活"));
-        assertEquals((short) 1, userRepo.findById(uid).orElseThrow().getCrisisFlag());
+        assertEquals("CRISIS", userRepo.findById(uid).orElseThrow().getCrisisState());
     }
 
     @Test

@@ -2,6 +2,7 @@ package com.soulvoyage.agent.emotion;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.soulvoyage.common.time.BusinessCalendar;
 import com.soulvoyage.domain.emotion.EmotionTrajectoryEntity;
 import com.soulvoyage.domain.emotion.EmotionTrajectoryRepository;
 import com.soulvoyage.llm.LlmClient;
@@ -26,6 +27,7 @@ public class EmotionAgent implements Agent {
     private final OutputValidator validator;
     private final EmotionTrajectoryRepository trajectoryRepo;
     private final ObjectMapper mapper;
+    private final BusinessCalendar cal;
 
     @Override
     public String code() { return "EMOTION"; }
@@ -43,7 +45,7 @@ public class EmotionAgent implements Agent {
         JsonNode result = validator.validate(rt.spec().outputSchema(), resp.content());
 
         LocalDate date = input.hasNonNull("recordDate")
-                ? LocalDate.parse(input.get("recordDate").asText()) : LocalDate.now();
+                ? LocalDate.parse(input.get("recordDate").asText()) : cal.today();
         EmotionTrajectoryEntity t = new EmotionTrajectoryEntity();
         t.setUserId(rt.userId());
         t.setRecordDate(date);

@@ -15,8 +15,8 @@ public final class NpcDirector {
 
     public static final int MAX_TURNS_HARD_LIMIT = 20;
 
-    /** 高危句式回归集：与风险规则引擎同源（{@link RiskRules#CRISIS_PHRASES}），必须 100% 检出 */
-    static final List<String> CRISIS_PHRASES = RiskRules.CRISIS_PHRASES;
+    /** 高危句式回归集：与风险规则引擎同源（{@link RiskRules#crisisPhrases()}），必须 100% 检出 */
+    static final List<String> CRISIS_PHRASES = RiskRules.crisisPhrases();
 
     private static final List<String> ESCALATE_TOKENS = List.of(
             "你总是", "你每次", "你从来", "你就是", "你这人", "烦不烦", "闭嘴",

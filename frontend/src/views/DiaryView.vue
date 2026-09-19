@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import http, { type ApiResp } from '../api/http'
 import { streamTask } from '../api/sse'
 import AgentFlowProgress from '../components/AgentFlowProgress.vue'
@@ -9,10 +9,41 @@ interface Step { agent: string; stepSeq: number; state: 'pending'|'running'|'don
 interface ExerciseDef { id: string; code: string; name: string; applyEmotions: string[]; steps: { step: string; desc: string }[]; durationMin: number }
 
 const text = ref('')
+const mood = ref(0)          // 用户自评心情 1-5（可跳过）
 const submitting = ref(false)
 const steps = ref<Step[]>([])
 const results = ref<Record<string, any>>({})
 const error = ref('')
+
+const len = computed(() => text.value.trim().length)
+const canSubmit = computed(() => len.value >= 10 && !submitting.value)
+
+/* ---- C1 草稿：localStorage 即时 + 服务端 30s 自动保存，换端/崩溃不丢 ---- */
+const DRAFT_LS = 'sv_diary_draft'
+let draftSnapshot = ''
+onMounted(async () => {
+  const local = localStorage.getItem(DRAFT_LS)
+  if (local?.trim()) { text.value = local; return }
+  try {
+    const { data } = await http.get<ApiResp<{ content: string }>>('/diaries/draft')
+    if (data.data.content) text.value = data.data.content
+  } catch { /* 无草稿或离线 */ }
+})
+watch(text, (v) => { if (v.trim()) localStorage.setItem(DRAFT_LS, v); else localStorage.removeItem(DRAFT_LS) })
+async function pushDraft() {
+  if (!text.value.trim() || text.value === draftSnapshot) return
+  try {
+    await http.put('/diaries/draft', { content: text.value })
+    draftSnapshot = text.value
+  } catch { /* 静默：本地仍有兜底 */ }
+}
+const draftTimer = window.setInterval(pushDraft, 30000)
+onUnmounted(() => window.clearInterval(draftTimer))
+async function clearDrafts() {
+  localStorage.removeItem(DRAFT_LS)
+  draftSnapshot = ''
+  try { await http.delete('/diaries/draft') } catch { /* ignore */ }
+}
 
 const exerciseNames = ref<Record<string, ExerciseDef>>({})
 onMounted(async () => {
@@ -30,7 +61,7 @@ const showCrisis = computed(() =>
   receipt.value && (receipt.value.referral?.show || receipt.value.riskLevel === 'HIGH'))
 
 async function save() {
-  if (!text.value.trim() || submitting.value) return
+  if (!canSubmit.value) return
   submitting.value = true
   error.value = ''
   results.value = {}
@@ -38,7 +69,12 @@ async function save() {
   try {
     const { data } = await http.post<ApiResp<{ taskNo: string }>>('/tasks', {
       pipelineCode: 'DIARY_PIPELINE',
-      payload: { diaryText: text.value, recordDate: new Date().toISOString().slice(0, 10) },
+      payload: {
+        diaryText: text.value,
+        // 本地日期（en-CA 恒为 YYYY-MM-DD）：O1 业务时区语义，避免 UTC 跨日错标
+        recordDate: new Date().toLocaleDateString('en-CA'),
+        moodSelfRating: mood.value || undefined,
+      },
       clientReqId: `web-${Date.now()}`,
     })
     await streamTask(data.data.taskNo, (e) => {
@@ -51,7 +87,11 @@ async function save() {
         case 'step_failed':
           mark(e.data.agent, 'degraded'); break
         case 'done':
-          if (e.data.status === 'FAILED') error.value = '任务未完成，请稍后重试'
+          if (e.data.status === 'FAILED') {
+            error.value = '任务未完成，请稍后重试'
+          } else {
+            clearDrafts(); text.value = ''; mood.value = 0
+          }
           submitting.value = false
           break
         case 'error':
@@ -81,6 +121,11 @@ const EMOJI: Record<string, string> = {
   愤怒: '😠', 焦虑: '😰', 悲伤: '😢', 喜悦: '😊', 平静: '😌', 麻木: '😶', 压力: '😮‍💨', 孤独: '🥀',
 }
 
+const MOODS = [
+  { v: 1, e: '😖', t: '很低落' }, { v: 2, e: '😞', t: '不太好' }, { v: 3, e: '😐', t: '一般' },
+  { v: 4, e: '🙂', t: '还不错' }, { v: 5, e: '😄', t: '很好' },
+]
+
 const REPORT_TITLES: Record<string, string> = {
   eventSummary: '事件', emotionSummary: '情绪', thoughtSummary: '想法',
   insight: '洞察', suggestion: '下一步',
@@ -92,13 +137,22 @@ const REPORT_TITLES: Record<string, string> = {
     <header>
       <router-link to="/" class="back">← 首页</router-link>
       <b>情绪日记</b>
+      <router-link to="/diaries" class="book-link">📖 日记本 →</router-link>
     </header>
     <main>
       <textarea v-model="text" rows="7"
         placeholder="今天发生了什么？你感觉怎么样？写下来，让心屿陪你梳理一下……（内容为自助参考，不构成医学诊断）"></textarea>
+      <div class="input-meta">
+        <div class="moods">
+          <span class="moods-label">今天心情</span>
+          <button v-for="m in MOODS" :key="m.v" class="mood" :class="{ on: mood === m.v }"
+            :title="m.t" @click="mood = mood === m.v ? 0 : m.v">{{ m.e }}</button>
+        </div>
+        <span class="counter" :class="{ short: len > 0 && len < 10 }">{{ len }}/5000</span>
+      </div>
       <AgentFlowProgress v-if="steps.length" :steps="steps" class="flow" />
-      <button class="primary" :disabled="submitting || !text.trim()" @click="save">
-        {{ submitting ? '多 Agent 处理中…' : '交给心屿梳理' }}
+      <button class="primary" :disabled="!canSubmit" @click="save">
+        {{ submitting ? '多 Agent 处理中…' : (len < 10 ? '再多写一点吧（至少 10 字）' : '交给心屿梳理') }}
       </button>
       <p v-if="error" class="err">{{ error }}</p>
 
@@ -193,8 +247,17 @@ const REPORT_TITLES: Record<string, string> = {
 .diary { min-height: 100vh; background: #f5f7fd; }
 header { display: flex; align-items: center; gap: 16px; padding: 14px 28px; background: #fff; box-shadow: 0 1px 6px rgba(0,0,0,.05); }
 .back { color: #5b6cff; text-decoration: none; }
+.book-link { margin-left: auto; color: #5b6cff; text-decoration: none; font-size: 14px; }
 main { max-width: 720px; margin: 24px auto; padding: 0 16px; }
 textarea { width: 100%; border: 1px solid #dde3f3; border-radius: 12px; padding: 14px; font-size: 15px; resize: vertical; font-family: inherit; }
+.input-meta { display: flex; align-items: center; justify-content: space-between; margin: 8px 0 4px; }
+.moods { display: flex; align-items: center; gap: 6px; }
+.moods-label { font-size: 13px; color: #7c84a6; margin-right: 2px; }
+.mood { border: 1px solid transparent; background: #fff; border-radius: 10px; font-size: 20px; padding: 3px 8px; cursor: pointer; opacity: .55; }
+.mood:hover { opacity: .85; }
+.mood.on { opacity: 1; border-color: #5b6cff; background: #eef0ff; }
+.counter { font-size: 12px; color: #9aa1bd; }
+.counter.short { color: #f0813e; }
 .flow { margin: 14px 0; }
 .primary { width: 100%; padding: 12px; background: #5b6cff; color: #fff; border: 0; border-radius: 10px; font-size: 15px; cursor: pointer; }
 .primary:disabled { opacity: .55; cursor: not-allowed; }

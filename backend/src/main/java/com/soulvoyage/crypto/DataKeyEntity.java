@@ -9,7 +9,8 @@ import java.time.Instant;
 @Getter
 @Setter
 @Entity
-@Table(name = "data_key")
+@Table(name = "data_key",
+        uniqueConstraints = @UniqueConstraint(name = "uk_owner_ver", columnNames = {"owner_user_id", "version"}))
 public class DataKeyEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

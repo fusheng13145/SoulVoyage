@@ -13,7 +13,7 @@ class RiskRulesTest {
 
     @Test
     void crisisPhrasesFullRecall() {
-        for (String p : RiskRules.CRISIS_PHRASES) {
+        for (String p : RiskRules.crisisPhrases()) {
             assertTrue(RiskRules.isCrisis("最近很累，" + p + "了。"), "漏检: " + p);
             List<RuleHit> hits = RiskRules.scan("算了，" + p);
             assertEquals(Level.HIGH, RiskRules.maxLevel(hits), "级别错误: " + p);
@@ -60,5 +60,20 @@ class RiskRulesTest {
         assertEquals(Level.HIGH, RiskRules.higher(Level.MEDIUM, Level.HIGH));
         assertEquals(Level.MEDIUM, RiskRules.higher(Level.MEDIUM, Level.LOW));
         assertEquals(Level.LOW, RiskRules.higher(Level.LOW, Level.LOW));
+    }
+
+    /** 下篇·S1 否定/引文检测：命中点前窗口含否定词 → 降 MEDIUM + needsReview（进复核队列，不丢弃） */
+    @Test
+    void negatedCrisisHitDowngradesToReview() {
+        for (String s : List.of("新闻说有人自杀", "朋友说他想自杀", "千万别自杀", "不要自杀")) {
+            List<RuleHit> hits = RiskRules.scan(s);
+            assertEquals(Level.MEDIUM, RiskRules.maxLevel(hits), "应降级: " + s);
+            assertTrue(hits.get(0).needsReview(), "降级命中必须标记复核: " + s);
+            assertEquals("KEYWORD_RULE_NEGATED", hits.get(0).triggerType());
+            assertFalse(RiskRules.isCrisis(s));
+        }
+        // 反例：否定词在窗口之外（隔着标点后的独立分句）不误伤真实危机表达
+        assertTrue(RiskRules.isCrisis("什么都没有了，活着没意思。前半句不含窗内否定词"));
+        assertTrue(RiskRules.isCrisis("最近很累，不想活了"));
     }
 }

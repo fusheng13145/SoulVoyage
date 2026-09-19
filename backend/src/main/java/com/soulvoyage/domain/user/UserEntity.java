@@ -34,8 +34,22 @@ public class UserEntity {
     @Column(nullable = false)
     private Short status = 1;
 
-    @Column(name = "crisis_flag", nullable = false)
-    private Short crisisFlag = 0;
+    /** 危机生命周期状态（下篇·S1）：NORMAL/CRISIS/COOLING/REVIEW，取代旧 crisis_flag 布尔位 */
+    @Column(name = "crisis_state", nullable = false, length = 16)
+    private String crisisState = "NORMAL";
+
+    @Column(name = "crisis_started_at")
+    private Instant crisisStartedAt;
+
+    /** CRISIS=强干预到期时间；COOLING=进入冷却时间（新风险事件水位） */
+    @Column(name = "crisis_ends_at")
+    private Instant crisisEndsAt;
+
+    @Column(name = "policy_version", length = 16)
+    private String policyVersion;
+
+    @Column(name = "deletion_requested_at")
+    private Instant deletionRequestedAt;
 
     @Column(name = "agreed_policy_at")
     private Instant agreedPolicyAt;

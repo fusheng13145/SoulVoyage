@@ -30,11 +30,22 @@ spring:
       enabled: true    # Java 21 虚拟线程：LLM 调用为 I/O 密集
 
 soulvoyage:
+  business-zone: ${SV_BUSINESS_ZONE:Asia/Shanghai}   # O1：业务日期归属时区
+  crisis:                                            # 下篇·S1 危机生命周期
+    cooldown: 7d                                     # CRISIS 强干预窗口
+    downgrade-threshold: -0.3                        # 冷却自动解除：周画像 avgValence 阈值
+    downgrade-weeks: 2                               # 连续 N 个完整自然周达标
+  account:
+    deletion-cooldown: 7d                            # S2 注销冷静期（期满销毁用户 DEK）
   security:
     jwt:
       secret: ${SV_JWT_SECRET:DEV_ONLY_CHANGE_ME_DEV_ONLY_CHANGE_ME_32B+}   # ≥32字节
       access-ttl: 30m
       refresh-ttl: 7d
+    login-lock:                                      # S3 登录失败锁定
+      max-fail: 5
+      window: 15m
+    cors-allowed-origins: ${SV_CORS_ORIGINS:http://localhost:5173}
     master-key: ${SV_MASTER_KEY:}          # Base64 32字节主密钥 MK；为空则启动时生成临时密钥并告警（仅限开发）
   llm:
     provider: ${SV_LLM_PROVIDER:mock}      # mock | openai（DashScope compatible-mode 等）

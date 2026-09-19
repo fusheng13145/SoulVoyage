@@ -3,6 +3,8 @@ package com.soulvoyage.domain.emotion;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.soulvoyage.auth.AuthPrincipal;
 import com.soulvoyage.common.api.ApiResponse;
+import com.soulvoyage.common.time.BusinessCalendar;
+import com.soulvoyage.domain.crisis.CrisisState;
 import com.soulvoyage.domain.profile.EmotionProfileEntity;
 import com.soulvoyage.domain.profile.EmotionProfileRepository;
 import com.soulvoyage.domain.user.UserRepository;
@@ -28,13 +30,14 @@ public class EmotionController {
     private final EmotionProfileRepository profileRepo;
     private final UserRepository userRepo;
     private final ObjectMapper mapper;
+    private final BusinessCalendar cal;
 
     @GetMapping("/trajectory")
     public ApiResponse<Map<String, Object>> trajectory(
             @AuthenticationPrincipal AuthPrincipal p,
             @RequestParam(required = false) LocalDate from,
             @RequestParam(required = false) LocalDate to) {
-        LocalDate end = to == null ? LocalDate.now() : to;
+        LocalDate end = to == null ? cal.today() : to;
         LocalDate start = from == null ? end.minusDays(29) : from;
         List<Map<String, Object>> points = trajRepo
                 .findByUserIdAndRecordDateBetweenOrderByRecordDateAsc(p.userId(), start, end).stream()
@@ -59,9 +62,14 @@ public class EmotionController {
                         "stressorTop", parseJson(w.getStressorTopJson()),
                         "distortionTop", parseJson(w.getDistortionTopJson())))
                 .toList();
-        boolean crisisMode = userRepo.findById(p.userId())
-                .map(u -> u.getCrisisFlag() == 1).orElse(false);
-        return ApiResponse.ok(Map.of("crisisMode", crisisMode, "weeks", weeks));
+        String crisisState = userRepo.findById(p.userId())
+                .map(u -> CrisisState.parse(u.getCrisisState()).name())
+                .orElse(CrisisState.NORMAL.name());
+        // crisisMode：处于危机生命周期任意活跃态（CRISIS 强干预 / COOLING 常驻横幅 / REVIEW 复核中）
+        return ApiResponse.ok(Map.of(
+                "crisisMode", CrisisState.parse(crisisState).active(),
+                "crisisState", crisisState,
+                "weeks", weeks));
     }
 
     private Object parseJson(String s) {

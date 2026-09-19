@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.soulvoyage.common.time.BusinessCalendar;
 import com.soulvoyage.crypto.CryptoService;
 import com.soulvoyage.domain.report.ReportEntity;
 import com.soulvoyage.domain.report.ReportRepository;
@@ -42,6 +43,7 @@ public class SimulateReviewAgent implements Agent {
     private final SimulateTurnRepository turnRepo;
     private final ReportRepository reportRepo;
     private final ObjectMapper mapper;
+    private final BusinessCalendar cal;
 
     @Override
     public String code() { return "SIMULATE"; }
@@ -69,7 +71,7 @@ public class SimulateReviewAgent implements Agent {
         report.setType("SIMULATE");
         report.setTaskId(rt.taskId());
         report.setBizRefId(simulateId);
-        report.setTitle("沟通复盘 · " + scene.title() + " · " + LocalDate.now());
+        report.setTitle("沟通复盘 · " + scene.title() + " · " + cal.today());
         report.setContentEnc(crypto.encryptUserField(rt.userId(), result.toString()));
         report.setRiskLevel(crisisSeen ? "HIGH" : "LOW");
         report = reportRepo.save(report);

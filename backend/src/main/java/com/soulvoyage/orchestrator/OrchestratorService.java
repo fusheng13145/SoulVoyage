@@ -6,6 +6,7 @@ import com.soulvoyage.common.api.ErrorCode;
 import com.soulvoyage.common.exception.BizException;
 import com.soulvoyage.common.util.Ulid;
 import com.soulvoyage.crypto.CryptoService;
+import com.soulvoyage.domain.crisis.CrisisState;
 import com.soulvoyage.domain.task.*;
 import com.soulvoyage.domain.user.UserRepository;
 import com.soulvoyage.orchestrator.agent.AgentRuntime;
@@ -83,8 +84,9 @@ public class OrchestratorService {
             taskRepo.save(t);
             bus.publish(t.getTaskNo(), "task_status", Map.of("status", "RUNNING"));
 
-            boolean crisis = userRepo.findById(t.getUserId()).map(u -> u.getCrisisFlag() == 1).orElse(false);
-            TaskContext ctx = new TaskContext(taskId, t.getUserId(), crisis, input);
+            CrisisState crisisState = userRepo.findById(t.getUserId())
+                    .map(u -> CrisisState.parse(u.getCrisisState())).orElse(CrisisState.NORMAL);
+            TaskContext ctx = new TaskContext(taskId, t.getUserId(), crisisState, input);
             var steps = pipelines.require(t.getPipelineCode()).steps(ctx);
 
             JsonNode last = null;
@@ -94,7 +96,7 @@ public class OrchestratorService {
                 seq++;
                 if (isCancelled(taskId)) return;
                 try {
-                    last = executeStep(t, spec, seq, input, last, crisis);
+                    last = executeStep(t, spec, seq, input, last);
                 } catch (OutputInvalidException e) {
                     // 校验失败不重试：步骤降级，流水线终止为 PARTIAL_SUCCESS（手册 §3.6）
                     logStep(t.getId(), spec, seq, "DEGRADED", 0, null, e.getMessage());
@@ -120,7 +122,7 @@ public class OrchestratorService {
     }
 
     private JsonNode executeStep(TaskInstanceEntity t, StepSpec spec, int seq,
-                                 JsonNode input, JsonNode prev, boolean crisis) {
+                                 JsonNode input, JsonNode prev) {
         var agent = agents.require(spec.agentCode());
         AgentMessage request = AgentMessage.of(t.getId(), seq, AgentCode.ORCHESTRATOR.name(),
                 spec.agentCode(), AgentMessage.MsgType.REQUEST,
@@ -129,7 +131,7 @@ public class OrchestratorService {
                 AgentMessage.MsgType.REQUEST, request.payload());
         bus.publish(t.getTaskNo(), "step_started", Map.of("stepSeq", seq, "agent", spec.agentCode()));
 
-        AgentRuntime rt = new AgentRuntime(t.getId(), t.getUserId(), t.getTaskNo(), spec, crisis);
+        AgentRuntime rt = new AgentRuntime(t.getId(), t.getUserId(), t.getTaskNo(), spec);
         long t0 = System.currentTimeMillis();
         RuntimeException lastErr = null;
         for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {

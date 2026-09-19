@@ -3,7 +3,10 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import http, { TOKEN_KEY, REFRESH_KEY, type ApiResp } from '../api/http'
 
-interface TokenResp { accessToken: string; refreshToken: string; userId: number; nickname: string; role: string }
+interface TokenResp {
+  accessToken: string; refreshToken: string; userId: number
+  nickname: string; role: string; deletionPending: boolean
+}
 
 const router = useRouter()
 const mode = ref<'login' | 'register'>('login')
@@ -23,9 +26,12 @@ async function submit() {
     })
     localStorage.setItem(TOKEN_KEY, data.data.accessToken)
     localStorage.setItem(REFRESH_KEY, data.data.refreshToken)
+    // S2：注销冷静期内登录 → 首页提示可撤回
+    if (data.data.deletionPending) sessionStorage.setItem('sv_del_pending', '1')
+    else sessionStorage.removeItem('sv_del_pending')
     router.push('/')
   } catch (e: any) {
-    error.value = e.response?.data?.msg ?? e.message ?? '操作失败'
+    error.value = e.message ?? '操作失败'
   } finally {
     loading.value = false
   }

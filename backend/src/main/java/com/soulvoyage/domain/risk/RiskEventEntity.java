@@ -44,6 +44,16 @@ public class RiskEventEntity {
     @Column(nullable = false)
     private Short reviewed = 0;
 
-    @Column(name = "created_at", insertable = false, updatable = false)
+    /** 否定/引文降级命中（下篇·S1）：规则一票升级权保留，但建议人工复核 */
+    @Column(name = "needs_review", nullable = false)
+    private Short needsReview = 0;
+
+    /** 应用显式写入（生产 MySQL 与 H2 测试语义一致，时序断言可用） */
+    @Column(name = "created_at", nullable = false)
     private Instant createdAt;
+
+    @PrePersist
+    void prePersist() {
+        if (createdAt == null) createdAt = Instant.now();
+    }
 }

@@ -2,6 +2,7 @@ package com.soulvoyage.domain.profile;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -9,4 +10,6 @@ public interface EmotionProfileRepository extends JpaRepository<EmotionProfileEn
     Optional<EmotionProfileEntity> findByUserIdAndStatWeek(Long userId, String statWeek);
 
     List<EmotionProfileEntity> findByUserIdOrderByStatWeekDesc(Long userId);
+
+    List<EmotionProfileEntity> findByUserIdAndStatWeekIn(Long userId, Collection<String> statWeeks);
 }

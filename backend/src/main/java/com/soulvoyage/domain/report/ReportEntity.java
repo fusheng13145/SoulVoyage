@@ -37,6 +37,10 @@ public class ReportEntity {
     @Column(name = "risk_level", nullable = false, length = 8)
     private String riskLevel = "LOW";
 
+    /** 源日记被编辑/删除后置 1：报告过期待重分析（下篇·C1） */
+    @Column(nullable = false)
+    private Short stale = 0;
+
     @Column(name = "created_at", insertable = false, updatable = false)
     private Instant createdAt;
 

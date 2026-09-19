@@ -7,7 +7,9 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.soulvoyage.agent.risk.RiskRules.Level;
 import com.soulvoyage.agent.risk.RiskRules.RuleHit;
 import com.soulvoyage.audit.AuditService;
+import com.soulvoyage.common.time.BusinessCalendar;
 import com.soulvoyage.crypto.CryptoService;
+import com.soulvoyage.domain.crisis.CrisisService;
 import com.soulvoyage.domain.profile.EmotionProfileEntity;
 import com.soulvoyage.domain.profile.EmotionProfileRepository;
 import com.soulvoyage.domain.report.ReportEntity;
@@ -20,8 +22,6 @@ import com.soulvoyage.domain.simulate.SimulateTurnEntity;
 import com.soulvoyage.domain.simulate.SimulateTurnRepository;
 import com.soulvoyage.domain.task.AgentMessageEntity;
 import com.soulvoyage.domain.task.AgentMessageRepository;
-import com.soulvoyage.domain.user.UserEntity;
-import com.soulvoyage.domain.user.UserRepository;
 import com.soulvoyage.llm.OutputValidator;
 import com.soulvoyage.orchestrator.agent.Agent;
 import com.soulvoyage.orchestrator.agent.AgentRuntime;
@@ -46,7 +46,8 @@ import java.util.Map;
  * 双轨研判、取最高级别、规则一票升级：
  *  - 规则轨：{@link RiskRules} 危机词表（日记原文）/ 训练剧情外危机（crisis_flag 轮）→ HIGH；持续低落/自我否定 → MEDIUM。
  *  - 语义轨：上游 Agent 已落在 report.riskLevel 的 LLM 判定（TRACE 的 riskSignals、SIMULATE 复盘）。
- * HIGH → 置用户危机标记 + 危机事件加密归档 + 转介；随后写/更新周画像，产出 ArchiveReceipt。
+ * HIGH → 进入危机生命周期（下篇·S1：CRISIS/RE_ENTRY，由 CrisisService 统一裁决迁移）+ 危机事件加密归档 + 转介；
+ * 随后写/更新周画像，产出 ArchiveReceipt。
  * 无 LLM 调用：判定确定性、可回归，符合"高危不依赖模型单独拍板"。
  */
 @Slf4j
@@ -58,13 +59,14 @@ public class RiskArchiveAgent implements Agent {
     private final OutputValidator validator;
     private final ReportRepository reportRepo;
     private final AgentMessageRepository msgRepo;
-    private final UserRepository userRepo;
     private final RiskEventRepository riskEventRepo;
     private final EmotionProfileRepository profileRepo;
     private final EmotionTrajectoryRepository trajRepo;
     private final SimulateTurnRepository turnRepo;
     private final AuditService audit;
     private final ObjectMapper mapper;
+    private final CrisisService crisisService;
+    private final BusinessCalendar cal;
 
     @Override
     public String code() { return "RISK_ARCHIVE"; }
@@ -97,13 +99,13 @@ public class RiskArchiveAgent implements Agent {
         boolean showReferral = finalLevel != Level.LOW;
         if (finalLevel != Level.LOW) {
             riskEventId = archiveRiskEvent(userId, taskId, finalLevel, triggerType, ruleCode,
-                    rule.locator, rule.matchedTurn);
+                    rule.locator, rule.matchedTurn, rule.needsReview());
         }
         if (finalLevel == Level.HIGH) {
-            markCrisis(userId);
+            crisisService.onHighRisk(userId, riskEventId);
         }
 
-        boolean profileUpdated = updateWeeklyProfile(userId, LocalDate.now(), finalLevel);
+        boolean profileUpdated = updateWeeklyProfile(userId, cal.today(), finalLevel);
 
         ObjectNode receipt = buildReceipt(finalLevel, riskEventId, showReferral, taskId,
                 taskReports.size(), userId, profileUpdated);
@@ -113,7 +115,7 @@ public class RiskArchiveAgent implements Agent {
     // ---------------- 规则轨 ----------------
 
     private record RuleTrackResult(Level level, String triggerType, String ruleCode,
-                                   String locator, Long matchedTurn) {}
+                                   String locator, Long matchedTurn, boolean needsReview) {}
 
     private RuleTrackResult evalRuleTrack(long userId, JsonNode input) {
         // 训练：剧情外真实危机（会话轮 crisis_flag 已由 NpcDirector 借同一危机词表裁决）
@@ -122,25 +124,26 @@ public class RiskArchiveAgent implements Agent {
             for (SimulateTurnEntity t : turnRepo.findBySimulateIdOrderByTurnNoAsc(simulateId)) {
                 if (t.getCrisisFlag() == 1) {
                     return new RuleTrackResult(Level.HIGH, "SIMULATE_BREAKOUT", "RISK_CRISIS",
-                            "sim=" + simulateId + " turn=" + t.getTurnNo(), t.getId());
+                            "sim=" + simulateId + " turn=" + t.getTurnNo(), t.getId(), false);
                 }
             }
-            return new RuleTrackResult(Level.LOW, null, null, null, null);
+            return new RuleTrackResult(Level.LOW, null, null, null, null, false);
         }
         // 日记：原文规则扫描
         String text = input.path("diaryText").asText("");
         List<RuleHit> hits = RiskRules.scan(text);
         Level lv = RiskRules.maxLevel(hits);
-        if (lv == Level.LOW) return new RuleTrackResult(Level.LOW, null, null, null, null);
+        if (lv == Level.LOW) return new RuleTrackResult(Level.LOW, null, null, null, null, false);
         RuleHit top = hits.get(0);
         for (RuleHit h : hits) if (h.level() == Level.HIGH) { top = h; break; }
-        return new RuleTrackResult(top.level(), top.triggerType(), top.ruleCode(), top.locator(), null);
+        return new RuleTrackResult(top.level(), top.triggerType(), top.ruleCode(), top.locator(),
+                null, top.needsReview());
     }
 
     // ---------------- 归档 / 危机动作 ----------------
 
     private Long archiveRiskEvent(long userId, long taskId, Level level, String triggerType,
-                                  String ruleCode, String locator, Long turnId) {
+                                  String ruleCode, String locator, Long turnId, boolean needsReview) {
         ObjectNode evidence = mapper.createObjectNode();
         evidence.put("ruleCode", ruleCode);
         evidence.put("locator", locator);
@@ -155,21 +158,12 @@ public class RiskArchiveAgent implements Agent {
         e.setEvidenceRefEnc(crypto.encryptUserField(userId, evidence.toString()));
         e.setActionTaken(level == Level.HIGH ? "CRISIS_CARD+PROFILE_FLAG" : "REFERRAL_UPGRADE");
         e.setTaskId(taskId);
+        e.setNeedsReview((short) (needsReview ? 1 : 0));
         e = riskEventRepo.save(e);
 
         audit.record(userId, level == Level.HIGH ? "RISK_HIGH" : "RISK_MEDIUM",
                 "risk_event:" + e.getId(), null);
         return e.getId();
-    }
-
-    private void markCrisis(long userId) {
-        userRepo.findById(userId).ifPresent(u -> {
-            if (u.getCrisisFlag() != 1) {
-                u.setCrisisFlag((short) 1);
-                userRepo.save(u);
-                log.warn("user {} entered crisis mode via RISK_ARCHIVE", userId);
-            }
-        });
     }
 
     // ---------------- 周画像 upsert ----------------

@@ -18,6 +18,13 @@ public class AuthDtos {
 
     public record RefreshReq(@NotBlank String refreshToken) {}
 
+    public record DeleteReq(@NotBlank String password) {}
+
+    public record PasswordReq(@NotBlank String oldPassword,
+                              @NotBlank @Size(min = 8, max = 64) String newPassword) {}
+
+    /** deletionPending=true 表示账号处于注销冷静期（S2），前端据此弹"撤回注销" */
     public record TokenResp(String accessToken, String refreshToken, long expiresIn,
-                            long userId, String nickname, String role) {}
+                            long userId, String nickname, String role,
+                            boolean deletionPending) {}
 }

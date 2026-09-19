@@ -50,7 +50,12 @@ public class AuthController {
         UserEntity u = userRepo.findByIdAndDeletedAtIsNull(p.userId()).orElseThrow();
         return ApiResponse.ok(Map.of(
                 "userId", u.getId(), "username", u.getUsername(), "nickname", u.getNickname(),
-                "role", u.getRole(), "crisisFlag", u.getCrisisFlag(), "createdAt", u.getCreatedAt()));
+                "role", u.getRole(), "crisisState", u.getCrisisState(),
+                "agreedPolicyAt", u.getAgreedPolicyAt() == null ? "" : u.getAgreedPolicyAt().toString(),
+                "policyVersion", u.getPolicyVersion() == null ? "" : u.getPolicyVersion(),
+                "status", u.getStatus().intValue(),
+                "deletionRequestedAt", u.getDeletionRequestedAt() == null ? "" : u.getDeletionRequestedAt().toString(),
+                "createdAt", u.getCreatedAt()));
     }
 
     static String clientIp(HttpServletRequest req) {

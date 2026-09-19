@@ -2,10 +2,12 @@ package com.soulvoyage.crypto;
 
 import com.soulvoyage.common.exception.BizException;
 import com.soulvoyage.common.api.ErrorCode;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import javax.crypto.Cipher;
 import javax.crypto.spec.GCMParameterSpec;
@@ -16,7 +18,6 @@ import java.util.Arrays;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class EnvelopeCryptoService implements CryptoService {
 
     private static final int DEK_LEN = 32;
@@ -26,6 +27,15 @@ public class EnvelopeCryptoService implements CryptoService {
 
     private final MasterKeyProvider mk;
     private final DataKeyRepository keyRepo;
+    private final TransactionTemplate newTx;
+
+    public EnvelopeCryptoService(MasterKeyProvider mk, DataKeyRepository keyRepo,
+                                 PlatformTransactionManager txManager) {
+        this.mk = mk;
+        this.keyRepo = keyRepo;
+        this.newTx = new TransactionTemplate(txManager);
+        this.newTx.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+    }
 
     @Override
     public byte[] encryptUserField(long userId, String plaintext) {
@@ -88,16 +98,25 @@ public class EnvelopeCryptoService implements CryptoService {
                 .orElseGet(() -> createKey(userId));
     }
 
+    /**
+     * 建钥必须独立提交（REQUIRES_NEW）：外层加密事务（如日记 attachTask）与流水线虚拟线程
+     * 可能同时为首条密文建钥——若并入外层事务，synchronized 挡不住"未提交行互不可见"，
+     * 会产生两条 version=1 的 DEK 使解密抛 IncorrectResultSize（uk_owner_ver 亦会拒绝）。
+     */
     private DataKeyEntity createKey(long userId) {
-        byte[] dek = new byte[DEK_LEN];
-        RANDOM.nextBytes(dek);
-        DataKeyEntity e = new DataKeyEntity();
-        e.setOwnerUserId(userId);
-        e.setVersion(nextVersion(userId));
-        e.setEncMasterKeyRef(wrapDek(dek));
-        e.setStatus((short) 1);
-        Arrays.fill(dek, (byte) 0);
-        return keyRepo.save(e);
+        return newTx.execute(status -> {
+            var existing = keyRepo.findFirstByOwnerUserIdAndStatusOrderByVersionDesc(userId, (short) 1);
+            if (existing.isPresent()) return existing.get();
+            byte[] dek = new byte[DEK_LEN];
+            RANDOM.nextBytes(dek);
+            DataKeyEntity e = new DataKeyEntity();
+            e.setOwnerUserId(userId);
+            e.setVersion(nextVersion(userId));
+            e.setEncMasterKeyRef(wrapDek(dek));
+            e.setStatus((short) 1);
+            Arrays.fill(dek, (byte) 0);
+            return keyRepo.save(e);
+        });
     }
 
     private int nextVersion(long userId) {

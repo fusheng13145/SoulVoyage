@@ -140,7 +140,7 @@ class DiaryPipelineIntegrationTest {
         assertNotEquals(0, receipt.path("riskEventId").asLong());
         assertTrue(receipt.path("referral").path("show").asBoolean());
 
-        assertEquals((short) 1, userRepo.findById(uid).orElseThrow().getCrisisFlag(), "HIGH 后应进入危机模式");
+        assertEquals("CRISIS", userRepo.findById(uid).orElseThrow().getCrisisState(), "HIGH 后应进入危机态（S1 状态机）");
         List<RiskEventEntity> events = riskEventRepo.findByUserIdOrderByCreatedAtDesc(uid);
         assertEquals(1, events.size());
         assertEquals("HIGH", events.get(0).getLevel());
@@ -178,7 +178,7 @@ class DiaryPipelineIntegrationTest {
         assertEquals(1, events.size());
         assertEquals("MEDIUM", events.get(0).getLevel());
         assertEquals("REFERRAL_UPGRADE", events.get(0).getActionTaken());
-        assertEquals((short) 0, userRepo.findById(uid).orElseThrow().getCrisisFlag(), "MEDIUM 不进危机模式");
+        assertEquals("NORMAL", userRepo.findById(uid).orElseThrow().getCrisisState(), "MEDIUM 不进危机态");
     }
 
     @Test

@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.soulvoyage.common.time.BusinessCalendar;
 import com.soulvoyage.crypto.CryptoService;
 import com.soulvoyage.domain.report.ReportEntity;
 import com.soulvoyage.domain.report.ReportRepository;
@@ -61,6 +62,7 @@ public class SupportAgent implements Agent {
     private final ReportRepository reportRepo;
     private final AgentMessageRepository msgRepo;
     private final ObjectMapper mapper;
+    private final BusinessCalendar cal;
 
     @Override
     public String code() { return "SUPPORT"; }
@@ -89,7 +91,7 @@ public class SupportAgent implements Agent {
         report.setUserId(rt.userId());
         report.setType("SUPPORT");
         report.setTaskId(rt.taskId());
-        report.setTitle("自助方案 · " + primary + " · " + LocalDate.now());
+        report.setTitle("自助方案 · " + primary + " · " + cal.today());
         report.setContentEnc(crypto.encryptUserField(rt.userId(), result.toString()));
         report.setRiskLevel("LOW");   // 疏导方案本身不抬升风险，研判统一交 RISK_ARCHIVE
         report = reportRepo.save(report);

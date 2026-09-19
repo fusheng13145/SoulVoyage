@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.soulvoyage.audit.AuditService;
 import com.soulvoyage.common.api.ErrorCode;
 import com.soulvoyage.common.exception.BizException;
+import com.soulvoyage.common.time.BusinessCalendar;
 import com.soulvoyage.common.util.Ulid;
 import com.soulvoyage.crypto.CryptoService;
 import com.soulvoyage.domain.emotion.EmotionTrajectoryEntity;
@@ -48,6 +49,8 @@ public class ArchiveService {
     private final EmotionProfileRepository profileRepo;
     private final RiskEventRepository riskEventRepo;
     private final ExerciseRecordRepository exerciseRepo;
+    private final BusinessCalendar cal;
+    private final com.soulvoyage.domain.diary.DiaryRepository diaryRepo;
     private final UserRepository userRepo;
     private final CryptoService crypto;
     private final AuditService audit;
@@ -112,6 +115,7 @@ public class ArchiveService {
         userRepo.findByIdAndDeletedAtIsNull(userId).ifPresent(u -> snapshot.put("nickname", u.getNickname()));
         snapshot.put("generatedAt", Instant.now().toString());
         snapshot.set("reports", allReportsDecrypted(userId));
+        snapshot.set("diaries", allDiaries(userId));
         snapshot.set("emotionPoints", allTrajectory(userId));
         snapshot.set("profiles", allProfiles(userId));
 
@@ -133,6 +137,26 @@ public class ArchiveService {
         exports.remove(fileId);                            // 一次性：领取即焚
         audit.record(userId, "EXPORT_DOWNLOAD", "archive_export:" + fileId, ip);
         return s.data();
+    }
+
+    /** S2 可携带权：全量明文数据导出（报告/曲线/画像/打卡/风险元数据），限时一次性链接同款机制 */
+    public String createDataExport(long userId, String ip) {
+        purgeExpired();
+        ObjectNode snapshot = mapper.createObjectNode();
+        userRepo.findByIdAndDeletedAtIsNull(userId).ifPresent(u -> snapshot.put("nickname", u.getNickname()));
+        snapshot.put("generatedAt", Instant.now().toString());
+        snapshot.put("scope", "PERSONAL_DATA");
+        snapshot.set("reports", allReportsDecrypted(userId));
+        snapshot.set("diaries", allDiaries(userId));
+        snapshot.set("emotionPoints", allTrajectory(userId));
+        snapshot.set("profiles", allProfiles(userId));
+        snapshot.set("exerciseRecords", allExercises(userId));
+        snapshot.set("riskEvents", allRiskEvents(userId));
+
+        String fileId = Ulid.next();
+        exports.put(fileId, new Snapshot(userId, snapshot, Instant.now().plus(EXPORT_TTL)));
+        audit.record(userId, "DATA_EXPORT", "personal_data_export:" + fileId, ip);
+        return fileId;
     }
 
     // ---------------- internals ----------------
@@ -186,7 +210,7 @@ public class ArchiveService {
     private ArrayNode allTrajectory(long userId) {
         var arr = mapper.createArrayNode();
         for (EmotionTrajectoryEntity t : trajRepo.findByUserIdAndRecordDateBetweenOrderByRecordDateAsc(
-                userId, LocalDate.now().minusDays(365), LocalDate.now())) {
+                userId, cal.today().minusDays(365), cal.today())) {
             ObjectNode n = arr.addObject();
             n.put("date", t.getRecordDate().toString()).put("emotion", t.getPrimaryEmotion())
                     .put("valence", t.getValence().toString()).put("intensity", t.getIntensity().toString())
@@ -204,6 +228,54 @@ public class ArchiveService {
             if (p.getAvgValence() != null) n.put("avgValence", p.getAvgValence().toString());
             readInto(n, "stressorTop", p.getStressorTopJson());
             readInto(n, "distortionTop", p.getDistortionTopJson());
+        }
+        return arr;
+    }
+
+    private ArrayNode allDiaries(long userId) {
+        var arr = mapper.createArrayNode();
+        for (var d : diaryRepo.findByUserIdAndDeletedAtIsNullOrderByRecordDateDescIdDesc(userId)) {
+            ObjectNode n = arr.addObject();
+            n.put("recordDate", d.getRecordDate().toString());
+            if (d.getMoodSelfRating() != null) n.put("moodSelfRating", d.getMoodSelfRating().intValue());
+            try {
+                n.put("content", crypto.decryptUserField(userId, d.getContentEnc()));
+            } catch (Exception e) {
+                n.put("content", "（无法解密：密钥已销毁）");
+            }
+        }
+        return arr;
+    }
+
+    private ArrayNode allExercises(long userId) {
+        var arr = mapper.createArrayNode();
+        for (ExerciseRecordEntity x : exerciseRepo.findByUserIdOrderByCreatedAtDescIdDesc(userId)) {
+            ObjectNode n = arr.addObject();
+            n.put("exerciseId", x.getExerciseId())
+                    .put("completed", x.getCompleted().intValue())
+                    .put("feedback", x.getFeedback() == null ? "" : x.getFeedback())
+                    .put("date", x.getCreatedAt() == null ? "" : x.getCreatedAt().toString());
+        }
+        return arr;
+    }
+
+    private ArrayNode allRiskEvents(long userId) {
+        var arr = mapper.createArrayNode();
+        for (RiskEventEntity r : riskEventRepo.findByUserIdOrderByCreatedAtDesc(userId)) {
+            ObjectNode n = arr.addObject();
+            n.put("id", r.getId()).put("level", r.getLevel())
+                    .put("triggerType", r.getTriggerType())
+                    .put("ruleCode", r.getRuleCode() == null ? "" : r.getRuleCode())
+                    .put("actionTaken", r.getActionTaken())
+                    .put("date", r.getCreatedAt() == null ? "" : r.getCreatedAt().toString());
+            // 证据只含定位信息（§5.1 设计），本人导出可直接给明文
+            if (r.getEvidenceRefEnc() == null) {
+                n.putNull("evidence");
+            } else try {
+                n.set("evidence", mapper.readTree(crypto.decryptUserField(userId, r.getEvidenceRefEnc())));
+            } catch (Exception e) {
+                n.put("evidence", "（无法解密：密钥已销毁）");
+            }
         }
         return arr;
     }

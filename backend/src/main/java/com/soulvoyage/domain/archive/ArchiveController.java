@@ -3,6 +3,7 @@ package com.soulvoyage.domain.archive;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.soulvoyage.auth.AuthPrincipal;
 import com.soulvoyage.common.api.ApiResponse;
+import com.soulvoyage.common.time.BusinessCalendar;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -21,11 +22,12 @@ import java.util.Map;
 public class ArchiveController {
 
     private final ArchiveService archive;
+    private final BusinessCalendar cal;
 
     @GetMapping("/summary")
     public ApiResponse<ObjectNode> summary(@AuthenticationPrincipal AuthPrincipal p,
                                            @RequestParam(required = false) LocalDate week) {
-        return ApiResponse.ok(archive.weeklySummary(p.userId(), week == null ? LocalDate.now() : week));
+        return ApiResponse.ok(archive.weeklySummary(p.userId(), week == null ? cal.today() : week));
     }
 
     @PostMapping("/export")

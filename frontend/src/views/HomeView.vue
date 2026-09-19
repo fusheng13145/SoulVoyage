@@ -4,7 +4,7 @@ import { useRouter } from 'vue-router'
 import http, { TOKEN_KEY, REFRESH_KEY, type ApiResp } from '../api/http'
 import CrisisCard from '../components/CrisisCard.vue'
 
-interface Me { userId: number; username: string; nickname: string; role: string }
+interface Me { userId: number; username: string; nickname: string; role: string; status: number }
 const me = ref<Me | null>(null)
 const crisisMode = ref(false)
 const router = useRouter()
@@ -39,15 +39,20 @@ function logout() {
     <main>
       <CrisisCard v-if="crisisMode" level="MEDIUM"
         headline="你已在关怀模式中：这段时间不必逼自己「想开点」，专业支持一直在这里" />
+      <div v-if="me.status === 3" class="del-notice">
+        账号正在注销冷静期，到期后数据将被不可恢复地销毁。<router-link to="/account">撤回注销 →</router-link>
+      </div>
       <div class="tip">
         写日记让心屿陪你梳理情绪，进场景和「数字人」练一场不好开口的对话——所有记录加密存储，只有你能看到。
       </div>
       <div class="grid">
         <router-link to="/diary" class="tile">📔 情绪日记<small>感知 → 溯源 → 疏导 → 归档</small></router-link>
+        <router-link to="/diaries" class="tile">📖 日记本<small>加密时间线 · 回看 编辑 重新分析</small></router-link>
         <router-link to="/simulation" class="tile">🎭 人际模拟<small>4 大核心场景 · 导演模块多轮博弈</small></router-link>
         <router-link to="/plan" class="tile">🌿 自助练习<small>正念 · 54321 · 认知书写 · 跟练打卡</small></router-link>
         <router-link to="/insights" class="tile">📈 情绪洞察<small>情绪曲线 · 周画像</small></router-link>
         <router-link to="/archive" class="tile">🗂 成长档案<small>周报 · 限时一次性导出打印</small></router-link>
+        <router-link to="/account" class="tile">🔐 隐私中心<small>数据导出 · 改密 · 注销即遗忘</small></router-link>
       </div>
       <p class="disclaimer">本内容为自助参考，不构成医学诊断。心理援助热线：12356</p>
     </main>
@@ -61,6 +66,8 @@ header { display: flex; align-items: center; gap: 16px; padding: 14px 28px; back
 .ghost { border: 1px solid #dde3f3; background: #fff; border-radius: 8px; padding: 6px 14px; cursor: pointer; }
 main { max-width: 860px; margin: 24px auto; padding: 0 16px; }
 .tip { background: #eaf0ff; color: #40508c; border-radius: 10px; padding: 14px 16px; font-size: 14px; margin-bottom: 20px; }
+.del-notice { background: #fdf1e0; color: #8a5a1d; border-radius: 10px; padding: 12px 16px; font-size: 14px; margin-bottom: 14px; }
+.del-notice a { color: #a8722f; font-weight: 600; }
 .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; }
 .tile { background: #fff; border-radius: 12px; padding: 20px 16px; font-size: 16px; box-shadow: 0 2px 10px rgba(80,90,160,.08); display:flex; flex-direction:column; gap:6px;}
 .tile small { color: #8a93b5; font-size: 12px; }

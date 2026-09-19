@@ -3,6 +3,7 @@ package com.soulvoyage.agent.trace;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.soulvoyage.common.time.BusinessCalendar;
 import com.soulvoyage.crypto.CryptoService;
 import com.soulvoyage.domain.report.ReportEntity;
 import com.soulvoyage.domain.report.ReportRepository;
@@ -39,6 +40,7 @@ public class TraceAgent implements Agent {
     private final CryptoService crypto;
     private final ReportRepository reportRepo;
     private final ObjectMapper mapper;
+    private final BusinessCalendar cal;
 
     @Override
     public String code() { return "TRACE"; }
@@ -68,7 +70,7 @@ public class TraceAgent implements Agent {
         assertKgNodeIds(result, candidates);
 
         String title = "情绪复盘 · " + prev.path("primaryEmotion").asText("")
-                + " · " + java.time.LocalDate.now();
+                + " · " + cal.today();
         ReportEntity report = new ReportEntity();
         report.setUserId(rt.userId());
         report.setType("TRACE");

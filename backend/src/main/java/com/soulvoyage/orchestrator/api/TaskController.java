@@ -4,6 +4,7 @@ import com.soulvoyage.auth.AuthPrincipal;
 import com.soulvoyage.common.api.ApiResponse;
 import com.soulvoyage.common.api.ErrorCode;
 import com.soulvoyage.common.exception.BizException;
+import com.soulvoyage.domain.diary.DiaryService;
 import com.soulvoyage.domain.task.TaskInstanceEntity;
 import com.soulvoyage.orchestrator.OrchestratorService;
 import com.soulvoyage.orchestrator.api.TaskDtos.SubmitReq;
@@ -26,12 +27,17 @@ public class TaskController {
 
     private final OrchestratorService orchestrator;
     private final TaskEventBus bus;
+    private final com.soulvoyage.domain.diary.DiaryService diary;
 
     @PostMapping
     public ResponseEntity<ApiResponse<Map<String, String>>> submit(
             @AuthenticationPrincipal AuthPrincipal p, @Valid @RequestBody SubmitReq req) {
         TaskInstanceEntity t = orchestrator.submit(p.userId(), req.pipelineCode(),
                 req.payload(), req.clientReqId());
+        // 下篇·C1：日记流水线提交即同步落库（clientReqId 幂等重放不会重复写）
+        if ("DIARY_PIPELINE".equals(req.pipelineCode()) && req.payload() != null) {
+            diary.attachTask(p.userId(), req.payload(), t);
+        }
         return ResponseEntity.accepted()
                 .body(ApiResponse.ok(Map.of("taskNo", t.getTaskNo(), "status", t.getStatus())));
     }
@@ -45,9 +51,10 @@ public class TaskController {
     }
 
     @GetMapping("/{taskNo}/stream")
-    public SseEmitter stream(@AuthenticationPrincipal AuthPrincipal p, @PathVariable String taskNo) {
+    public SseEmitter stream(@AuthenticationPrincipal AuthPrincipal p, @PathVariable String taskNo,
+                             @RequestHeader(value = "Last-Event-ID", required = false) String lastEventId) {
         owned(p, taskNo);
-        return bus.subscribe(taskNo);
+        return bus.subscribe(taskNo, lastEventId);
     }
 
     @PostMapping("/{taskNo}/cancel")

@@ -27,8 +27,12 @@ CREATE TABLE `user` (
   password_hash VARCHAR(128) NOT NULL COMMENT 'BCrypt',
   phone_enc     BLOB         NULL COMMENT '✦ 手机号密文',
   role          VARCHAR(16)  NOT NULL DEFAULT 'USER' COMMENT 'USER/ADMIN',
-  status        TINYINT      NOT NULL DEFAULT 1 COMMENT '1正常 2冻结 3已注销(密钥已销毁)',
-  crisis_flag   TINYINT      NOT NULL DEFAULT 0 COMMENT '危机模式 0否 1是',
+  status        TINYINT      NOT NULL DEFAULT 1 COMMENT '1正常 2冻结 3注销(冷静期内可撤回, 期满销毁密钥)',
+  crisis_state  VARCHAR(16)  NOT NULL DEFAULT 'NORMAL' COMMENT '危机生命周期 NORMAL/CRISIS/COOLING/REVIEW',
+  crisis_started_at DATETIME(3) NULL COMMENT '本轮危机链首次 HIGH 判定时间',
+  crisis_ends_at    DATETIME(3) NULL COMMENT 'CRISIS=强干预到期时间; COOLING=进入冷却时间(新风险事件水位)',
+  policy_version VARCHAR(16)  NULL COMMENT '最近一次同意的协议版本',
+  deletion_requested_at DATETIME(3) NULL COMMENT '注销申请时间(7天冷静期起点)',
   agreed_policy_at DATETIME(3) NULL COMMENT '用户协议/免责声明同意时间',
   created_at    DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   updated_at    DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
@@ -149,6 +153,15 @@ CREATE TABLE diary (
   KEY idx_task (task_id)
 ) COMMENT='情绪日记（原文必须加密）';
 
+CREATE TABLE draft (
+  id          BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id     BIGINT UNSIGNED NOT NULL,
+  kind        VARCHAR(16)     NOT NULL DEFAULT 'DIARY' COMMENT '服务端草稿类型（当前仅 DIARY）',
+  content_enc BLOB            NOT NULL COMMENT '✦ 草稿原文密文',
+  updated_at  DATETIME(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  UNIQUE KEY uk_user_kind (user_id, kind)
+) COMMENT='编辑器服务端草稿（30s 自动保存，换端不丢；提交成功后清除）';
+
 -- ---------- 报告与风险 ----------
 
 CREATE TABLE report (
@@ -160,6 +173,7 @@ CREATE TABLE report (
   title       VARCHAR(128)    NOT NULL DEFAULT '',
   content_enc BLOB            NOT NULL COMMENT '✦ 报告正文密文 JSON',
   risk_level  VARCHAR(8)      NOT NULL DEFAULT 'LOW',
+  stale       TINYINT         NOT NULL DEFAULT 0 COMMENT '源日记被改/删，报告过期待重分析(C1)',
   created_at  DATETIME(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   deleted_at  DATETIME(3)     NULL,
   KEY idx_user_type (user_id, type, created_at),
@@ -176,10 +190,24 @@ CREATE TABLE risk_event (
   action_taken VARCHAR(64)     NOT NULL COMMENT 'CRISIS_CARD/PROFILE_FLAG/... 仅记录行为',
   task_id      BIGINT UNSIGNED NULL,
   reviewed     TINYINT         NOT NULL DEFAULT 0 COMMENT '管理员人工复盘',
+  needs_review TINYINT         NOT NULL DEFAULT 0 COMMENT '否定/引文降级命中，建议人工复核(S1)',
   created_at   DATETIME(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   KEY idx_user_time (user_id, created_at),
   KEY idx_level (level, created_at)
 ) COMMENT='风险事件（加密归档）';
+
+CREATE TABLE crisis_lifecycle (
+  id           BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id      BIGINT UNSIGNED NOT NULL,
+  event_id     BIGINT UNSIGNED NULL COMMENT '触发风险事件（可空：巡检/复核结案）',
+  from_state   VARCHAR(16)     NOT NULL COMMENT 'NORMAL/CRISIS/COOLING/REVIEW',
+  to_state     VARCHAR(16)     NOT NULL,
+  reason       VARCHAR(64)     NOT NULL COMMENT 'HIGH_DETECTED/RE_ENTRY/COOLDOWN_EXPIRED/AUTO_RECOVERED/TWO_ENTRIES_FORCED_REVIEW/ADMIN_CLOSED/...',
+  operator_id  BIGINT UNSIGNED NULL COMMENT 'NULL=系统自动（巡检/降级）',
+  created_at   DATETIME(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  KEY idx_user_time (user_id, created_at),
+  KEY idx_to_state (to_state, created_at)
+) COMMENT='危机状态机迁移留痕（append-only，crisis_end 即 to_state=NORMAL 行）';
 
 -- ---------- 模拟训练 ----------
 
