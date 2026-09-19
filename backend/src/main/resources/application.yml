@@ -37,7 +37,11 @@ soulvoyage:
       refresh-ttl: 7d
     master-key: ${SV_MASTER_KEY:}          # Base64 32字节主密钥 MK；为空则启动时生成临时密钥并告警（仅限开发）
   llm:
-    provider: ${SV_LLM_PROVIDER:mock}      # mock | dashscope | openai-compatible（M1 接入）
+    provider: ${SV_LLM_PROVIDER:mock}      # mock | openai（DashScope compatible-mode 等）
+    base-url: ${SV_LLM_BASE_URL:}
+    api-key: ${SV_LLM_API_KEY:}
+    model: ${SV_LLM_MODEL:}
+    timeout: 60s
   neo4j:
     enabled: ${SV_NEO4J_ENABLED:false}     # 本机暂未安装，M2 接入时置 true
 
