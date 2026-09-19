@@ -13,7 +13,7 @@
 ```
 backend/     SpringBoot 3 + Java 21 单体（orchestrator / agent / llm / kg / crypto ...）
 frontend/    Vue3 + TypeScript + Vite
-deploy/      sql/schema.sql（库表唯一事实源） · neo4j/seed.cypher · docker-compose.yml（后续引入）
+deploy/      sql/schema.sql（库表唯一事实源）+ seed_scenes.sql · neo4j/seed.cypher · tools/ · docker-compose.yml（后续引入）
 docs/        项目手册与设计文档
 ```
 
@@ -52,4 +52,4 @@ npm install && npm run dev                   # http://localhost:5173（代理 /a
 
 ## 里程碑
 
-M0 骨架+建库+登录 ✅ → M1 调度中心+LLM网关(Mock)+情绪感知 Agent+AgentFlow 可视化 ✅ → M2 溯源推理+知识图谱约束+复盘报告 ✅ → M3 人际模拟训练 → M4 疏导+风险归档+档案导出
+M0 骨架+建库+登录 ✅ → M1 调度中心+LLM网关(Mock)+情绪感知 Agent+AgentFlow 可视化 ✅ → M2 溯源推理+知识图谱约束+复盘报告 ✅ → M3 人际模拟训练（4 场景卡+NPC 导演+复盘评分）✅ → M4 疏导+风险归档+档案导出

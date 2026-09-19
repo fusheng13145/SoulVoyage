@@ -5,21 +5,8 @@ export interface SseEvent {
   data: any
 }
 
-/** SSE via fetch + ReadableStream（EventSource 无法携带 Authorization 头） */
-export async function streamTask(
-  taskNo: string,
-  onEvent: (e: SseEvent) => void,
-  signal?: AbortSignal,
-): Promise<void> {
-  const res = await fetch(`/api/v1/tasks/${taskNo}/stream`, {
-    headers: {
-      Accept: 'text/event-stream',
-      Authorization: `Bearer ${localStorage.getItem(TOKEN_KEY) || ''}`,
-    },
-    signal,
-  })
+async function consume(res: Response, onEvent: (e: SseEvent) => void): Promise<void> {
   if (!res.ok || !res.body) throw new Error(`SSE 连接失败: ${res.status}`)
-
   const reader = res.body.getReader()
   const decoder = new TextDecoder()
   let buf = ''
@@ -40,4 +27,40 @@ export async function streamTask(
       }
     }
   }
+}
+
+/** SSE via fetch + ReadableStream（EventSource 无法携带 Authorization 头） */
+export async function streamTask(
+  taskNo: string,
+  onEvent: (e: SseEvent) => void,
+  signal?: AbortSignal,
+): Promise<void> {
+  const res = await fetch(`/api/v1/tasks/${taskNo}/stream`, {
+    headers: {
+      Accept: 'text/event-stream',
+      Authorization: `Bearer ${localStorage.getItem(TOKEN_KEY) || ''}`,
+    },
+    signal,
+  })
+  await consume(res, onEvent)
+}
+
+/** 请求体驱动的流式接口（如模拟训练逐轮 NPC 回复） */
+export async function postSse(
+  path: string,
+  body: unknown,
+  onEvent: (e: SseEvent) => void,
+  signal?: AbortSignal,
+): Promise<void> {
+  const res = await fetch(`/api/v1${path}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'text/event-stream',
+      Authorization: `Bearer ${localStorage.getItem(TOKEN_KEY) || ''}`,
+    },
+    body: JSON.stringify(body),
+    signal,
+  })
+  await consume(res, onEvent)
 }

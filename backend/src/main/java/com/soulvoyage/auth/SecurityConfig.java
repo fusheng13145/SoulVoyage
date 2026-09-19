@@ -3,6 +3,7 @@ package com.soulvoyage.auth;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.soulvoyage.common.api.ApiResponse;
 import com.soulvoyage.common.api.ErrorCode;
+import jakarta.servlet.DispatcherType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -32,6 +33,8 @@ public class SecurityConfig {
             .cors(cors -> {})
             .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
+                // SSE（任务流/逐轮 NPC）完成时容器做 ASYNC 二跳，鉴权已在首次 REQUEST 完成，放行续跳
+                .dispatcherTypeMatchers(DispatcherType.ASYNC, DispatcherType.ERROR).permitAll()
                 .requestMatchers("/api/v1/auth/register", "/api/v1/auth/login",
                         "/api/v1/auth/refresh", "/api/v1/auth/logout",
                         "/api/v1/risk/resources", "/actuator/health", "/error").permitAll()

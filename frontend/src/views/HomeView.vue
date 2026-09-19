@@ -36,7 +36,7 @@ function logout() {
       </div>
       <div class="grid">
         <router-link to="/diary" class="tile">📔 情绪日记<small>感知 → 溯源 → 疏导 → 归档</small></router-link>
-        <div class="tile">🎭 人际模拟<small>4 大核心场景 · 多角色博弈</small></div>
+        <router-link to="/simulation" class="tile">🎭 人际模拟<small>4 大核心场景 · 导演模块多轮博弈</small></router-link>
         <div class="tile">🌿 自助练习<small>正念 · 54321 · 认知书写</small></div>
         <div class="tile">📈 成长档案<small>情绪曲线 · 周报导出</small></div>
       </div>

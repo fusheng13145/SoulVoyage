@@ -27,6 +27,8 @@ public class MockLlmClient implements LlmClient {
         String content = switch (req.template()) {
             case "emotion_v1" -> "```json\n" + emotionMock(req.user()) + "\n```";
             case "trace_v1" -> "```json\n" + traceMock(req.user()) + "\n```";
+            case "npc_v1" -> "```json\n" + npcMock(req.user()) + "\n```";
+            case "simulate_review_v1" -> "```json\n" + reviewMock(req.user()) + "\n```";
             default -> throw new LlmUnavailableException("Mock 未覆盖模板: " + req.template());
         };
         return new LlmResponse(content, "mock-llm-v1",
@@ -108,6 +110,109 @@ public class MockLlmClient implements LlmClient {
     private boolean contains(String s, String... keys) {
         for (String k : keys) if (s.contains(k)) return true;
         return false;
+    }
+
+    /** npc_v1 的 user 是 SimulationService 组装的逐轮 JSON：按导演档位出确定性台词 */
+    private String npcMock(String userJson) {
+        JsonNode req = parse(userJson);
+        String mood = req.path("mood").asText("NEUTRAL");
+        String lastUser = "";
+        JsonNode tr = req.path("transcript");
+        for (int i = tr.size() - 1; i >= 0; i--) {
+            if (tr.get(i).hasNonNull("user")) { lastUser = tr.get(i).path("user").asText(); break; }
+        }
+        String echo = lastUser.length() > 24 ? lastUser.substring(0, 24) + "…" : lastUser;
+        String reply;
+        String cue;
+        switch (mood) {
+            case "ESCALATED" -> {
+                reply = "又是这套？你说「" + echo + "」的时候，有没有想过我这边什么情况？我真是受够了。";
+                cue = "被顶到痛处，音调升高";
+            }
+            case "DISSATISFIED" -> {
+                reply = "「" + echo + "」说得倒是轻巧。别急着给我派任务，先说说你打算怎么配合？";
+                cue = "防御性后撤，开始讲条件";
+            }
+            case "SOFTENED" -> {
+                reply = "……行，「" + echo + "」这句我听见了，是我之前把话说死了。那咱们定个具体的？";
+                cue = "语气放缓，愿意给台阶";
+            }
+            default -> {
+                reply = "嗯，「" + echo + "」，我大概明白你的意思。那我先说说我的情况，你再看看怎么合排。";
+                cue = "就事论事，保持保留";
+            }
+        }
+        var out = mapper.createObjectNode();
+        out.put("reply", reply);
+        out.put("emotionCue", "（mock）" + cue);
+        return out.toString();
+    }
+
+    /** simulate_review_v1：从逐轮 stateTag 确定性映射 NVO 评分，保证契约测试可回放 */
+    private String reviewMock(String userJson) {
+        JsonNode req = parse(userJson);
+        JsonNode turns = req.path("turns");
+        JsonNode goals = req.path("goalDimensions");
+
+        var out = mapper.createObjectNode();
+        ArrayNode scores = out.putArray("turnScores");
+        ArrayNode moments = out.putArray("keyMoments");
+        ArrayNode rewrites = out.putArray("rewriteSuggestions");
+        int sum = 0, n = 0, aCnt = 0, dCnt = 0;
+        int i = 0;
+        for (JsonNode t : turns) {
+            String tag = t.path("stateTag").asText("");
+            int turn = t.path("turn").asInt(1);
+            String user = t.path("userText").asText("");
+            String quote = user.length() > 60 ? user.substring(0, 60) + "…" : user;
+            String dim = goals.size() > 0
+                    ? goals.get(i % goals.size()).asText("LISTEN")
+                    : (i % 2 == 0 ? "LISTEN" : "EMPATHY");
+            String grade;
+            String comment;
+            String momentType = null;
+            switch (tag) {
+                case "BOUNDARY_SET" -> { grade = "A"; comment = "（mock）事实+感受+具体请求齐备，推进了对话"; momentType = "明确立边界"; }
+                case "DE_ESCALATION" -> { grade = "A"; comment = "（mock）主动接住对方情绪并给出台阶"; dim = "EMPATHY"; momentType = "主动缓和"; }
+                case "ACKNOWLEDGED" -> { grade = "B"; comment = "（mock）有确认倾听，但还没落到自己的请求"; dim = "LISTEN"; }
+                case "CONFLICT_UP" -> { grade = "D"; comment = "（mock）出现人格指控式表述，触发对方防御"; dim = "CONCESSION"; momentType = "升级冲突"; }
+                default -> { grade = (i % 2 == 0) ? "B" : "C"; comment = "（mock）表达了自己的立场，观察/请求要素不完整"; }
+            }
+            scores.addObject().put("turn", turn).put("dimension", dim).put("grade", grade)
+                    .put("comment", comment);
+            if (momentType != null && moments.size() < 6) {
+                moments.addObject().put("turn", turn).put("type", momentType).put("quote", quote);
+            }
+            if (("D".equals(grade) || "C".equals(grade)) && rewrites.size() < 5) {
+                rewrites.addObject().put("turn", turn).put("original", quote)
+                        .put("optimized", "我注意到" + quote + "（观察），我感到有点着急（感受），因为我需要咱们把安排定下来（需要），"
+                                + "所以我希望我们约一个具体时间再谈十分钟（请求）。");
+            }
+            sum += switch (grade) { case "A" -> 92; case "B" -> 75; case "C" -> 60; default -> 42; };
+            n++;
+            if ("A".equals(grade)) aCnt++;
+            if ("D".equals(grade)) dCnt++;
+            i++;
+        }
+
+        var overall = out.putObject("overall");
+        overall.put("avgScore", n == 0 ? 60 : Math.round((float) sum / n));
+        ArrayNode st = overall.putArray("strengths");
+        if (aCnt > 0) st.add("能使用『我注意到+我希望』的句式立边界（" + aCnt + " 轮）");
+        if (st.isEmpty()) st.add("全程保持了表达意愿，没有中途离场");
+        ArrayNode wk = overall.putArray("weaknesses");
+        if (dCnt > 0) wk.add("有 " + dCnt + " 轮出现指控式表达，直接推高冲突");
+        else wk.add("请求多为模糊提议，缺少可执行的时间与数字");
+        out.put("overallAdvice", "（mock）开场先复述对方一句再讲事实；把「你总是」换成「这周有 X 次」；每个诉求落在一个具体可执行的小请求上。");
+        return out.toString();
+    }
+
+    private JsonNode parse(String json) {
+        try {
+            return mapper.readTree(json);
+        } catch (Exception e) {
+            return mapper.createObjectNode();
+        }
     }
 
     private int estTokens(String s) { return Math.max(1, s.length() / 2); }
