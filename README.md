@@ -25,7 +25,7 @@ docs/        项目手册与设计文档
 | Maven | 3.9 | |
 | MySQL | 8.4 @127.0.0.1:3306（服务 MySQL84） | 库 `soulvoyage`，账号 `soulvoyage`，先导入 `deploy/sql/schema.sql` |
 | Redis | @127.0.0.1:6379 免密 | 会话上下文 / 任务态 / JWT 黑名单 |
-| Neo4j | 暂未安装 | `soulvoyage.neo4j.enabled=false`，KG 走接口占位，M2 接入 |
+| Neo4j | 暂未安装 | `soulvoyage.neo4j.enabled=false`，KG 走内存版词条（`resources/kg/`，与 `deploy/neo4j/seed.cypher` 同源），Neo4j 就绪后换 driver 实现 |
 | LLM | 无 Key | `SV_LLM_PROVIDER=mock` 走 MockLlmClient，接口留好 |
 
 ```bash
@@ -52,4 +52,4 @@ npm install && npm run dev                   # http://localhost:5173（代理 /a
 
 ## 里程碑
 
-M0 骨架+建库+登录 ✅ → M1 调度中心+LLM网关(Mock)+情绪感知 Agent+AgentFlow 可视化 ✅ → M2 溯源+知识图谱 → M3 人际模拟训练 → M4 疏导+风险归档+档案导出
+M0 骨架+建库+登录 ✅ → M1 调度中心+LLM网关(Mock)+情绪感知 Agent+AgentFlow 可视化 ✅ → M2 溯源推理+知识图谱约束+复盘报告 ✅ → M3 人际模拟训练 → M4 疏导+风险归档+档案导出

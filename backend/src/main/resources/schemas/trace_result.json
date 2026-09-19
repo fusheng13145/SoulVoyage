@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "TraceResult",
+  "type": "object",
+  "required": ["stressors", "cognitiveDistortions", "socraticQuestions", "report", "riskSignals"],
+  "properties": {
+    "stressors": {
+      "type": "array", "maxItems": 3,
+      "items": {
+        "type": "object",
+        "required": ["source", "confidence", "evidence"],
+        "properties": {
+          "source": { "enum": ["学业压力","人际冲突","家庭关系","亲密关系","就业压力","经济压力","身体健康","自我期待","生活节奏","其他"] },
+          "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+          "evidence": { "type": "array", "items": { "type": "string", "maxLength": 200 }, "maxItems": 4 },
+          "timeRange": { "type": "string" }
+        },
+        "additionalProperties": false
+      }
+    },
+    "cognitiveDistortions": {
+      "type": "array", "maxItems": 3,
+      "items": {
+        "type": "object",
+        "required": ["name", "kgNodeId", "trigger", "challengeQuestion"],
+        "properties": {
+          "name": { "type": "string", "maxLength": 32 },
+          "kgNodeId": { "type": "string", "pattern": "^cd_[a-z_]+$" },
+          "trigger": { "type": "string", "maxLength": 200 },
+          "challengeQuestion": { "type": "string", "maxLength": 300 }
+        },
+        "additionalProperties": false
+      }
+    },
+    "socraticQuestions": { "type": "array", "minItems": 1, "maxItems": 3, "items": { "type": "string", "maxLength": 300 } },
+    "report": {
+      "type": "object",
+      "required": ["eventSummary", "emotionSummary", "thoughtSummary", "insight", "suggestion"],
+      "properties": {
+        "eventSummary": { "type": "string", "maxLength": 500 },
+        "emotionSummary": { "type": "string", "maxLength": 500 },
+        "thoughtSummary": { "type": "string", "maxLength": 500 },
+        "insight": { "type": "string", "maxLength": 500 },
+        "suggestion": { "type": "string", "maxLength": 500 }
+      },
+      "additionalProperties": false
+    },
+    "riskSignals": {
+      "type": "array", "maxItems": 5,
+      "items": {
+        "type": "object",
+        "required": ["type", "level"],
+        "properties": {
+          "type": { "type": "string", "maxLength": 64 },
+          "level": { "enum": ["LOW", "MEDIUM", "HIGH"] }
+        },
+        "additionalProperties": false
+      }
+    },
+    "insufficientEvidence": { "type": "boolean" },
+    "reportId": { "type": "string" }
+  },
+  "additionalProperties": false
+}
