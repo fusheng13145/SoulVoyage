@@ -29,6 +29,7 @@ public class MockLlmClient implements LlmClient {
             case "trace_v1" -> "```json\n" + traceMock(req.user()) + "\n```";
             case "npc_v1" -> "```json\n" + npcMock(req.user()) + "\n```";
             case "simulate_review_v1" -> "```json\n" + reviewMock(req.user()) + "\n```";
+            case "support_v1" -> "```json\n" + supportMock(req.user()) + "\n```";
             default -> throw new LlmUnavailableException("Mock 未覆盖模板: " + req.template());
         };
         return new LlmResponse(content, "mock-llm-v1",
@@ -204,6 +205,43 @@ public class MockLlmClient implements LlmClient {
         if (dCnt > 0) wk.add("有 " + dCnt + " 轮出现指控式表达，直接推高冲突");
         else wk.add("请求多为模糊提议，缺少可执行的时间与数字");
         out.put("overallAdvice", "（mock）开场先复述对方一句再讲事实；把「你总是」换成「这周有 X 次」；每个诉求落在一个具体可执行的小请求上。");
+        return out.toString();
+    }
+
+    /** support_v1：从注入的候选练习确定性组装方案，保证契约测试可回放（exerciseId 全部来自候选闭集） */
+    private String supportMock(String userJson) {
+        JsonNode req = parse(userJson);
+        JsonNode candidates = req.path("candidates");
+        String emotion = req.path("emotionResult").path("primaryEmotion").asText("情绪");
+        String anchor = req.path("psyAnchor").asText("node:psy_self_regulation_body");
+        String[] schedules = {"此刻", "今晚睡前", "明天早上"};
+
+        var out = mapper.createObjectNode();
+        out.put("planTitle", emotion + "·今日轻量自助小方案");
+        ArrayNode matched = out.putArray("matchedExercises");
+        int i = 0;
+        for (JsonNode c : candidates) {
+            if (matched.size() >= 3) break;
+            ObjectNode m = matched.addObject();
+            m.put("exerciseId", c.path("id").asText());
+            m.put("reason", "（mock）匹配当前「" + emotion + "」，" + c.path("name").asText()
+                    + "约 " + c.path("durationMin").asInt() + " 分钟即可");
+            m.put("schedule", schedules[Math.min(i, schedules.length - 1)]);
+            i++;
+        }
+        if (matched.isEmpty()) {   // 兜底：至少给一条通用 grounding
+            ObjectNode m = matched.addObject();
+            m.put("exerciseId", "ex_54321");
+            m.put("reason", "（mock）无更精准匹配，先用感官着陆稳定当下");
+            m.put("schedule", "此刻");
+        }
+        ObjectNode edu = out.putObject("psyEducation");
+        edu.put("topic", "「" + emotion + "」时身体在发生什么");
+        edu.put("content", "（mock）情绪是身体对处境的信号，而非事实本身。当" + emotion
+                + "升起时，呼吸、肌肉与注意力都会随之变化；先照顾身体的反应，思路往往会慢慢回到可处理的状态。"
+                + "下面是几个不需要意志力就能开始的小动作。");
+        edu.put("kgSource", anchor);
+        out.put("disclaimer", true);
         return out.toString();
     }
 

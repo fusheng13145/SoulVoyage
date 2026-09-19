@@ -1,10 +1,12 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import http, { type ApiResp } from '../api/http'
 import { streamTask } from '../api/sse'
 import AgentFlowProgress from '../components/AgentFlowProgress.vue'
+import CrisisCard from '../components/CrisisCard.vue'
 
 interface Step { agent: string; stepSeq: number; state: 'pending'|'running'|'done'|'degraded'|'failed' }
+interface ExerciseDef { id: string; code: string; name: string; applyEmotions: string[]; steps: { step: string; desc: string }[]; durationMin: number }
 
 const text = ref('')
 const submitting = ref(false)
@@ -12,18 +14,27 @@ const steps = ref<Step[]>([])
 const results = ref<Record<string, any>>({})
 const error = ref('')
 
+const exerciseNames = ref<Record<string, ExerciseDef>>({})
+onMounted(async () => {
+  try {
+    const { data } = await http.get<ApiResp<ExerciseDef[]>>('/exercises')
+    exerciseNames.value = Object.fromEntries(data.data.map(x => [x.id, x]))
+  } catch { /* 目录加载失败不影响主流程 */ }
+})
+
 const emotion = computed(() => results.value.EMOTION ?? null)
 const trace = computed(() => results.value.TRACE ?? null)
+const support = computed(() => results.value.SUPPORT ?? null)
+const receipt = computed(() => results.value.RISK_ARCHIVE ?? null)
+const showCrisis = computed(() =>
+  receipt.value && (receipt.value.referral?.show || receipt.value.riskLevel === 'HIGH'))
 
 async function save() {
   if (!text.value.trim() || submitting.value) return
   submitting.value = true
   error.value = ''
   results.value = {}
-  steps.value = [
-    { agent: 'EMOTION', stepSeq: 1, state: 'pending' },
-    { agent: 'TRACE', stepSeq: 2, state: 'pending' },
-  ]
+  steps.value = []
   try {
     const { data } = await http.post<ApiResp<{ taskNo: string }>>('/tasks', {
       pipelineCode: 'DIARY_PIPELINE',
@@ -33,7 +44,7 @@ async function save() {
     await streamTask(data.data.taskNo, (e) => {
       switch (e.event) {
         case 'step_started':
-          mark(e.data.agent, 'running'); break
+          addStep(e.data.agent, e.data.stepSeq); mark(e.data.agent, 'running'); break
         case 'middle_result':
           results.value = { ...results.value, [e.data.agent]: e.data.payload }
           mark(e.data.agent, 'done'); break
@@ -51,6 +62,13 @@ async function save() {
     error.value = e.message || '提交失败'
   } finally {
     submitting.value = false
+  }
+}
+
+function addStep(agent: string, stepSeq: number) {
+  if (!steps.value.find(x => x.agent === agent)) {
+    steps.value.push({ agent, stepSeq, state: 'pending' })
+    steps.value.sort((a, b) => a.stepSeq - b.stepSeq)
   }
 }
 
@@ -143,6 +161,30 @@ const REPORT_TITLES: Record<string, string> = {
         </dl>
         <p class="disclaimer">以上为自助梳理参考，不构成任何诊断；如需专业帮助，可拨打 12356 心理援助热线或联系学校心理中心。</p>
       </div>
+
+      <!-- 疏导干预：自助小方案 -->
+      <div v-if="support" class="result">
+        <h3>🌿 {{ support.planTitle }}</h3>
+        <div v-for="m in support.matchedExercises" :key="m.exerciseId" class="plan-item">
+          <b>{{ exerciseNames[m.exerciseId]?.name || m.exerciseId }}</b>
+          <span class="when">{{ m.schedule }}</span>
+          <p>{{ m.reason }}</p>
+          <small v-if="exerciseNames[m.exerciseId]">
+            {{ exerciseNames[m.exerciseId].steps.map(s => s.step).join(' → ') }} ·
+            约 {{ exerciseNames[m.exerciseId].durationMin }} 分钟
+          </small>
+        </div>
+        <div v-if="support.psyEducation" class="psy">
+          <h4>心理小课堂 · {{ support.psyEducation.topic }}</h4>
+          <p>{{ support.psyEducation.content }}</p>
+        </div>
+        <router-link to="/plan" class="go">去跟练打卡 →</router-link>
+        <p class="disclaimer">方案由 AI 匹配生成，是自助练习参考；练习请量力而行。</p>
+      </div>
+
+      <!-- 风险研判回执（仅需要关照时展示） -->
+      <CrisisCard v-if="showCrisis" :level="receipt.riskLevel === 'HIGH' ? 'HIGH' : 'MEDIUM'"
+        :headline="receipt.referral?.headline" class="crisis-in-flow" />
     </main>
   </div>
 </template>
@@ -179,4 +221,13 @@ textarea { width: 100%; border: 1px solid #dde3f3; border-radius: 12px; padding:
 .report dt { float: left; clear: left; width: 5em; color: #8a93b5; }
 .report dd { margin: 0 0 8px 5.5em; color: #40466b; }
 .disclaimer { margin: 14px 0 0; font-size: 12px; color: #9aa1bd; border-top: 1px dashed #e8ecf8; padding-top: 10px; }
+.plan-item { border: 1px solid #e8ecf8; border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; font-size: 14px; color: #40466b; }
+.plan-item b { color: #2f6a4a; }
+.plan-item p { margin: 4px 0; }
+.plan-item small { color: #8a93b5; font-size: 12px; }
+.when { float: right; background: #f0f3ff; color: #40508c; border-radius: 8px; padding: 1px 8px; font-size: 12px; }
+.psy h4 { margin: 14px 0 6px; }
+.psy p { margin: 0; font-size: 14px; color: #4a5170; line-height: 1.7; }
+.go { display: inline-block; margin-top: 10px; color: #5b6cff; text-decoration: none; font-size: 14px; }
+.crisis-in-flow { margin-top: 18px; }
 </style>

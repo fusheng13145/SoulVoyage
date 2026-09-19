@@ -1,5 +1,6 @@
 package com.soulvoyage;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.soulvoyage.agent.simulate.NpcDirector;
 import com.soulvoyage.agent.simulate.SimulationService;
@@ -7,10 +8,13 @@ import com.soulvoyage.common.exception.BizException;
 import com.soulvoyage.crypto.CryptoService;
 import com.soulvoyage.domain.report.ReportEntity;
 import com.soulvoyage.domain.report.ReportRepository;
+import com.soulvoyage.domain.risk.RiskEventEntity;
+import com.soulvoyage.domain.risk.RiskEventRepository;
 import com.soulvoyage.domain.simulate.SimulateSessionEntity;
 import com.soulvoyage.domain.simulate.SimulateSessionRepository;
 import com.soulvoyage.domain.simulate.SimulateTurnEntity;
 import com.soulvoyage.domain.simulate.SimulateTurnRepository;
+import com.soulvoyage.domain.task.AgentMessageRepository;
 import com.soulvoyage.domain.user.UserEntity;
 import com.soulvoyage.domain.user.UserRepository;
 import com.soulvoyage.orchestrator.OrchestratorService;
@@ -35,6 +39,8 @@ class SimulatePipelineIntegrationTest {
     @Autowired SimulateSessionRepository sessionRepo;
     @Autowired SimulateTurnRepository turnRepo;
     @Autowired ReportRepository reportRepo;
+    @Autowired RiskEventRepository riskEventRepo;
+    @Autowired AgentMessageRepository msgRepo;
     @Autowired UserRepository userRepo;
     @Autowired CryptoService crypto;
     @Autowired PasswordEncoder encoder;
@@ -78,8 +84,12 @@ class SimulatePipelineIntegrationTest {
         assertEquals("FINISHED", s.getStatus());
         assertNotNull(s.getReportId());
 
-        // 复盘契约（手册 §4.3 SimulateReview）：逐轮评分 + 关键时刻 + 改写建议
-        var payload = orchestrator.finalPayload(task);
+        // M4 起末步为 RISK_ARCHIVE：复盘契约看 SIMULATE 中间结果，最终 payload 是 ArchiveReceipt
+        var receipt = orchestrator.finalPayload(task);
+        assertEquals("LOW", receipt.path("riskLevel").asText());
+        assertTrue(receipt.path("profileUpdated").asBoolean());
+
+        var payload = middlePayload(uid, task.getId(), "SIMULATE");
         assertTrue(payload.path("turnScores").size() == 2);
         assertEquals("BOUNDARY", payload.path("turnScores").get(0).path("dimension").asText());
         assertEquals("A", payload.path("turnScores").get(0).path("grade").asText());
@@ -128,10 +138,22 @@ class SimulatePipelineIntegrationTest {
 
         String taskNo = simulation.finish(uid, opened.simulateId());
         awaitFinish(taskNo);
-        assertEquals("SUCCESS", orchestrator.byNo(taskNo).getStatus());
+        var task = orchestrator.byNo(taskNo);
+        assertEquals("SUCCESS", task.getStatus());
         ReportEntity r = reportRepo.findById(sessionRepo.findById(opened.simulateId())
                 .orElseThrow().getReportId()).orElseThrow();
-        assertEquals("HIGH", r.getRiskLevel());   // M4 将追加强制 RISK_ARCHIVE 步骤
+        assertEquals("HIGH", r.getRiskLevel());
+
+        // RISK_ARCHIVE 收口：剧情外危机 → SIMULATE_BREAKOUT/HIGH，加密归档 + 用户进入危机模式
+        var receipt = orchestrator.finalPayload(task);
+        assertEquals("HIGH", receipt.path("riskLevel").asText());
+        assertTrue(receipt.path("referral").path("show").asBoolean());
+        List<RiskEventEntity> events = riskEventRepo.findByUserIdOrderByCreatedAtDesc(uid);
+        assertEquals(1, events.size());
+        assertEquals("SIMULATE_BREAKOUT", events.get(0).getTriggerType());
+        assertFalse(new String(events.get(0).getEvidenceRefEnc(), StandardCharsets.ISO_8859_1)
+                .contains("不想活"));
+        assertEquals((short) 1, userRepo.findById(uid).orElseThrow().getCrisisFlag());
     }
 
     @Test
@@ -157,6 +179,20 @@ class SimulatePipelineIntegrationTest {
             tension = r.tension();
         }
         assertTrue(tension > 38, "无信号口语也应缓慢升温，快照经每轮密文往返: " + tension);
+    }
+
+    private JsonNode middlePayload(long uid, long taskId, String agent) throws Exception {
+        return msgRepo.findByTaskIdOrderByStepSeqAscIdAsc(taskId).stream()
+                .filter(m -> agent.equals(m.getFromAgent()) && "MIDDLE_RESULT".equals(m.getMsgType()))
+                .findFirst()
+                .map(m -> {
+                    try {
+                        return mapper.readTree(crypto.decryptUserField(uid, m.getPayloadEnc()));
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                })
+                .orElseThrow(() -> new AssertionError("缺少 " + agent + " 中间结果"));
     }
 
     private void awaitFinish(String taskNo) throws InterruptedException {

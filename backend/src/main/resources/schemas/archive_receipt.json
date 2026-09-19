@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ArchiveReceipt",
+  "type": "object",
+  "required": ["riskLevel", "riskEventId", "archived", "encryption", "profileUpdated"],
+  "properties": {
+    "riskLevel": { "enum": ["LOW", "MEDIUM", "HIGH"] },
+    "riskEventId": { "type": ["integer", "null"] },
+    "referral": {
+      "type": ["object", "null"],
+      "properties": {
+        "show": { "type": "boolean" },
+        "level": { "enum": ["LOW", "MEDIUM", "HIGH"] },
+        "headline": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "archived": {
+      "type": "object",
+      "required": ["emotionPoints", "reports", "messages"],
+      "properties": {
+        "emotionPoints": { "type": "integer", "minimum": 0 },
+        "reports": { "type": "integer", "minimum": 0 },
+        "messages": { "type": "integer", "minimum": 0 }
+      },
+      "additionalProperties": false
+    },
+    "encryption": {
+      "type": "object",
+      "required": ["algo", "keyVersion"],
+      "properties": {
+        "algo": { "type": "string" },
+        "keyVersion": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "profileUpdated": { "type": "boolean" }
+  },
+  "additionalProperties": false
+}

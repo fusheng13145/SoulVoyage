@@ -9,4 +9,8 @@ public interface ReportRepository extends org.springframework.data.jpa.repositor
     Page<ReportEntity> findByUserIdAndDeletedAtIsNullOrderByCreatedAtDesc(Long userId, Pageable pageable);
 
     Optional<ReportEntity> findByIdAndUserIdAndDeletedAtIsNull(Long id, Long userId);
+
+    java.util.List<ReportEntity> findByTaskId(Long taskId);
+
+    java.util.List<ReportEntity> findByUserIdAndTypeAndDeletedAtIsNull(Long userId, String type);
 }

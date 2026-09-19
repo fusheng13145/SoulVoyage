@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import http, { type ApiResp } from '../api/http'
 import { postSse, streamTask } from '../api/sse'
 import AgentFlowProgress from '../components/AgentFlowProgress.vue'
+import CrisisCard from '../components/CrisisCard.vue'
 
 interface Scene {
   code: string; title: string; description: string; npcName: string; relation: string
@@ -104,6 +105,7 @@ async function send() {
 // —— 结束与复盘 ——
 const steps = ref<{ agent: string; stepSeq: number; state: 'pending'|'running'|'done'|'degraded'|'failed' }[]>([])
 const review = ref<any>(null)
+const receipt = ref<any>(null)
 
 const DIM_LABELS: Record<string, string> = {
   LISTEN: '倾听', BOUNDARY: '边界表达', EMPATHY: '共情', CONCESSION: '让步策略',
@@ -112,21 +114,32 @@ const gradeCls = (g: string) => ({ A: 'g-a', B: 'g-b', C: 'g-c', D: 'g-d' }[g] |
 const userTurn = (turn: number) =>
   msgs.value.filter((m) => m.role === 'user')[turn - 1]?.text ?? ''
 
+function markStep(agent: string, state: 'running' | 'done' | 'degraded') {
+  const s = steps.value.find(x => x.agent === agent)
+  if (s) s.state = state
+}
+
 async function finish() {
   if (!session.value) return
   error.value = ''
   stage.value = 'review'
-  steps.value = [{ agent: 'SIMULATE', stepSeq: 1, state: 'pending' }]
+  steps.value = [
+    { agent: 'SIMULATE', stepSeq: 1, state: 'pending' },
+    { agent: 'RISK_ARCHIVE', stepSeq: 2, state: 'pending' },
+  ]
   review.value = null
+  receipt.value = null
   try {
     const { data } = await http.post<ApiResp<{ taskNo: string }>>(
       `/simulations/${session.value.simulateId}/finish`, {})
     await streamTask(data.data.taskNo, (e) => {
-      if (e.event === 'step_started') steps.value[0].state = 'running'
+      if (e.event === 'step_started') markStep(e.data.agent, 'running')
       else if (e.event === 'middle_result') {
-        review.value = e.data.payload
-        steps.value[0].state = 'done'
-      } else if (e.event === 'step_failed') steps.value[0].state = 'degraded'
+        if (e.data.agent === 'SIMULATE') review.value = e.data.payload
+        else if (e.data.agent === 'RISK_ARCHIVE') receipt.value = e.data.payload
+        markStep(e.data.agent, 'done')
+      }
+      else if (e.event === 'step_failed') markStep(e.data.agent, 'degraded')
       else if (e.event === 'done' && e.data.status === 'FAILED')
         error.value = '复盘未完成，请稍后在报告中查看'
     })
@@ -258,6 +271,10 @@ function restart() {
             </div>
           </template>
 
+          <CrisisCard v-if="receipt && (receipt.riskLevel === 'HIGH' || receipt.referral?.show)"
+            :level="receipt.riskLevel === 'HIGH' ? 'HIGH' : 'MEDIUM'"
+            :headline="receipt.referral?.headline" class="rc" />
+
           <p class="disclaimer">复盘由 AI 基于对话记录生成，是自助参考而非评价结论；如需专业帮助请拨打 12356。</p>
           <button class="primary" @click="restart">再练一个场景</button>
         </div>
@@ -328,4 +345,5 @@ textarea { flex: 1; border: 1px solid #dde3f3; border-radius: 10px; padding: 10p
 .rewrite .from { margin: 0 0 6px; color: #9aa1bd; text-decoration: line-through; }
 .rewrite .to { margin: 0; color: #2f6a4a; }
 .loading { text-align: center; color: #8a93b5; padding: 40px 0; }
+.rc { margin: 16px 0 4px; }
 </style>

@@ -8,6 +8,10 @@ const router = createRouter({
     { path: '/', component: () => import('../views/HomeView.vue'), meta: { auth: true } },
     { path: '/diary', component: () => import('../views/DiaryView.vue'), meta: { auth: true } },
     { path: '/simulation', component: () => import('../views/SimulationView.vue'), meta: { auth: true } },
+    { path: '/plan', component: () => import('../views/PlanView.vue'), meta: { auth: true } },
+    { path: '/insights', component: () => import('../views/InsightsView.vue'), meta: { auth: true } },
+    { path: '/archive', component: () => import('../views/ArchiveView.vue'), meta: { auth: true } },
+    { path: '/crisis', component: () => import('../views/CrisisView.vue') },
   ],
 })
 

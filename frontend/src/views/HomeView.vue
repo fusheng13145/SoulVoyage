@@ -2,14 +2,20 @@
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import http, { TOKEN_KEY, REFRESH_KEY, type ApiResp } from '../api/http'
+import CrisisCard from '../components/CrisisCard.vue'
 
 interface Me { userId: number; username: string; nickname: string; role: string }
 const me = ref<Me | null>(null)
+const crisisMode = ref(false)
 const router = useRouter()
 
 onMounted(async () => {
   const { data } = await http.get<ApiResp<Me>>('/auth/me')
   me.value = data.data
+  try {
+    const p = await http.get<ApiResp<{ crisisMode: boolean }>>('/emotions/profile')
+    crisisMode.value = !!p.data.data.crisisMode
+  } catch { /* 画像失败不影响首页 */ }
 })
 
 function logout() {
@@ -31,14 +37,17 @@ function logout() {
       <button class="ghost" @click="logout">退出</button>
     </header>
     <main>
+      <CrisisCard v-if="crisisMode" level="MEDIUM"
+        headline="你已在关怀模式中：这段时间不必逼自己「想开点」，专业支持一直在这里" />
       <div class="tip">
-        M0 骨架已就绪。M1 起此处将呈现：今日心情打卡、情绪日记（多 Agent 流水线可视化）、人际模拟训练、自助方案与成长档案。
+        写日记让心屿陪你梳理情绪，进场景和「数字人」练一场不好开口的对话——所有记录加密存储，只有你能看到。
       </div>
       <div class="grid">
         <router-link to="/diary" class="tile">📔 情绪日记<small>感知 → 溯源 → 疏导 → 归档</small></router-link>
         <router-link to="/simulation" class="tile">🎭 人际模拟<small>4 大核心场景 · 导演模块多轮博弈</small></router-link>
-        <div class="tile">🌿 自助练习<small>正念 · 54321 · 认知书写</small></div>
-        <div class="tile">📈 成长档案<small>情绪曲线 · 周报导出</small></div>
+        <router-link to="/plan" class="tile">🌿 自助练习<small>正念 · 54321 · 认知书写 · 跟练打卡</small></router-link>
+        <router-link to="/insights" class="tile">📈 情绪洞察<small>情绪曲线 · 周画像</small></router-link>
+        <router-link to="/archive" class="tile">🗂 成长档案<small>周报 · 限时一次性导出打印</small></router-link>
       </div>
       <p class="disclaimer">本内容为自助参考，不构成医学诊断。心理援助热线：12356</p>
     </main>

@@ -1,0 +1,71 @@
+[
+  {
+    "id": "ex_54321",
+    "code": "EX_54321",
+    "dbId": 1,
+    "name": "54321 感官着陆",
+    "applyEmotions": ["ANXIETY", "FEAR", "ACUTE_STRESS", "ANGER"],
+    "steps": [
+      { "step": "看", "desc": "说出你看到的 5 样东西" },
+      { "step": "听", "desc": "说出你听到的 4 种声音" },
+      { "step": "触", "desc": "触摸 3 样物品并描述质感" },
+      { "step": "闻", "desc": "辨认 2 种气味" },
+      { "step": "尝", "desc": "感受 1 种味道，或做 1 次深呼吸" }
+    ],
+    "durationMin": 5
+  },
+  {
+    "id": "ex_478_breath",
+    "code": "EX_478_BREATH",
+    "dbId": 2,
+    "name": "正念呼吸 4-7-8",
+    "applyEmotions": ["HIGH_PRESSURE", "INSOMNIA", "ANXIETY"],
+    "steps": [
+      { "step": "吸气", "desc": "用鼻子吸气 4 秒" },
+      { "step": "屏息", "desc": "屏住呼吸 7 秒" },
+      { "step": "呼气", "desc": "用嘴缓慢呼气 8 秒" },
+      { "step": "循环", "desc": "重复以上循环 4 次" }
+    ],
+    "durationMin": 4
+  },
+  {
+    "id": "ex_cbt_write",
+    "code": "EX_CBT_WRITE",
+    "dbId": 3,
+    "name": "认知书写三栏表",
+    "applyEmotions": ["SADNESS", "SHAME", "ANXIETY", "GUILT"],
+    "steps": [
+      { "step": "情境", "desc": "写下触发情绪的具体事件（只写事实）" },
+      { "step": "想法", "desc": "写下当时脑中自动冒出的想法" },
+      { "step": "替代", "desc": "像为朋友辩护一样，写一个更平衡的想法" },
+      { "step": "重评", "desc": "给情绪强度重新打分 0-10" }
+    ],
+    "durationMin": 10
+  },
+  {
+    "id": "ex_action",
+    "code": "EX_ACTION",
+    "dbId": 4,
+    "name": "行为激活清单",
+    "applyEmotions": ["LOW_MOOD", "NUMBNESS", "SADNESS", "LONELINESS"],
+    "steps": [
+      { "step": "选择", "desc": "从清单选 1-2 件 5 分钟内可完成的小事" },
+      { "step": "执行", "desc": "今天完成它并勾选" },
+      { "step": "记录", "desc": "写下完成后的情绪变化" }
+    ],
+    "durationMin": 7
+  },
+  {
+    "id": "ex_name_emotion",
+    "code": "EX_NAME_EMOTION",
+    "dbId": 5,
+    "name": "情绪命名练习",
+    "applyEmotions": ["NUMBNESS", "CONFUSED"],
+    "steps": [
+      { "step": "扫描", "desc": "闭眼 30 秒感受身体当前的感觉" },
+      { "step": "选择", "desc": "从情绪词库选出最接近的 1-2 个词" },
+      { "step": "造句", "desc": "用「我感到___，因为___」造一个句子" }
+    ],
+    "durationMin": 5
+  }
+]

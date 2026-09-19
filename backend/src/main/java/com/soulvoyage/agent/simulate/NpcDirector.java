@@ -1,5 +1,7 @@
 package com.soulvoyage.agent.simulate;
 
+import com.soulvoyage.agent.risk.RiskRules;
+
 import java.util.List;
 import java.util.Locale;
 
@@ -13,10 +15,8 @@ public final class NpcDirector {
 
     public static final int MAX_TURNS_HARD_LIMIT = 20;
 
-    /** 高危句式回归集：必须 100% 检出（手册 §九 测试策略，CI 卡点样例） */
-    static final List<String> CRISIS_PHRASES = List.of(
-            "不想活", "活着没意思", "自杀", "活不下去", "撑不下去", "割腕", "自残",
-            "结束生命", "一了百了", "消失掉算了", "跳下去");
+    /** 高危句式回归集：与风险规则引擎同源（{@link RiskRules#CRISIS_PHRASES}），必须 100% 检出 */
+    static final List<String> CRISIS_PHRASES = RiskRules.CRISIS_PHRASES;
 
     private static final List<String> ESCALATE_TOKENS = List.of(
             "你总是", "你每次", "你从来", "你就是", "你这人", "烦不烦", "闭嘴",
@@ -46,7 +46,7 @@ public final class NpcDirector {
     public static Decision react(String difficulty, String userText, int prevTension) {
         String t = userText == null ? "" : userText.toLowerCase(Locale.ROOT);
 
-        boolean crisis = CRISIS_PHRASES.stream().anyMatch(t::contains);
+        boolean crisis = RiskRules.isCrisis(userText);
         if (crisis) return new Decision(Mood.SOFTENED, Math.max(0, Math.min(prevTension, 30)),
                 "CRISIS_BREAK", true, 1);
 
