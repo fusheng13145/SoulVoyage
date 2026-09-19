@@ -5,8 +5,8 @@
 
 ## 文档
 
-- [项目手册（详细设计）](docs/项目手册.md) —— 架构、调度中心、五大 Agent、数据层、API、安全设计
-- [原始定稿说明](心屿漫行%20SoulVoyage%20多Agent全链路青年心理自助成长平台.md)
+- [项目手册 · 唯一事实源（集成版 v2.1）](docs/项目手册.md) —— 上篇系统设计（架构、调度中心、六大 Agent、数据层、API、安全）＋ 下篇产品深化设计 V2（功能扩展体系、iOS 设计系统、M5–M9 路线图与上线门禁，2026-09-19 定稿）＋ 附录 A 原始定稿存档 ＋ 附录 B 手册治理协议。原《定稿说明》《产品深化设计》两份文档已并入本手册并退役。
+- [V2 交互原型](docs/demo/V2交互原型.html) —— 浏览器直接打开（纯前端假数据），M6 视觉与交互基线
 
 ## 仓库结构
 
@@ -14,7 +14,7 @@
 backend/     SpringBoot 3 + Java 21 单体（orchestrator / agent / llm / kg / crypto ...）
 frontend/    Vue3 + TypeScript + Vite
 deploy/      sql/schema.sql（库表唯一事实源）+ seed_scenes.sql · neo4j/seed.cypher · tools/ · docker-compose.yml（后续引入）
-docs/        项目手册与设计文档
+docs/        项目手册.md（唯一事实源）· demo/V2交互原型.html（M6 视觉基线）
 ```
 
 ## 本地开发（当前阶段：无 Docker，全部使用本机服务）

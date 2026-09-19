@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>心屿漫行 · V2 交互原型</title>
+<style>
+/* ========== 设计 Token（对齐《产品深化设计》DS2） ========== */
+:root{
+  --sv-indigo:#5B6CFF; --sv-blue:#0A84FF; --sv-mint:#30D158; --sv-amber:#FF9F0A; --sv-red:#FF453A;
+  --sv-bg:#F2F2F7; --sv-card:#FFFFFF; --sv-label:#1C1C1E; --sv-label2:rgba(60,60,67,.6); --sv-label3:rgba(60,60,67,.3);
+  --sv-sep:rgba(60,60,67,.08); --sv-fill2:rgba(120,120,128,.12);
+  --e-joy:#FFD60A; --e-calm:#30D158; --e-anx:#FF9F0A; --e-anger:#FF453A; --e-sad:#5E5CE6; --e-numb:#8E8E93; --e-shame:#FF375F; --e-fear:#BF5AF2; --e-lonely:#64D2FF; --e-grati:#FF9F0A;
+  --ease:cubic-bezier(0.32,0.72,0,1);
+}
+[data-theme=dark]{
+  --sv-indigo:#7A88FF; --sv-blue:#409CFF; --sv-mint:#34C759; --sv-amber:#FFB340;
+  --sv-bg:#000; --sv-card:#1C1C1E; --sv-label:#FFF; --sv-label2:rgba(235,235,245,.6); --sv-label3:rgba(235,235,245,.3);
+  --sv-sep:rgba(84,84,88,.36); --sv-fill2:rgba(110,110,115,.28);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{margin:0;font-family:"SF Pro Text","PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+  background:#0b0d1a;display:flex;align-items:center;justify-content:center;overflow:hidden}
+body::before{content:"";position:fixed;inset:-20%;background:
+  radial-gradient(40% 35% at 25% 25%,rgba(91,108,255,.5),transparent 70%),
+  radial-gradient(35% 30% at 78% 70%,rgba(48,209,88,.25),transparent 70%),
+  radial-gradient(30% 25% at 60% 20%,rgba(255,159,10,.18),transparent 70%);
+  filter:blur(60px)}
+.stage{position:relative;color:var(--sv-label)}
+/* ========== 手机壳 ========== */
+.phone{width:393px;height:min(852px,94vh);background:var(--sv-bg);border-radius:56px;padding:12px;
+  box-shadow:0 40px 120px rgba(0,0,0,.6),0 0 0 12px #16181f,0 0 0 13px #3a3d47;position:relative}
+.screen{width:100%;height:100%;background:var(--sv-bg);border-radius:44px;overflow:hidden;position:relative;display:flex;flex-direction:column}
+.notch{position:absolute;top:12px;left:50%;transform:translateX(-50%);width:120px;height:26px;background:#16181f;border-radius:20px;z-index:99}
+@media (max-width:520px){
+  body{background:var(--sv-bg);align-items:stretch;justify-content:stretch}
+  body::before{display:none}
+  .phone{width:100%;height:100%;padding:0;border-radius:0;box-shadow:none;background:var(--sv-bg)}
+  .screen{border-radius:0}
+  .notch{display:none}
+}
+/* ========== 导航 / 大标题 ========== */
+.nav{position:sticky;top:0;z-index:20;background:color-mix(in srgb,var(--sv-bg) 72%,transparent);
+  backdrop-filter:saturate(180%) blur(20px);-webkit-backdrop-filter:saturate(180%) blur(20px)}
+.large-title{padding:52px 20px 6px;font-size:34px;font-weight:700;letter-spacing:.4px;transition:opacity .3s}
+.large-title small{display:block;font-size:13px;font-weight:400;color:var(--sv-label2);letter-spacing:0;margin-top:2px}
+.views{flex:1;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none}
+.views::-webkit-scrollbar{display:none}
+.view{display:none;padding:0 16px 24px;animation:fadein .28s var(--ease)}
+.view.active{display:block}
+@keyframes fadein{from{opacity:0;transform:translateY(6px)}to{opacity:1}}
+/* ========== 卡片 / 列表 ========== */
+.card{background:var(--sv-card);border-radius:20px;padding:16px;box-shadow:0 2px 10px rgba(80,90,160,.08);margin-bottom:14px}
+[data-theme=dark] .card{box-shadow:none;border:1px solid var(--sv-sep)}
+.list{background:var(--sv-card);border-radius:20px;overflow:hidden;margin-bottom:14px}
+.li{display:flex;align-items:center;gap:12px;padding:13px 16px;border-bottom:1px solid var(--sv-sep);font-size:16px;cursor:pointer;transition:background .15s}
+.li:last-child{border-bottom:none}
+.li:active{background:var(--sv-fill2)}
+.li .ico{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;color:#fff;flex:none}
+.li .arr{margin-left:auto;color:var(--sv-label3)}
+.sec{font-size:12px;color:var(--sv-label2);margin:18px 6px 6px;letter-spacing:.5px}
+.chip{display:inline-flex;align-items:center;gap:4px;padding:4px 11px;border-radius:999px;font-size:13px;background:var(--sv-fill2);color:var(--sv-label2);margin:0 6px 6px 0}
+.chip.on{background:var(--sv-indigo);color:#fff}
+/* ========== TabBar ========== */
+.tabbar{display:flex;background:color-mix(in srgb,var(--sv-bg) 78%,transparent);backdrop-filter:saturate(180%) blur(20px);
+  -webkit-backdrop-filter:saturate(180%) blur(20px);border-top:1px solid var(--sv-sep);padding:6px 8px calc(20px + env(safe-area-inset-bottom))}
+.tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:5px 0;font-size:10.5px;color:var(--sv-label2);cursor:pointer;transition:color .2s,transform .2s var(--ease)}
+.tab svg{width:26px;height:26px}
+.tab.on{color:var(--sv-indigo)}
+.tab:active{transform:scale(.92)}
+/* ========== 按钮 / 通用 ========== */
+.btn{display:block;width:100%;padding:14px;border:none;border-radius:14px;font-size:17px;font-weight:600;cursor:pointer;
+  background:var(--sv-indigo);color:#fff;transition:transform .12s var(--ease),opacity .15s;font-family:inherit}
+.btn:active{transform:scale(.97)}
+.btn.ghost{background:var(--sv-fill2);color:var(--sv-indigo)}
+.btn.danger{background:var(--sv-red)}
+.btn.sm{padding:9px 14px;font-size:14px;width:auto;display:inline-block}
+.press{transition:transform .12s var(--ease);cursor:pointer}
+.press:active{transform:scale(.975)}
+.row{display:flex;align-items:center;gap:10px}
+.muted{color:var(--sv-label2);font-size:13px;line-height:1.6}
+.h12{height:12px}
+/* 开关 */
+.sw{width:51px;height:31px;border-radius:999px;background:var(--sv-label3);position:relative;cursor:pointer;transition:background .25s;flex:none}
+.sw::after{content:"";position:absolute;top:2px;left:2px;width:27px;height:27px;border-radius:50%;background:#fff;box-shadow:0 2px 5px rgba(0,0,0,.25);transition:left .25s var(--ease)}
+.sw.on{background:var(--sv-mint)}.sw.on::after{left:22px}
+/* 进度 */
+.bar{height:6px;border-radius:999px;background:var(--sv-fill2);overflow:hidden}
+.bar i{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,var(--sv-indigo),var(--sv-blue))}
+/* Sheet */
+.dim{position:absolute;inset:0;background:rgba(0,0,0,.4);opacity:0;pointer-events:none;transition:.3s;z-index:40}
+.dim.show{opacity:1;pointer-events:auto}
+.sheet{position:absolute;left:0;right:0;bottom:0;background:var(--sv-card);border-radius:28px 28px 0 0;padding:10px 20px calc(28px + env(safe-area-inset-bottom));
+  transform:translateY(110%);transition:transform .45s var(--ease);z-index:41;max-height:86%;overflow-y:auto}
+.sheet.show{transform:none}
+.sheet .grab{width:36px;height:5px;border-radius:99px;background:var(--sv-label3);margin:4px auto 14px}
+/* Toast */
+.toast{position:absolute;top:54px;left:50%;transform:translate(-50%,-80px);background:color-mix(in srgb,var(--sv-card) 90%,transparent);
+  backdrop-filter:blur(20px);border:1px solid var(--sv-sep);padding:10px 18px;border-radius:999px;font-size:14px;z-index:60;transition:transform .4s var(--ease);box-shadow:0 8px 30px rgba(0,0,0,.2);white-space:nowrap}
+.toast.show{transform:translate(-50%,0)}
+/* ========== 今日页 ========== */
+.hero{border-radius:24px;padding:20px;color:#fff;position:relative;overflow:hidden;margin-bottom:14px;
+  background:linear-gradient(135deg,#5B6CFF,#0A84FF 60%,#30D158 170%)}
+.hero::after{content:"";position:absolute;right:-30px;bottom:-40px;width:160px;height:160px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.28),transparent 65%)}
+.hero h3{margin:0 0 4px;font-size:20px}
+.hero p{margin:0 0 14px;font-size:13px;opacity:.85}
+.hero .go{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.92);color:#1C1C1E;border-radius:999px;padding:9px 16px;font-size:14px;font-weight:600;cursor:pointer}
+.hero .go.alt{background:rgba(255,255,255,.18);color:#fff;margin-left:8px;backdrop-filter:blur(8px)}
+.heat{display:flex;gap:5px;margin-top:10px}
+.heat i{flex:1;height:34px;border-radius:9px;background:var(--sv-fill2);position:relative;cursor:pointer;transition:transform .2s var(--ease)}
+.heat i:active{transform:scale(1.15)}
+.heat i span{position:absolute;bottom:3px;left:50%;transform:translateX(-50%);font-size:8px;color:var(--sv-label2)}
+.moodbtn{width:100%;text-align:left}
+.feed{display:flex;gap:10px;align-items:flex-start;padding:11px 0;border-bottom:1px solid var(--sv-sep);font-size:14px}
+.feed:last-child{border:none}
+.feed .dot{width:8px;height:8px;border-radius:50%;margin-top:6px;flex:none}
+.feed b{font-weight:600}
+/* ========== 漫聊 ========== */
+.vcompanion{position:absolute;inset:0;background:var(--sv-bg);z-index:30;display:none;flex-direction:column}
+.vcompanion.active{display:flex}
+.chathead{display:flex;align-items:center;gap:10px;padding:52px 16px 10px;border-bottom:1px solid var(--sv-sep);
+  background:color-mix(in srgb,var(--sv-bg) 72%,transparent);backdrop-filter:blur(20px)}
+.avatar{width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,#5B6CFF,#30D158);display:grid;place-items:center;color:#fff;font-weight:700;font-size:16px;flex:none}
+.chatbody{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:10px}
+.msg{max-width:78%;padding:10px 14px;border-radius:20px;font-size:16px;line-height:1.5;animation:pop .3s var(--ease)}
+@keyframes pop{from{opacity:0;transform:translateY(8px) scale(.96)}to{opacity:1}}
+.msg.ai{align-self:flex-start;background:var(--sv-card);border:1px solid var(--sv-sep);border-bottom-left-radius:6px}
+.msg.me{align-self:flex-end;background:linear-gradient(135deg,#0A84FF,#5B6CFF);color:#fff;border-bottom-right-radius:6px}
+.msg .tags{display:flex;gap:6px;margin-top:6px}
+.msg .tag{font-size:10px;padding:2px 8px;border-radius:99px;background:rgba(255,255,255,.22)}
+.msg.me .tag{cursor:pointer}
+.msg.sys{align-self:center;background:transparent;color:var(--sv-label2);font-size:12px;max-width:90%;text-align:center}
+.typing{align-self:flex-start;background:var(--sv-card);border:1px solid var(--sv-sep);border-radius:20px;padding:12px 16px;display:flex;gap:4px}
+.typing i{width:7px;height:7px;border-radius:50%;background:var(--sv-label3);animation:bounce 1.2s infinite}
+.typing i:nth-child(2){animation-delay:.15s}.typing i:nth-child(3){animation-delay:.3s}
+@keyframes bounce{0%,60%,100%{transform:none}30%{transform:translateY(-5px)}}
+.crisis-in{align-self:stretch;background:#FDF2F1;border:1px solid #F3C6C2;border-radius:20px;padding:14px;animation:pop .4s var(--ease)}
+[data-theme=dark] .crisis-in{background:#2d1a1c;border-color:#5c2e33}
+.crisis-in b{color:var(--sv-red)}
+.crisis-in a{display:block;margin-top:10px;background:var(--sv-red);color:#fff;text-decoration:none;text-align:center;padding:12px;border-radius:14px;font-weight:700;font-size:17px}
+.quick{display:flex;gap:8px;padding:8px 16px;overflow-x:auto;scrollbar-width:none}
+.quick::-webkit-scrollbar{display:none}
+.quick .chip{background:var(--sv-card);border:1px solid var(--sv-sep);color:var(--sv-label);white-space:nowrap;cursor:pointer}
+.inputbar{display:flex;gap:10px;padding:10px 16px calc(26px + env(safe-area-inset-bottom));border-top:1px solid var(--sv-sep);background:color-mix(in srgb,var(--sv-bg) 80%,transparent)}
+.inputbar input{flex:1;border:1px solid var(--sv-sep);background:var(--sv-card);border-radius:999px;padding:11px 16px;font-size:16px;outline:none;color:var(--sv-label);font-family:inherit}
+.send{width:44px;height:44px;border-radius:50%;background:var(--sv-indigo);border:none;color:#fff;font-size:19px;cursor:pointer;flex:none;transition:transform .12s var(--ease)}
+.send:active{transform:scale(.9)}
+/* ========== 分析流程 ========== */
+.timeline{position:relative;padding-left:26px;margin:6px 0}
+.timeline::before{content:"";position:absolute;left:8px;top:8px;bottom:8px;width:2px;background:var(--sv-sep)}
+.tl{position:relative;margin-bottom:14px;opacity:.35;transition:opacity .4s}
+.tl.done,.tl.run{opacity:1}
+.tl .n{position:absolute;left:-26px;top:2px;width:18px;height:18px;border-radius:50%;background:var(--sv-card);border:2px solid var(--sv-label3);display:grid;place-items:center;font-size:10px;color:var(--sv-label2);z-index:1}
+.tl.done .n{background:var(--sv-mint);border-color:var(--sv-mint);color:#fff}
+.tl.run .n{border-color:var(--sv-indigo)}
+.tl.run .n::after{content:"";width:10px;height:10px;border-radius:50%;background:var(--sv-indigo);animation:pulse 1.4s infinite}
+@keyframes pulse{0%,100%{transform:scale(.7);opacity:1}50%{transform:scale(1.15);opacity:.4}}
+.tl .cap{font-size:14px;font-weight:600}
+.tl .sub{font-size:12px;color:var(--sv-label2);margin-top:2px}
+.skel{height:64px;border-radius:14px;background:linear-gradient(90deg,var(--sv-fill2) 25%,color-mix(in srgb,var(--sv-fill2) 40%,var(--sv-card)) 50%,var(--sv-fill2) 75%);background-size:200%;animation:shim 1.3s infinite;margin-top:6px}
+@keyframes shim{to{background-position:-200%}}
+.result-block{display:none;animation:fadein .5s var(--ease)}
+.result-block.show{display:block}
+.gauge{display:flex;align-items:center;gap:10px;margin:8px 0}
+.gauge .lbl{width:64px;font-size:12px;color:var(--sv-label2)}
+.flip{perspective:700px;cursor:pointer}
+.flip .inner{transition:transform .55s var(--ease);transform-style:preserve-3d;position:relative}
+.flip.on .inner{transform:rotateX(180deg)}
+.face{backface-visibility:hidden;padding:14px 16px}
+.face.back{position:absolute;inset:0;transform:rotateX(180deg);overflow-y:auto}
+.emowrap{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.emoc{display:flex;flex-direction:column;align-items:center;gap:6px;font-size:12px;color:var(--sv-label2);padding:10px 0;border-radius:14px;transition:background .15s}
+.emoc:active{background:var(--sv-fill2)}
+.emoc i{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;font-size:20px;font-style:normal;border:2.5px solid transparent;transition:.2s var(--ease)}
+.emoc.sel{color:var(--sv-label);font-weight:600}
+.emoc.sel i{transform:scale(1.12)}
+input[type=range]{width:100%;accent-color:var(--sv-indigo)}
+textarea{width:100%;border:none;background:transparent;font-size:19px;line-height:1.8;resize:none;outline:none;color:var(--sv-label);font-family:inherit;min-height:240px}
+/* 呼吸 */
+.breath{position:absolute;inset:0;background:radial-gradient(120% 90% at 50% 10%,#141833,#05060d);z-index:50;display:none;flex-direction:column;align-items:center;justify-content:center;color:#fff}
+.breath.active{display:flex}
+.ring{width:200px;height:200px;border-radius:50%;background:radial-gradient(circle at 35% 30%,rgba(122,136,255,.9),rgba(10,132,255,.55));
+  display:grid;place-items:center;transform:scale(.6);transition-property:transform;transition-timing-function:cubic-bezier(.37,0,.63,1);box-shadow:0 0 80px rgba(91,108,255,.45)}
+.ring.hold{transform:scale(1.05)}
+.bphase{margin-top:44px;font-size:22px;font-weight:600;letter-spacing:2px}
+.bcount{font-size:15px;opacity:.6;margin-top:8px}
+.bclose{position:absolute;top:50px;right:20px;background:rgba(255,255,255,.14);border:none;color:#fff;border-radius:999px;padding:8px 16px;font-size:14px;cursor:pointer}
+/* 洞察图表 */
+.chart{width:100%;height:170px;display:block}
+.donut{width:110px;height:110px;border-radius:50%;position:relative;flex:none;
+  background:conic-gradient(var(--sv-indigo) 0 38%,var(--sv-amber) 38% 61%,var(--sv-red) 61% 79%,var(--sv-mint) 79% 92%,var(--sv-label3) 92%)}
+.donut::after{content:"";position:absolute;inset:26%;border-radius:50%;background:var(--sv-card)}
+.legend{font-size:12px;color:var(--sv-label2);line-height:1.9}
+.legend i{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:6px}
+/* 危机 sheet */
+.big-tel{display:block;text-align:center;background:var(--sv-red);color:#fff;border-radius:16px;padding:16px;font-size:22px;font-weight:700;text-decoration:none;margin-bottom:10px}
+.disclaim{position:sticky;bottom:0;background:color-mix(in srgb,var(--sv-amber) 14%,var(--sv-bg));color:var(--sv-label);border:1px solid color-mix(in srgb,var(--sv-amber) 40%,transparent);
+  font-size:11px;padding:8px 12px;border-radius:12px;margin-top:4px}
+.back{display:inline-flex;align-items:center;gap:4px;color:var(--sv-indigo);font-size:15px;padding:14px 0 0;cursor:pointer}
+</style>
+</head>
+<body>
+<div class="stage">
+<div class="phone"><div class="notch"></div><div class="screen" id="screen" data-theme="light">
+
+  <!-- ============ 滚动主体 ============ -->
+  <div class="views" id="views">
+
+  <!-- ======== 今日 ======== -->
+  <section class="view active" id="v-today">
+    <div class="nav"><div class="large-title" id="greet">晚上好 <small>9月19日 · 岛上的风很轻</small></div></div>
+    <div style="height:4px"></div>
+    <div class="hero press" onclick="openCompanion()">
+      <h3>不想写？就来聊聊</h3>
+      <p>树洞漫聊 · 你的岛民「阿屿」记得你们上次聊的事</p>
+      <span class="go">💬 开始漫聊</span><span class="go alt" onclick="event.stopPropagation();showTab('v-diary')">✍️ 写日记</span>
+    </div>
+
+    <div class="card moodbtn press" id="checkinCard" onclick="openDial()">
+      <div class="row"><div style="flex:1">
+        <b style="font-size:17px" id="ckTitle">今天感觉如何？</b>
+        <div class="muted" id="ckSub">点一下，10 秒完成心情打卡</div>
+      </div><div id="ckEmoji" style="font-size:34px">🫥</div></div>
+    </div>
+
+    <div class="card">
+      <b style="font-size:15px">情绪日历</b><span class="muted" style="margin-left:6px">近 14 天</span>
+      <div class="heat" id="heat"></div>
+    </div>
+
+    <div class="card">
+      <div class="row" style="margin-bottom:8px"><b style="font-size:15px">今日计划 · 考前焦虑 3 日舒缓</b><span style="margin-left:auto;font-size:12px;color:var(--sv-label2)" id="planCnt">1/3</span></div>
+      <div class="bar"><i id="planBar" style="width:33%"></i></div>
+      <div class="h12"></div>
+      <div class="li" style="padding:10px 0;border:none" onclick="openBreath()"><div class="ico" style="background:linear-gradient(135deg,#5B6CFF,#30D158)">◌</div><div style="flex:1"><div style="font-size:15px">正念呼吸 4-7-8</div><div class="muted">今晚睡前 · 4 分钟</div></div><span class="chip" id="breathTag" style="margin:0">去跟练</span></div>
+      <div class="li" style="padding:10px 0;border:none"><div class="ico" style="background:var(--sv-amber)">✎</div><div style="flex:1"><div style="font-size:15px">认知书写 · 三栏表</div><div class="muted">针对"灾难化思维"</div></div><span class="arr">›</span></div>
+      <div class="li" style="padding:10px 0;border:none"><div class="ico" style="background:var(--sv-blue)">☾</div><div style="flex:1"><div style="font-size:15px">睡前行为激活清单</div><div class="muted">3 个微任务</div></div><span class="arr">›</span></div>
+    </div>
+
+    <div class="card">
+      <b style="font-size:15px">最近动态</b><div class="h12"></div>
+      <div class="feed"><span class="dot" style="background:var(--sv-indigo)"></span><div><b>昨晚的漫聊被温柔地收进了档案</b><div class="muted">摘要：组会压力 ↑ · 效价 -0.2 · 已生成情绪点</div></div></div>
+      <div class="feed"><span class="dot" style="background:var(--sv-mint)"></span><div><b>成长来信 2026-W38 已就绪</b><div class="muted">"上周三你写下'撑到考完那天'……"</div></div></div>
+      <div class="feed"><span class="dot" style="background:var(--sv-amber)"></span><div><b>训练复盘：小组项目分歧 · 72 分</b><div class="muted">边界表达进步最大，倾听还可加强</div></div></div>
+    </div>
+
+    <div class="list">
+      <div class="li" onclick="showTab('v-plan')"><div class="ico" style="background:var(--sv-mint)">🌿</div><div style="flex:1">练习与训练</div><span class="arr">›</span></div>
+      <div class="li" onclick="showTab('v-insights')"><div class="ico" style="background:var(--sv-indigo)">📈</div><div style="flex:1">洞察中心</div><span class="arr">›</span></div>
+      <div class="li"><div class="ico" style="background:var(--sv-amber)">📖</div><div style="flex:1">每日一读 · 焦虑的躯体信号</div><span class="arr">›</span></div>
+    </div>
+    <div class="disclaim">本内容为自助参考，不构成医学诊断 · 为什么这么说 ›</div>
+  </section>
+
+  <!-- ======== 日记 ======== -->
+  <section class="view" id="v-diary">
+    <div class="nav"><div class="large-title">漫行日记 <small>倾诉和书写，都是记录</small></div></div>
+    <div class="row" style="margin:8px 0 12px">
+      <button class="btn sm" onclick="openEditor()">＋ 写一篇</button>
+      <button class="btn sm ghost" onclick="openCompanion()">💬 去漫聊</button>
+    </div>
+    <div class="sec">9月</div>
+    <div class="list" id="diaryList">
+      <div class="li press" onclick="openEditor()"><span style="font-size:22px">📔</span><div style="flex:1"><div style="font-size:15px">9月18日 · 组会上又被点名了</div><div class="muted">已分析 · 焦虑 -0.5/0.7 · 1 个思维误区</div></div><span class="arr">›</span></div>
+      <div class="li press"><span style="font-size:22px">💬</span><div style="flex:1"><div style="font-size:15px">9月17日 · 和阿屿聊了聊（摘要）</div><div class="muted">漫聊消化 · 平静回升中 · 2 个情绪点</div></div><span class="arr">›</span></div>
+      <div class="li press"><span style="font-size:22px">📔</span><div style="flex:1"><div style="font-size:15px">9月15日 · 妈打电话来</div><div class="muted">已分析 · 羞耻/委屈 · 报告可看</div></div><span class="arr">›</span></div>
+    </div>
+    <div class="sec">8月</div>
+    <div class="list">
+      <div class="li press"><span style="font-size:22px">📔</span><div style="flex:1"><div style="font-size:15px">8月29日 · 开学前的那个晚上</div><div class="muted">已分析 · 恐惧 · 灾难化思维 ×2</div></div><span class="arr">›</span></div>
+      <div class="li" style="color:var(--sv-red);justify-content:center">左滑可删除 · demo 未接手势</div>
+    </div>
+  </section>
+
+  <!-- ======== 练习 ======== -->
+  <section class="view" id="v-plan">
+    <div class="nav"><div class="large-title">练习 <small>轻一点，再轻一点</small></div></div>
+    <div class="card" style="background:linear-gradient(135deg,rgba(91,108,255,.12),rgba(48,209,88,.12))">
+      <div class="row"><div style="flex:1"><b>人际模拟训练</b><div class="muted">4 个场景 · 上次「小组项目分歧」72 分</div></div>
+      <span class="chip on" style="margin:0">继续未完成的训练</span></div>
+      <div style="margin-top:10px"><span class="chip">人际边界 ×2</span><span class="chip">权威沟通 ×1</span><span class="chip">自我对话 ×1</span></div>
+    </div>
+    <div class="sec">自助练习 · 按当前情绪（焦虑）匹配</div>
+    <div class="list">
+      <div class="li press" onclick="openBreath()"><span style="font-size:24px">◌</span><div style="flex:1"><div style="font-size:16px;font-weight:600">正念呼吸 4-7-8</div><div class="muted">沉浸引导 · 4 分钟 · 高压/睡前</div></div><span class="arr">›</span></div>
+      <div class="li press"><span style="font-size:24px">🖐</span><div style="flex:1"><div style="font-size:16px;font-weight:600">54321 感官着陆</div><div class="muted">全屏分步 · 3 分钟 · 急性紧张</div></div><span class="arr">›</span></div>
+      <div class="li press"><span style="font-size:24px">✎</span><div style="flex:1"><div style="font-size:16px;font-weight:600">认知书写 · 三栏表</div><div class="muted">情境/想法/替代想法 · 写完有追问</div></div><span class="arr">›</span></div>
+      <div class="li press"><span style="font-size:24px">☀</span><div style="flex:1"><div style="font-size:16px;font-weight:600">行为激活清单</div><div class="muted">微任务 + 完成后心情复评</div></div><span class="arr">›</span></div>
+    </div>
+    <div class="card"><div class="row"><b style="font-size:15px">连续记录</b><div style="margin-left:auto;font-size:26px;font-weight:700">12 天</div></div>
+      <div class="muted">你已经为自己记录了 12 天。断一天没关系，这个月还有一次补签。</div>
+      <div style="margin-top:10px"><span class="chip" style="background:#FFD60A22;color:#9c7c00">🏅 第一次完整跟练</span><span class="chip" style="background:#30D15822;color:#1d7a43">🏅 七日之声</span></div>
+    </div>
+  </section>
+
+  <!-- ======== 洞察 ======== -->
+  <section class="view" id="v-insights">
+    <div class="nav"><div class="large-title">洞察 <small>曲线会自己长出来</small></div></div>
+    <div style="display:flex;gap:6px;margin:8px 0 12px">
+      <span class="chip press">14 天</span><span class="chip on press">30 天</span><span class="chip press">90 天</span>
+    </div>
+    <div class="card">
+      <b style="font-size:15px">情绪曲线</b><span class="muted" style="margin-left:6px">● 日记 ▲ 打卡 💬 漫聊</span>
+      <svg class="chart" viewBox="0 0 340 170" preserveAspectRatio="none">
+        <defs><linearGradient id="gfill" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#5B6CFF" stop-opacity=".35"/><stop offset="1" stop-color="#5B6CFF" stop-opacity="0"/></linearGradient></defs>
+        <line x1="0" y1="85" x2="340" y2="85" stroke="var(--sv-sep)" stroke-dasharray="4 4"/>
+        <path d="M0,110 L25,120 50,95 75,130 100,140 125,88 150,105 175,60 200,96 225,120 250,70 275,90 300,58 340,72 L340,170 0,170Z" fill="url(#gfill)"/>
+        <polyline points="0,110 25,120 50,95 75,130 100,140 125,88 150,105 175,60 200,96 225,120 250,70 275,90 300,58 340,72" fill="none" stroke="var(--sv-indigo)" stroke-width="2.5" stroke-linecap="round"/>
+        <circle cx="175" cy="60" r="4" fill="var(--sv-mint)"/><circle cx="100" cy="140" r="4" fill="var(--sv-red)"/>
+        <rect x="243" y="63" width="14" height="14" rx="4" fill="var(--sv-amber)" transform="rotate(45 250 70)"/>
+        <text x="150" y="40" font-size="10" fill="var(--sv-label2)">和好了 ↗</text>
+        <text x="52" y="158" font-size="10" fill="var(--sv-label2)">学业压力峰值</text>
+      </svg>
+    </div>
+    <div class="card row">
+      <div class="donut"></div>
+      <div class="legend"><b style="font-size:14px;color:var(--sv-label)">压力源构成 · 30 天</b><br>
+        <i style="background:var(--sv-indigo)"></i>学业压力 38%<br><i style="background:var(--sv-amber)"></i>人际冲突 23%<br><i style="background:var(--sv-red)"></i>家庭期望 18%<br><i style="background:var(--sv-mint)"></i>经济 13%<br><i style="background:var(--sv-label3)"></i>其他 8%</div>
+    </div>
+    <div class="card"><div class="row"><b style="font-size:15px">思维误区趋势</b><span style="margin-left:auto;color:var(--sv-mint);font-weight:700">↘ 好转</span></div>
+      <div class="muted">灾难化思维：本月出现 3 次（上月 9 次）· 非黑即白持平 · 读心术新增 1 次</div></div>
+    <div class="card"><b style="font-size:15px">2026-W38 · 周画像</b> <span class="chip" style="background:#30D15822;color:#1d7a43;margin:0">LOW</span>
+      <div class="muted" style="margin-top:6px">平均效价 +0.12，比上周回升 0.2。焦虑峰值来得更早，但退得也更快了。</div></div>
+  </section>
+
+  <!-- ======== 我的 ======== -->
+  <section class="view" id="v-me">
+    <div class="nav"><div class="large-title">我的岛 <small>leyon · 已连续记录 12 天</small></div></div>
+    <div class="list">
+      <div class="li"><div class="ico" style="background:var(--sv-indigo)">✉️</div><div style="flex:1">成长来信</div><span class="chip" style="margin:0">1 封未读</span><span class="arr">›</span></div>
+      <div class="li"><div class="ico" style="background:var(--sv-amber)">🏅</div><div style="flex:1">成就墙 · 5/24</div><span class="arr">›</span></div>
+      <div class="li"><div class="ico" style="background:var(--sv-mint)">🗂</div><div style="flex:1">成长档案与导出</div><span class="arr">›</span></div>
+    </div>
+    <div class="list">
+      <div class="li"><div class="ico" style="background:var(--sv-blue)">🌗</div><div style="flex:1">深色模式</div><div class="sw" id="darkSw" onclick="toggleDark()"></div></div>
+      <div class="li"><div class="ico" style="background:var(--sv-blue)">🔔</div><div style="flex:1">每日打卡提醒</div><div class="sw on" onclick="this.classList.toggle('on');toast('已按你的选择')"></div></div>
+      <div class="li"><div class="ico" style="background:var(--sv-blue)">💬</div><div style="flex:1">漫聊参与情绪分析</div><div class="sw on" onclick="this.classList.toggle('on');toast(this.classList.contains('on')?'开启：聊天摘要会沉淀为你的画像':'关闭：漫聊仅作留存，不参与分析')"></div></div>
+    </div>
+    <div class="list">
+      <div class="li" style="color:var(--sv-red);font-weight:600" onclick="openCrisis()"><div class="ico" style="background:var(--sv-red)">❤</div><div style="flex:1">需要帮助？</div><span class="arr">›</span></div>
+    </div>
+    <div class="list">
+      <div class="li"><div class="ico" style="background:var(--sv-label2)">🔐</div><div style="flex:1">隐私中心 · 数据导出 / 注销</div><span class="arr">›</span></div>
+      <div class="li"><div class="ico" style="background:var(--sv-label2)">📜</div><div style="flex:1">边界声明与用户协议 v2</div><span class="arr">›</span></div>
+    </div>
+    <div class="muted" style="text-align:center;font-size:11px;padding:10px 30px">心屿漫行 SoulVoyage · 仅为自助辅助工具，不做心理诊断、不替代心理咨询师</div>
+  </section>
+
+  <!-- ======== 日记编辑器（子页） ======== -->
+  <section class="view" id="v-editor" style="padding-bottom:0">
+    <span class="back" onclick="showTab('v-diary')">‹ 日记</span>
+    <div class="nav" style="position:relative;background:none;backdrop-filter:none">
+      <div class="large-title" style="padding-top:8px;font-size:28px">9月19日 <small style="display:inline">草稿会自动保存 · 0/2000</small></div>
+    </div>
+    <textarea id="editorTa" placeholder="此刻脑子里转着什么？倒出来就行，不用组织语言……&#10;&#10;（点下方按钮试试自动填充示例）"></textarea>
+    <div style="padding:14px 16px 24px">
+      <div class="row" style="margin-bottom:10px"><button class="btn sm ghost" onclick="fillDemo()">填一段示例</button><span class="muted" style="font-size:11px">≥10 字才能交给五个 Agent 分析</span></div>
+      <button class="btn" onclick="runAnalysis()">交给小岛分析 →</button>
+    </div>
+  </section>
+
+  <!-- ======== 分析流程（子页） ======== -->
+  <section class="view" id="v-analysis" style="padding-bottom:0">
+    <span class="back" onclick="showTab('v-diary')">‹ 保存并退出</span>
+    <div class="nav" style="position:relative;background:none;backdrop-filter:none"><div class="large-title" style="padding-top:8px;font-size:28px">正在漫行… <small>调度中心已接管，五个 Agent 陆续开工</small></div></div>
+    <div class="card">
+      <div class="timeline">
+        <div class="tl" id="tl1"><span class="n"></span><div class="cap">情绪感知</div><div class="sub" id="tl1s">排队中</div></div>
+        <div class="tl" id="tl2"><span class="n"></span><div class="cap">溯源推理</div><div class="sub" id="tl2s">等待上游</div></div>
+        <div class="tl" id="tl3"><span class="n"></span><div class="cap">疏导干预</div><div class="sub" id="tl3s">等待上游</div></div>
+        <div class="tl" id="tl4"><span class="n"></span><div class="cap">风险归档</div><div class="sub" id="tl4s">强制末步 · 等待上游</div></div>
+      </div>
+    </div>
+
+    <div class="result-block" id="r1"><div class="card">
+      <b>情绪快照</b><span class="chip on" style="margin-left:8px;margin-top:0">焦虑</span><span class="chip">委屈</span>
+      <div class="gauge"><span class="lbl">强度</span><div class="bar" style="flex:1"><i style="width:70%"></i></div><span class="muted">0.70</span></div>
+      <div class="gauge"><span class="lbl">效价</span><div class="bar" style="flex:1"><i style="width:25%;background:linear-gradient(90deg,var(--sv-red),var(--sv-amber))"></i></div><span class="muted">-0.50</span></div>
+      <div class="muted">事件标签：<span class="chip">小组项目 · "证据：点名说我进度慢"</span><span class="chip">学业压力</span></div>
+    </div></div>
+
+    <div class="result-block" id="r2">
+      <div class="card"><b>压力溯源</b><div class="muted" style="margin-top:4px">小组进度焦虑（置信度 0.8）· 近两周被点名两次，形成"落后=完蛋"的联想</div></div>
+      <div class="card flip" onclick="this.classList.toggle('on')">
+        <div class="inner">
+          <div class="face"><div class="row"><span class="chip on" style="margin:0">灾难化思维</span><span class="muted" style="font-size:11px">KG: cd_disastrous · 点我看追问</span></div>
+          <div style="margin-top:8px">"点名说我慢，是不是代表我整个毕设要完蛋？"</div></div>
+          <div class="face back" style="background:color-mix(in srgb,var(--sv-indigo) 8%,var(--sv-card))">
+            <b style="color:var(--sv-indigo)">苏格拉底追问</b>
+            <div style="margin-top:8px;line-height:1.7">如果你的朋友被导师点了一次名，你会认为他整个毕设完蛋了吗？<br>「被指出进度慢」和「毕设失败」之间，你补上了哪些还没发生的剧情？</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="result-block" id="r3"><div class="card" style="background:linear-gradient(135deg,rgba(91,108,255,.1),rgba(48,209,88,.12))">
+      <b>你的 3 日舒缓方案已生成</b>
+      <div class="muted" style="margin:6px 0 10px">今晚睡前：正念呼吸 4-7-8 · 明早：认知书写 · 第 3 天：行为激活复评</div>
+      <button class="btn sm" onclick="openBreath()">现在就开始 4 分钟 →</button>
+      <div class="muted" style="margin-top:10px;font-size:11px">心理小课堂 · 焦虑的躯体信号（出处：KG psy_anxiety_body）</div>
+    </div></div>
+
+    <div class="result-block" id="r4"><div class="card row">
+      <div class="ico" style="background:var(--sv-mint);width:34px;height:34px;font-size:16px">✓</div>
+      <div style="flex:1"><b>已安全归档</b><div class="muted">风险等级 LOW · AES-256-GCM · 密钥 k1 · 画像已更新</div></div>
+    </div>
+    <div class="row"><button class="btn ghost sm" onclick="showTab('v-diary')">回日记本</button><button class="btn sm" onclick="openCompanion()">和这个发现再聊聊 →</button></div>
+    <div class="disclaim">本报告由多 Agent 流水线生成，仅供自我觉察参考，不构成任何医学诊断。</div></div>
+  </section>
+
+  </div><!-- /views -->
+
+  <!-- ======== 树洞漫聊（全屏层） ======== -->
+  <div class="vcompanion" id="v-companion">
+    <div class="chathead">
+      <span class="back" style="padding:0;color:var(--sv-indigo)" onclick="closeCompanion()">‹ 今日</span>
+      <div class="avatar">屿</div>
+      <div><b style="font-size:16px">阿屿</b><div class="muted" style="font-size:11px" id="companionMemo">记得你 · 上次提到组会被点名</div></div>
+      <span style="margin-left:auto;font-size:11px;color:var(--sv-label2)">自助陪伴 · 非咨询师</span>
+    </div>
+    <div class="chatbody" id="chatBody">
+      <div class="msg sys">我是阿屿，岛上的话搭子。这里不是心理咨询，但绝对安全。说点什么？</div>
+      <div class="msg ai">晚上好呀。上次你说组会被点名之后一直堵得慌，后来跟导师聊了吗？</div>
+    </div>
+    <div class="quick">
+      <span class="chip" onclick="sayQuick(this)">今天小组会我又没敢说</span>
+      <span class="chip" onclick="sayQuick(this)">没啥事，就想跟你唠唠</span>
+      <span class="chip" onclick="sayQuick(this)">室友把我耳机弄丢了</span>
+      <span class="chip" style="border:1px dashed var(--sv-red);color:var(--sv-red)" onclick="sayQuick(this)">⚠ 演示危机干预：活着没意思</span>
+    </div>
+    <div class="inputbar">
+      <input id="chatIn" placeholder="输入…（Enter 发送）" onkeydown="if(event.key==='Enter')sendChat()">
+      <button class="send" onclick="sendChat()" aria-label="发送">↑</button>
+    </div>
+  </div>
+
+  <!-- ======== 呼吸练习（全屏层） ======== -->
+  <div class="breath" id="breath">
+    <button class="bclose" onclick="closeBreath()">退出</button>
+    <div class="ring" id="ring"></div>
+    <div class="bphase" id="bPhase">准备</div>
+    <div class="bcount" id="bCount">跟着圆环：吸气 4 秒 · 屏息 7 秒 · 呼气 8 秒</div>
+    <div class="bcount" id="bRound" style="margin-top:26px;opacity:.45">第 1 / 3 轮 · 完成将自动打卡</div>
+  </div>
+
+  <!-- ======== 打卡 Sheet ======== -->
+  <div class="dim" id="dim" onclick="closeSheets()"></div>
+  <div class="sheet" id="dialSheet">
+    <div class="grab"></div>
+    <b style="font-size:20px">今天感觉如何？</b>
+    <div class="muted" style="margin:4px 0 16px">选一个最接近的，能量值拖一拖就好</div>
+    <div class="emowrap" id="emoGrid"></div>
+    <div style="margin:18px 0 4px"><span class="muted">能量值</span> <b id="energyVal" style="float:right">3 / 5</b>
+      <input type="range" min="1" max="5" value="3" oninput="energyVal.textContent=this.value+' / 5'"></div>
+    <input style="width:100%;margin-top:16px;border:1px solid var(--sv-sep);background:var(--sv-bg);border-radius:12px;padding:11px 14px;font-size:15px;color:var(--sv-label);outline:none;font-family:inherit" placeholder="一句话（可选）：躲过食堂排队，赢了">
+    <div class="h12"></div>
+    <button class="btn" onclick="saveCheckin()">记下来</button>
+  </div>
+
+  <!-- ======== 危机 Sheet ======== -->
+  <div class="sheet" id="crisisSheet">
+    <div class="grab"></div>
+    <b style="font-size:22px">需要帮助的时候，有人一直在</b>
+    <div class="muted" style="margin:6px 0 16px">心屿漫行没有强制干预义务，转介即服务终点——但我们希望这一步你愿意走。</div>
+    <a class="big-tel" href="tel:12356">12356 · 全国 24 小时心理援助热线</a>
+    <a class="big-tel" style="background:var(--sv-indigo)" href="tel:01082951332">010-8295-1332 · 北京心理危机研究与干预中心</a>
+    <a class="big-tel" style="background:var(--sv-amber)" href="tel:4001619995">400-161-9995 · 希望 24 热线</a>
+    <div class="card" style="margin-top:12px"><b style="font-size:15px">校心理健康教育与咨询中心</b><div class="muted">预约：公众号「心屿中心」/ 学生事务大厅 3 号窗 · 免费且保密</div></div>
+    <button class="btn ghost" onclick="closeSheets();toast('谢谢你还在这里。要不要和阿屿说说？')">我现在安全，想和阿屿聊聊</button>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <!-- ============ TabBar ============ -->
+  <nav class="tabbar" id="tabbar">
+    <div class="tab on" data-v="v-today"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg>今日</div>
+    <div class="tab" data-v="v-diary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 4h11a3 3 0 013 3v13H8a3 3 0 01-3-3z"/><path d="M9 8h6M9 12h6"/></svg>日记</div>
+    <div class="tab" data-v="v-plan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 21s-7-4.5-9-9a5 5 0 019-3 5 5 0 019 3c-2 4.5-9 9-9 9z"/></svg>练习</div>
+    <div class="tab" data-v="v-insights"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 19l4-7 4 4 4-9 4 5"/></svg>洞察</div>
+    <div class="tab" data-v="v-me"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 5-6 8-6s6.5 2 8 6"/></svg>我的</div>
+  </nav>
+
+</div></div>
+<div style="position:absolute;top:-34px;left:6px;font-size:12px;color:rgba(255,255,255,.45);letter-spacing:1px">心屿漫行 SoulVoyage · V2 交互原型（纯前端假数据） · 试试红色虚线按钮：危机干预演示</div>
+</div>
+
+<script>
+/* ================= 路由 ================= */
+const tabs=document.querySelectorAll('.tab');
+function showTab(id){
+  document.querySelectorAll('#views .view').forEach(v=>v.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  tabs.forEach(t=>t.classList.toggle('on',t.dataset.v===id));
+  document.getElementById('views').scrollTop=0;
+}
+tabs.forEach(t=>t.onclick=()=>showTab(t.dataset.v));
+const greet=new Date().getHours();
+document.getElementById('greet').innerHTML=(greet<6?'夜深了':greet<11?'早上好':greet<14?'中午好':greet<18?'下午好':'晚上好')+' <small>9月19日 · 岛上的风很轻</small>';
+
+function toast(s){const t=document.getElementById('toast');t.textContent=s;t.classList.add('show');clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('show'),2400)}
+
+/* ================= 深色模式 ================= */
+if(matchMedia('(prefers-color-scheme: dark)').matches)setDark(true);
+function setDark(on){document.getElementById('screen').dataset.theme=on?'dark':'light';document.getElementById('darkSw').classList.toggle('on',on)}
+function toggleDark(){const d=document.getElementById('screen').dataset.theme==='dark';setDark(!d)}
+
+/* ================= 情绪日历热力条 ================= */
+const heat=document.getElementById('heat'),hv=[.3,-.2,.1,.6,-.5,-.7,.2,.8,.4,-.3,-.6,.5,.9,-.1];
+heat.innerHTML=hv.map((v,i)=>{
+  const c=v>0.3?'#30D158':v>0?'#a8e6b8':v>-0.3?'#ffd97a':'#ff8f86';
+  return `<i style="background:${c}" title="${19+hv.length-14+i}日 效价 ${v}" onclick="toast('${19+hv.length-14+i}日：效价 ${v} · 3 个数据点')"><span>${i===13?'今':''}</span></i>`}).join('');
+
+/* ================= 打卡盘 ================= */
+const emos=[['喜悦','😊','var(--e-joy)'],['平静','😌','var(--e-calm)'],['焦虑','😰','var(--e-anx)'],['愤怒','😠','var(--e-anger)'],['悲伤','😢','var(--e-sad)'],['恐惧','😨','var(--e-fear)'],['羞耻','🫣','var(--e-shame)'],['孤独','🫂','var(--e-lonely)'],['麻木','😶‍🌫️','var(--e-numb)'],['委屈','🥺','var(--e-sad)'],['压力','😮‍💨','var(--e-anx)'],['感恩','🙏','var(--e-grati)'],['困惑','🤔','var(--e-numb)'],['疲惫','🥱','var(--e-numb)'],['期待','🤩','var(--e-joy)'],['无聊','😐','var(--e-numb)']];
+let selEmo=null;
+document.getElementById('emoGrid').innerHTML=emos.map((e,i)=>
+  `<div class="emoc" onclick="pickEmo(this,${i})"><i style="background:color-mix(in srgb,${e[2]} 18%,transparent);border-color:transparent">${e[1]}</i>${e[0]}</div>`).join('');
+function pickEmo(el,i){document.querySelectorAll('.emoc').forEach(x=>{x.classList.remove('sel');x.querySelector('i').style.borderColor='transparent'});
+  el.classList.add('sel');el.querySelector('i').style.borderColor=emos[i][2];selEmo=i}
+function openDial(){if(checked){showTab('v-today');return}document.getElementById('dim').classList.add('show');document.getElementById('dialSheet').classList.add('show')}
+let checked=false;
+function saveCheckin(){
+  if(selEmo===null){toast('先选一个情绪吧');return}
+  closeSheets();checked=true;
+  document.getElementById('ckTitle').textContent='今天：'+emos[selEmo][0];
+  document.getElementById('ckSub').textContent='已记入情绪日历 · 10 秒完成，很好';
+  document.getElementById('ckEmoji').textContent=emos[selEmo][1];
+  toast('打卡成功 · 情绪点已写入曲线（来源：SELF_RATING）')
+}
+function closeSheets(){document.getElementById('dim').classList.remove('show');document.querySelectorAll('.sheet').forEach(s=>s.classList.remove('show'))}
+function openCrisis(){document.getElementById('dim').classList.add('show');document.getElementById('crisisSheet').classList.add('show')}
+
+/* ================= 树洞漫聊 ================= */
+const chatBody=document.getElementById('chatBody');
+function openCompanion(){document.getElementById('v-companion').classList.add('active');scrollBottom()}
+function closeCompanion(){document.getElementById('v-companion').classList.remove('active')}
+function scrollBottom(){requestAnimationFrame(()=>chatBody.scrollTop=chatBody.scrollHeight)}
+function addMsg(html,cls){const d=document.createElement('div');d.className='msg '+cls;d.innerHTML=html;chatBody.appendChild(d);scrollBottom();return d}
+function sayQuick(el){sendText(el.textContent.replace(/^⚠ 演示危机干预：/,''))}
+function sendChat(){const i=document.getElementById('chatIn');if(!i.value.trim())return;sendText(i.value.trim());i.value=''}
+function replyFor(text){
+  const t=text.toLowerCase();
+  if(/不想活|活着没|自杀|撑不下去|活不下去|割腕|自残/.test(t))return null; // 危机路径
+  if(/组会|导师|点名|汇报/.test(t))return['嗯，又是会前那种被盯上的感觉。你当时手心发凉了吗，还是更想躲？','我记着这事呢。要不要哪天把它写成日记，让溯源帮你捊一捊「被点名=完蛋」这条连接线？'];
+  if(/室友|耳机|宿舍/.test(t))return['东西丢了确实窝火。你是想直接跟他说，还是在攒一个开口的时机？','要不要去「人际模拟」里先跟"虚拟室友"预演一遍？有个划水但讲理的等着你呢。'];
+  if(/唠|闲聊|没啥|无聊/.test(t))return['那就瞎聊会儿。今天有没有什么瞬间，哪怕一秒钟，觉得还挺舒服的？','我记得你上周说傍晚操场的风很舒服，今天去转了吗？'];
+  if(/累|困|睡不着|失眠/.test(t))return['听起来电量见底了。今晚试试 4-7-8 呼吸吗？就 4 分钟，我陪你。','身体比脑子先撑不住的时候，不用硬扛着「想清楚」。'];
+  if(/开心|高兴|成了|过了|好消息|谢谢/.test(t))return['哇，这个必须记一笔！今晚的情绪日历会亮一下。','你是真的把这周扛过来了。为自己高兴是应该的。'];
+  return['嗯，我在听。再多说一点？','这种感觉说出来就不那么堵了对吧。','我可能给不了答案，但给得了耳朵。今晚的月亮也算一个听众。'];
+}
+function sendText(text){
+  const mine=addMsg(`<div>${esc(text)}</div><div class="tags"><span class="tag" onclick="noAnalyze(this)" title="本条不参与画像分析">🙈 这句别分析</span></div>`,'me');
+  const crisis=/不想活|活着没|自杀|撑不下去|活不下去|割腕|自残/.test(text);
+  const tp=addMsg('<i></i><i></i><i></i>','typing');tp.className='msg typing';
+  setTimeout(()=>{
+    tp.remove();
+    if(crisis){
+      addMsg('这样的念头说出来，需要很大的勇气。我想先确认你怎么安全。','sys');
+      const c=document.createElement('div');c.className='crisis-in';
+      c.innerHTML=`<b>此刻你并不孤单。</b><div class="muted" style="margin-top:6px;color:var(--sv-label2)">心屿漫行是自助工具，不能替代专业帮助。下面的号码 24 小时有人接听：</div>
+        <a href="tel:12356">📞 12356 心理援助热线（24h）</a>
+        <div class="row" style="margin-top:10px"><button class="btn sm ghost" onclick="openCrisis()">更多资源</button><button class="btn sm" onclick="afterCrisis()">我还好，继续陪聊</button></div>`;
+      chatBody.appendChild(c);scrollBottom();
+      addMsg('我不会走。拨不拨电话都由你，但我在这儿，随时。','ai');
+      document.getElementById('companionMemo').textContent='危机模式 · 已触发转介（演示：进入 S1 生命周期）';
+    }else{
+      const r=replyFor(text);addMsg(r[Math.random()*r.length|0],'ai');
+    }
+  },900+Math.random()*700);
+}
+function afterCrisis(){toast('已温和回到陪伴模式（COOLING 横幅常驻演示略）')}
+function noAnalyze(tag){const s=tag.closest('.tags');s.innerHTML='<span class="tag">🙈 本条已排除分析</span>';toast('这一段不会进入画像管道')}
+function esc(s){return s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+
+/* ================= 日记流程 ================= */
+function openEditor(){showTab('v-editor')}
+function fillDemo(){document.getElementById('editorTa').value='今天下午组会，导师当着所有人的面说我进度太慢。回寝路的路上我一直手心出汗。我就知道，挂了这一次，毕设肯定完蛋，延毕然后什么都毁了。其实我也知道没那么严重，但就是控制不住往最坏想。晚上给妈打电话都没敢提。'}
+let running=false;
+function runAnalysis(){
+  if(running)return;running=true;showTab('v-analysis');
+  document.querySelectorAll('.result-block').forEach(r=>r.classList.remove('show'));
+  for(let i=1;i<=4;i++){const el=document.getElementById('tl'+i);el.classList.remove('done','run');el.querySelector('.n').textContent=''}
+  const seq=[['tl1','tl1s','识别中…',900,'情绪：焦虑 0.70 / 效价 -0.5 · 2 个事件标签','r1'],
+             ['tl2','tl2s','KG 召回 4 张误区卡 → CoT 推理中…',1600,'发现灾难化思维（有原文证据）· 报告已成稿','r2'],
+             ['tl3','tl3s','匹配练习库（闭集 4 候选）…',1200,'生成「考前焦虑 3 日舒缓方案」+ 心理小课堂','r3'],
+             ['tl4','tl4s','双轨研判：规则轨 LOW × 语义轨 LOW →',1000,'归档回执：LOW · 画像已更新 · 密钥 k1','r4']];
+  let acc=400;
+  seq.forEach(([tl,sub,run,delay,done,res],i)=>{
+    const el=document.getElementById(tl);
+    setTimeout(()=>{el.classList.add('run');document.getElementById(sub).textContent=run},acc);
+    acc+=delay;
+    setTimeout(()=>{el.classList.remove('run');el.classList.add('done');el.querySelector('.n').textContent='✓';
+      document.getElementById(sub).textContent=done;document.getElementById(res).classList.add('show');scrollBottom();
+      if(i===3){running=false;toast('分析完成 · 日记与报告已加密归档')}},acc);
+  });
+}
+function scrollBottom(){const v=document.getElementById('views');const step=()=>{v.scrollTo({top:v.scrollHeight,behavior:'smooth'})};setTimeout(step,50);setTimeout(step,400)}
+
+/* ================= 呼吸练习 ================= */
+let breathTimer=null,phase=0,round=1,left=0;
+function openBreath(){document.getElementById('breath').classList.add('active');phase=-1;round=1;nextPhase()}
+function closeBreath(){document.getElementById('breath').classList.remove('active');clearTimeout(breathTimer)}
+const PH=[['吸气',4000,'scale(1.05)'],['屏息',7000,'scale(1.05)'],['呼气',8000,'scale(.6)']];
+function nextPhase(){
+  phase++;
+  if(phase>=3){phase=0;round++;
+    if(round>3){document.getElementById('bPhase').textContent='完成';document.getElementById('bCount').textContent='3 轮 · 4 分钟';
+      setTimeout(()=>{closeBreath();toast('已打卡：正念呼吸 ✓（用时 3 分 58 秒）');document.getElementById('breathTag').textContent='已完成 ✓';document.getElementById('breathTag').classList.add('on');
+        document.getElementById('planBar').style.width='66%';document.getElementById('planCnt').textContent='2/3'},1600);return}
+    document.getElementById('bRound').textContent=`第 ${round} / 3 轮 · 完成将自动打卡`}
+  const [name,ms,sc]=PH[phase];
+  const ring=document.getElementById('ring');
+  ring.style.transitionDuration=ms+'ms';ring.style.transform=sc;
+  document.getElementById('bPhase').textContent=name;
+  left=Math.round(ms/1000);
+  document.getElementById('bCount').textContent=left+' 秒';
+  const tick=setInterval(()=>{left--;if(left<=0){clearInterval(tick);return}document.getElementById('bCount').textContent=left+' 秒'},1000);
+  breathTimer=setTimeout(()=>{clearInterval(tick);nextPhase()},ms);
+}
+</script>
+</body>
+</html>
