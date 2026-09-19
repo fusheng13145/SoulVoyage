@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CompanionReply",
+  "type": "object",
+  "required": ["reply"],
+  "properties": {
+    "reply": { "type": "string", "minLength": 1, "maxLength": 300 },
+    "moodTag": { "enum": ["FOLLOW", "LOW_ENERGY", "WARM_UP"] }
+  },
+  "additionalProperties": false
+}

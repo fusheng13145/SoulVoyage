@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import SvNavBar from '@/components/ui/SvNavBar.vue'
 import SvCard from '@/components/ui/SvCard.vue'
 import SvIcon from '@/components/ui/SvIcon.vue'
 import SvList from '@/components/ui/SvList.vue'
 import SvCell from '@/components/ui/SvCell.vue'
+import SvSheet from '@/components/ui/SvSheet.vue'
 import SvPullToRefresh from '@/components/ui/SvPullToRefresh.vue'
 import SvEmotionDial, { type CheckinValue } from '@/components/ui/SvEmotionDial.vue'
 import SvCalendarHeat, { type HeatDay } from '@/components/ui/SvCalendarHeat.vue'
@@ -16,16 +18,31 @@ import { useAuthStore } from '@/stores/auth'
 import { useCrisisStore } from '@/stores/crisis'
 
 interface TPoint { date: string; sourceType: string; emotion: string; valence: string; intensity: string }
+interface CheckInView { date: string; emotionCode: string; rating: number | null; energy: number | null; note: string | null; madeUp: boolean; valence: string }
+interface StreakView { current: number; longest: number; totalDays: number; makeupAvailable: boolean }
+interface PlanItem { seq: number; exerciseId: string; guidance: string; scheduledDate: string; doneAt: string | null; exerciseName: string; durationMin: number }
+interface PlanView { planId: string; title: string; days: number; daysLeft: number; doneCount: number; totalCount: number; items: PlanItem[] }
+interface CompanionActive { sessionId: number; segmentNo: number; status: string; turns: number }
 
+const router = useRouter()
 const auth = useAuthStore()
 const crisis = useCrisisStore()
 
 const ptr = ref<InstanceType<typeof SvPullToRefresh> | null>(null)
 const days = ref<HeatDay[]>([])
-const todayRating = ref<TPoint | null>(null)
+const todayCheckin = ref<CheckInView | null>(null)
+const streak = ref<StreakView | null>(null)
+const plan = ref<PlanView | null>(null)
+const companionActive = ref<CompanionActive | null>(null)
+const unread = ref(0)
 const dial = ref<Partial<CheckinValue>>({})
 const saving = ref(false)
 const loaded = ref(false)
+
+/* 补签 sheet */
+const makeupOpen = ref(false)
+const makeupDate = ref('')
+const makeupDial = ref<Partial<CheckinValue>>({})
 
 const me = computed(() => auth.me)
 const hour = new Date().getHours()
@@ -53,12 +70,21 @@ async function load() {
   await auth.fetchMe().catch(() => { /* 401 由拦截器处理 */ })
   try { await crisis.refreshProfile() } catch { /* 画像失败不挡首页 */ }
   const from = new Date(Date.now() - 13 * 86400000).toLocaleDateString('en-CA')
-  const { data } = await http.get<ApiResp<{ points: TPoint[] }>>('/emotions/trajectory', {
-    params: { from, to: today() },
-  })
-  const points = data.data.points
-  days.value = buildDays(points)
-  todayRating.value = points.filter((p) => p.date === today() && p.sourceType === 'SELF_RATING').pop() ?? null
+  const month = today().slice(0, 7)
+  const [traj, ci, st, pl, cp, nf] = await Promise.all([
+    http.get<ApiResp<{ points: TPoint[] }>>('/emotions/trajectory', { params: { from, to: today() } }),
+    http.get<ApiResp<{ items: CheckInView[]; today: CheckInView | null }>>('/mood-check-ins', { params: { month } }),
+    http.get<ApiResp<StreakView>>('/mood-check-ins/streak'),
+    http.get<ApiResp<{ plan: PlanView | null }>>('/plans/active'),
+    http.get<ApiResp<CompanionActive | null>>('/companion/active'),
+    http.get<ApiResp<{ items: unknown[]; total: number; unreadCount: number }>>('/notifications', { params: { page: 0, size: 1 } }),
+  ])
+  days.value = buildDays(traj.data.data.points)
+  todayCheckin.value = ci.data.data.today
+  streak.value = st.data.data
+  plan.value = pl.data.data.plan
+  companionActive.value = cp.data.data
+  unread.value = nf.data.data.unreadCount
   loaded.value = true
 }
 
@@ -68,21 +94,16 @@ async function refresh() {
 }
 onMounted(refresh)
 
-const todayMeta = computed(() => todayRating.value && EMOTIONS.find((e) => e.label === todayRating.value!.emotion))
+const todayMeta = computed(() => todayCheckin.value && EMOTIONS.find((e) => e.code === todayCheckin.value!.emotionCode))
 
 async function checkin() {
   if (!dial.value.emotion || saving.value) return
-  const meta = EMOTIONS.find((e) => e.code === dial.value.emotion)
-  if (!meta) return
   saving.value = true
   try {
-    await http.post('/emotions/self-rating', {
-      emotion: meta.label,
-      valence: meta.valence,
-      // 能量 1-5 派生强度锚点：M7 完整打卡表落地前的心跳点
-      intensity: +(0.2 + (dial.value.energy || 3) * 0.16).toFixed(2),
+    await http.post('/mood-check-ins', {
+      emotion: dial.value.emotion,
+      energy: dial.value.energy || 3,
       note: dial.value.note?.trim() || undefined,
-      date: today(),
     })
     dial.value = {}
     toast('打卡完成，照顾自己的动作值得被记住')
@@ -93,6 +114,40 @@ async function checkin() {
     saving.value = false
   }
 }
+
+/* 热力条点空格子 → 补签（14 天内、每月 1 次，后端裁决） */
+function pickDay(d: HeatDay) {
+  if (d.valence !== undefined || d.date === today()) return
+  if (d.date > today()) return
+  makeupDate.value = d.date
+  makeupDial.value = {}
+  makeupOpen.value = true
+}
+
+async function submitMakeup() {
+  if (!makeupDial.value.emotion || saving.value) return
+  saving.value = true
+  try {
+    await http.post('/mood-check-ins/makeup', {
+      emotion: makeupDial.value.emotion,
+      energy: makeupDial.value.energy || 3,
+      note: makeupDial.value.note?.trim() || undefined,
+    }, { params: { date: makeupDate.value } })
+    makeupOpen.value = false
+    toast('补上了——断签不羞辱，日历只是提醒你回来')
+    await load()
+  } catch (e: any) {
+    toast(e.message || '补签失败')
+  } finally {
+    saving.value = false
+  }
+}
+
+function goFollow(item: PlanItem) {
+  router.push(`/practice/room/${item.exerciseId}?planId=${plan.value?.planId || ''}&seq=${item.seq}&scheduled=${item.scheduledDate}`)
+}
+
+const planItemDone = (it: PlanItem) => !!it.doneAt
 </script>
 
 <template>
@@ -102,7 +157,11 @@ async function checkin() {
         <h1>{{ greeting }}<small>今天也要好好陪自己</small></h1>
       </template>
       <template #actions>
-        <router-link to="/diaries/write" class="pen" aria-label="写一篇情绪日记"><SvIcon name="i-pen" :size="20" /></router-link>
+        <router-link to="/diaries/write" class="nav-act" aria-label="写一篇情绪日记"><SvIcon name="i-pen" :size="20" /></router-link>
+        <router-link to="/notifications" class="nav-act" aria-label="通知中心">
+          <SvIcon name="i-bell" :size="20" />
+          <span v-if="unread" class="badge" role="status" :aria-label="`${unread} 条未读`">{{ unread > 99 ? '99+' : unread }}</span>
+        </router-link>
       </template>
     </SvNavBar>
 
@@ -115,67 +174,128 @@ async function checkin() {
           账号正在注销冷静期，到期后数据将被不可恢复地销毁。<router-link to="/account">撤回注销 →</router-link>
         </div>
 
-        <!-- 心情打卡盘 -->
+        <!-- 心情打卡盘（G1/G3） -->
         <SvCard>
           <div class="dial-head">
-            <h2>{{ todayRating ? '今天的心情已记下' : '现在，你感觉如何？' }}</h2>
+            <h2>{{ todayCheckin ? '今天的心情已记下' : '现在，你感觉如何？' }}</h2>
             <span v-if="todayMeta" class="done" :style="{ color: `var(${todayMeta.varName})` }">
               {{ todayMeta.face }} {{ todayMeta.label }}</span>
           </div>
-          <template v-if="!todayRating">
+          <template v-if="!todayCheckin">
             <SvEmotionDial v-model="dial" />
             <button class="sv-btn" style="margin-top: 16px" :disabled="!dial.emotion || saving" @click="checkin">
               {{ saving ? '正在写上日历…' : '存进今天' }}</button>
           </template>
-          <p v-else class="sv-muted" style="margin-top: 8px">想再细化一点，可以去日记里让心屿陪你梳理。</p>
-          <SvCalendarHeat :days="days" mode="strip" />
+          <template v-else>
+            <p class="sv-muted" style="margin-top: 8px">
+              能量 {{ todayCheckin.energy ?? '—' }}/5
+              <template v-if="todayCheckin.note"> · 「{{ todayCheckin.note }}」</template>
+            </p>
+            <p v-if="streak" class="sv-cap streak">🔥 已为自己记录 {{ streak.totalDays }} 天 · 连续 {{ streak.current }} 天（最长 {{ streak.longest }} 天）</p>
+          </template>
+          <SvCalendarHeat :days="days" mode="strip" @pick="pickDay" />
           <p class="sv-cap legend" v-if="days.some(d => d.valence !== undefined)">
-            <i class="k cool" /><i class="k mid" /><i class="k warm" />低落 → 明亮 · 空格子表示那天没有记录
+            <i class="k cool" /><i class="k mid" /><i class="k warm" />低落 → 明亮 · 点空格子可补签（14 天内 · 每月 1 次）
           </p>
         </SvCard>
 
-        <!-- 漫聊（M7）占位：不伪造功能 -->
-        <SvCard :pad="false">
-          <div class="manga">
-            <span class="m-ico"><SvIcon name="i-chat" :size="24" tone="inherit" /></span>
-            <div>
-              <b>漫聊 · 随时陪伴</b>
-              <p class="sv-muted">低压力聊天空间正在建造中（M7 上线），先用心事日记或练习区陪陪你。</p>
+        <!-- 今日小计划（G4） -->
+        <SvCard v-if="plan && plan.items.length">
+          <div class="dial-head">
+            <h2>🌿 {{ plan.title }}</h2>
+            <span class="sv-cap prog">{{ plan.doneCount }}/{{ plan.totalCount }} · 剩 {{ plan.daysLeft }} 天</span>
+          </div>
+          <div v-for="it in plan.items" :key="it.seq" class="pitem" :class="{ on: planItemDone(it) }">
+            <div class="pitem-txt">
+              <b>{{ it.exerciseName }}</b>
+              <small>{{ it.guidance || `约 ${it.durationMin} 分钟` }}</small>
             </div>
+            <button v-if="!planItemDone(it)" class="sv-btn sm" @click="goFollow(it)">去跟练</button>
+            <span v-else class="ok" aria-label="已完成">✓</span>
+          </div>
+          <router-link class="more" to="/practice">查看全部计划 →</router-link>
+        </SvCard>
+
+        <!-- 漫聊 / 日记双入口（C0） -->
+        <SvCard :pad="false">
+          <div class="duo">
+            <button class="duo-main" @click="router.push('/companion')">
+              <span class="m-ico"><SvIcon name="i-chat" :size="24" tone="inherit" /></span>
+              <b>来漫聊</b>
+              <small>{{ companionActive
+                ? `接着聊——今天第 ${companionActive.segmentNo} 段，已经说了 ${companionActive.turns} 句`
+                : '不用组织语言，说碎片也可以' }}</small>
+            </button>
+            <button class="duo-side" @click="router.push('/diaries/write')">
+              <span class="s-ico"><SvIcon name="i-pen" :size="20" tone="inherit" /></span>
+              <b>写日记</b>
+              <small>让心屿陪你梳理</small>
+            </button>
           </div>
         </SvCard>
 
         <SvList title="今天可以做">
-          <SvCell label="情绪日记" hint="感知 → 溯源 → 疏导 → 归档" icon="i-pen" tone="var(--sv-indigo-soft)" to="/diaries/write" />
           <SvCell label="日记本" hint="加密时间线 · 回看 编辑 重新分析" icon="i-diary" tone="color-mix(in srgb, var(--e-joy) 20%, transparent)" to="/diaries" />
-          <SvCell label="自助练习" hint="正念 · 呼吸 · 认知书写 跟练打卡" icon="i-heart" tone="color-mix(in srgb, var(--sv-mint) 18%, transparent)" to="/practice" />
+          <SvCell label="自助练习" hint="呼吸环 · 54321 · 认知书写 沉浸跟练" icon="i-heart" tone="color-mix(in srgb, var(--sv-mint) 18%, transparent)" to="/practice" />
           <SvCell label="情绪洞察" hint="曲线 · 周画像 · 误区趋势" icon="i-chart" tone="color-mix(in srgb, var(--e-fear) 16%, transparent)" to="/insights" />
+          <SvCell label="成长来信" hint="每周一封，写给正在长大的你" icon="i-mail" tone="var(--sv-indigo-soft)" to="/letters" />
+          <SvCell label="成就墙" hint="每一枚都来自你照顾自己的时刻" icon="i-medal" tone="color-mix(in srgb, var(--sv-amber) 18%, transparent)" to="/achievements" />
         </SvList>
 
         <p class="sv-cap foot">写日记让心屿陪你梳理情绪——所有记录信封加密存储，只有你能看到。</p>
       </div>
     </SvPullToRefresh>
+
+    <!-- 补签（G3：断签不羞辱） -->
+    <SvSheet v-model="makeupOpen" :title="`补一天：${makeupDate.slice(5).replace('-', '/')}`">
+      <p class="sv-muted mk-tip">那天发生了什么？选个最接近的情绪就好，一分钟。</p>
+      <SvEmotionDial v-model="makeupDial" />
+      <button class="sv-btn" style="margin-top: 14px" :disabled="!makeupDial.emotion || saving" @click="submitMakeup">
+        {{ saving ? '正在写上日历…' : '补进日历' }}</button>
+    </SvSheet>
   </div>
 </template>
 
 <style scoped>
 .today { min-height: 100%; }
 .body { padding: 0 var(--sv-s4); }
-.pen { display: grid; place-items: center; width: 44px; height: 44px; color: var(--sv-indigo); }
+.nav-act { display: grid; place-items: center; width: 44px; height: 44px; color: var(--sv-indigo); position: relative; }
+.badge { position: absolute; top: 6px; right: 4px; min-width: 16px; height: 16px; padding: 0 4px;
+  border-radius: 8px; background: var(--sv-red); color: #fff; font-size: 10px; font-weight: 700;
+  display: grid; place-items: center; line-height: 1; }
 .notice { background: color-mix(in srgb, var(--sv-amber) 16%, var(--sv-card)); color: var(--sv-label);
   border-radius: var(--sv-r-card); padding: 12px 14px; font-size: var(--sv-fs-footnote); margin-bottom: 14px; }
 .notice a { font-weight: 600; }
 .dial-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: var(--sv-s3); }
 .dial-head h2 { font-size: var(--sv-fs-title3); }
 .done { font-size: var(--sv-fs-callout); font-weight: 700; }
+.streak { margin-top: 6px; }
 .legend { margin-top: 10px; display: flex; align-items: center; gap: 4px; }
 .k { width: 12px; height: 12px; border-radius: 4px; display: inline-block; }
 .k.cool { background: color-mix(in srgb, var(--sv-red) 62%, var(--sv-card)); }
 .k.mid { background: color-mix(in srgb, var(--e-joy) 55%, var(--sv-card)); }
 .k.warm { background: var(--sv-mint); }
-.manga { display: flex; gap: var(--sv-s3); align-items: center; padding: var(--sv-s4); }
-.m-ico { display: grid; place-items: center; width: 48px; height: 48px; flex: none; border-radius: 16px;
-  background: linear-gradient(140deg, var(--sv-indigo), var(--sv-purple)); color: #fff; }
-.manga b { font-size: var(--sv-fs-subhead); }
+.pitem { display: flex; align-items: center; gap: 10px; border: 1px solid var(--sv-sep);
+  border-radius: var(--sv-r-ctl); padding: 10px 12px; margin-bottom: var(--sv-s2); }
+.pitem.on { background: color-mix(in srgb, var(--sv-mint) 10%, var(--sv-card)); }
+.pitem-txt { flex: 1; min-width: 0; }
+.pitem-txt b { display: block; font-size: var(--sv-fs-footnote); }
+.pitem-txt small { color: var(--sv-label2); font-size: var(--sv-fs-caption1); display: block; margin-top: 2px; }
+.pitem .ok { color: var(--sv-mint); font-weight: 700; font-size: 18px; }
+.prog { color: var(--sv-label2); }
+.more { display: inline-block; margin-top: 6px; font-size: var(--sv-fs-footnote); color: var(--sv-indigo); }
+.duo { display: grid; grid-template-columns: 1.4fr 1fr; gap: 10px; padding: var(--sv-s4); }
+.duo button { border: none; background: transparent; cursor: pointer; text-align: left;
+  font-family: inherit; color: var(--sv-label); border-radius: var(--sv-r-ctl); padding: 14px; }
+.duo-main { background: linear-gradient(140deg, var(--sv-indigo), var(--sv-purple)); color: #fff; }
+.duo-main b { font-size: var(--sv-fs-title3); display: block; margin-top: 10px; }
+.duo-main small { opacity: .85; display: block; margin-top: 4px; line-height: 1.5; }
+.duo-side { border: 1px solid var(--sv-sep); }
+.duo-side b { font-size: var(--sv-fs-callout); display: block; margin-top: 8px; }
+.duo-side small { color: var(--sv-label2); display: block; margin-top: 3px; }
+.m-ico, .s-ico { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 14px; }
+.m-ico { background: rgba(255, 255, 255, .22); color: #fff; }
+.s-ico { background: var(--sv-indigo-soft); color: var(--sv-indigo); }
+.mk-tip { margin-bottom: 12px; line-height: 1.6; }
 .foot { text-align: center; padding: var(--sv-s2) 0 var(--sv-s4); line-height: 1.6; }
 </style>

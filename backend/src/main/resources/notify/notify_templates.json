@@ -1,0 +1,8 @@
+{
+  "checkin_reminder": { "title": "今天，你感觉如何？", "body": "10 秒钟就好：挑一个表情，就算为自己记录了一次。" },
+  "plan_reminder": { "title": "今天的小练习在等你", "body": "{{guidance}}哪怕只做一小步也算数。" },
+  "plan_summary": { "title": "你的计划小结到了", "body": "「{{title}}」完成了 {{done}}/{{total}} 项——完成练习的日子，心情也更亮一点。" },
+  "letter_ready": { "title": "一封来自岛上的一封信", "body": "上周的成长来信写好了，有空的时候再打开。" },
+  "risk_care": { "title": "我们惦记着你", "body": "这几天如果难熬，除了随时来漫聊，也可以拨打 12356，或到「需要帮助」页面看看。" },
+  "achievement": { "title": "解锁：{{name}}", "body": "{{desc}}这是你为自己做到的。" }
+}

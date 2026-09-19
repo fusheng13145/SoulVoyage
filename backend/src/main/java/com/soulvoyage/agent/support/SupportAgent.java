@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.soulvoyage.common.time.BusinessCalendar;
 import com.soulvoyage.crypto.CryptoService;
+import com.soulvoyage.domain.plan.PlanService;
 import com.soulvoyage.domain.report.ReportEntity;
 import com.soulvoyage.domain.report.ReportRepository;
 import com.soulvoyage.domain.task.AgentMessageEntity;
@@ -18,6 +19,7 @@ import com.soulvoyage.orchestrator.agent.AgentRuntime;
 import com.soulvoyage.orchestrator.agent.OutputInvalidException;
 import com.soulvoyage.orchestrator.protocol.AgentMessage;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDate;
@@ -33,6 +35,7 @@ import java.util.stream.Collectors;
  * HIGH 危机画像下由调度中心旁路（不进入流水线）；即便被调用，也只产出无害 grounding 方案。
  */
 @Component
+@Slf4j
 @RequiredArgsConstructor
 public class SupportAgent implements Agent {
 
@@ -63,6 +66,7 @@ public class SupportAgent implements Agent {
     private final AgentMessageRepository msgRepo;
     private final ObjectMapper mapper;
     private final BusinessCalendar cal;
+    private final PlanService planService;
 
     @Override
     public String code() { return "SUPPORT"; }
@@ -98,6 +102,13 @@ public class SupportAgent implements Agent {
 
         ObjectNode out = result.deepCopy();
         out.put("reportId", "rp_" + report.getId());
+
+        // G4：报告之外落可执行计划（growth_plan）；物化失败不拖垮疏导步骤——报告已在、用户仍看得见方案
+        try {
+            out.put("planId", planService.materialize(rt.userId(), report.getId(), result));
+        } catch (Exception e) {
+            log.warn("plan materialize failed user={} report={}", rt.userId(), report.getId(), e);
+        }
         return out;
     }
 
@@ -168,13 +179,19 @@ public class SupportAgent implements Agent {
         return root.toString();
     }
 
-    /** 反向闭集校验（手册 §5.3 思路延伸）：练习 id 必须来自本步注入候选，防模型发明新疗法 */
+    /** 反向闭集校验（手册 §5.3 思路延伸）：练习 id 必须来自本步注入候选，防模型发明新疗法；G4 起 planItems 同闸 */
     public static void assertExerciseIds(JsonNode result, List<Exercise> candidates) {
         Set<String> allowed = candidates.stream().map(Exercise::id).collect(Collectors.toSet());
         for (JsonNode ex : result.path("matchedExercises")) {
             String id = ex.path("exerciseId").asText("");
             if (!allowed.contains(id)) {
                 throw new OutputInvalidException("方案引用了不在候选库中的练习: " + id);
+            }
+        }
+        for (JsonNode ex : result.path("planItems")) {
+            String id = ex.path("exerciseId").asText("");
+            if (!allowed.contains(id)) {
+                throw new OutputInvalidException("计划引用了不在候选库中的练习: " + id);
             }
         }
     }

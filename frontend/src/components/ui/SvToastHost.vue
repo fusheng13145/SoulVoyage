@@ -3,7 +3,7 @@ import { toastQueue } from '@/stores/ui'
 </script>
 
 <template>
-  <Teleport to="#sv-layer">
+  <Teleport to="#sv-layer" defer>
     <div class="sv-toast-host" role="status" aria-live="polite">
       <transition-group name="toast">
         <div v-for="t in toastQueue" :key="t.id" class="bubble">{{ t.msg }}</div>

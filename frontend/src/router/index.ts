@@ -19,9 +19,14 @@ const router = createRouter({
     { path: '/diaries/write', name: 'diary-write', component: () => import('@/views/DiaryWriteView.vue'), meta: { auth: true, depth: 1 } },
     { path: '/diaries/analysis', name: 'diary-analysis', component: () => import('@/views/AnalysisView.vue'), meta: { auth: true, depth: 1 } },
     { path: '/diaries/:id', name: 'diary-detail', component: () => import('@/views/DiaryDetailView.vue'), meta: { auth: true, depth: 1 } },
+    { path: '/companion', name: 'companion', component: () => import('@/views/CompanionView.vue'), meta: { auth: true, depth: 1 } },
     { path: '/practice/sim', name: 'sim', component: () => import('@/views/SimulationView.vue'), meta: { auth: true, depth: 1 } },
+    { path: '/practice/room/:id', name: 'practice-room', component: () => import('@/views/PracticeRoomView.vue'), meta: { auth: true, depth: 2 } },
     { path: '/archive', name: 'archive', component: () => import('@/views/ArchiveView.vue'), meta: { auth: true, depth: 1 } },
     { path: '/archive/report/:id', name: 'report-detail', component: () => import('@/views/ReportDetailView.vue'), meta: { auth: true, depth: 2 } },
+    { path: '/letters', name: 'letters', component: () => import('@/views/LettersView.vue'), meta: { auth: true, depth: 1 } },
+    { path: '/achievements', name: 'achievements', component: () => import('@/views/AchievementsView.vue'), meta: { auth: true, depth: 1 } },
+    { path: '/notifications', name: 'notifications', component: () => import('@/views/NotificationsView.vue'), meta: { auth: true, depth: 1 } },
     { path: '/account', name: 'account', component: () => import('@/views/AccountView.vue'), meta: { auth: true, depth: 1 } },
 
     // —— 公开危机页（无需登录可达） ——

@@ -129,13 +129,16 @@ public class RiskArchiveAgent implements Agent {
             }
             return new RuleTrackResult(Level.LOW, null, null, null, null, false);
         }
-        // 日记：原文规则扫描
+        // 日记/漫聊消化：文本规则扫描（CHAT 场景 HIGH 已在逐轮一票时同步归档，消化阶段不重复计）
         String text = input.path("diaryText").asText("");
         List<RuleHit> hits = RiskRules.scan(text);
         Level lv = RiskRules.maxLevel(hits);
         if (lv == Level.LOW) return new RuleTrackResult(Level.LOW, null, null, null, null, false);
         RuleHit top = hits.get(0);
         for (RuleHit h : hits) if (h.level() == Level.HIGH) { top = h; break; }
+        if (top.level() == Level.HIGH && input.path("turnRiskHandled").asBoolean(false)) {
+            return new RuleTrackResult(Level.LOW, null, null, null, null, false);
+        }
         return new RuleTrackResult(top.level(), top.triggerType(), top.ruleCode(), top.locator(),
                 null, top.needsReview());
     }

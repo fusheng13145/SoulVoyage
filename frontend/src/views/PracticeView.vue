@@ -4,81 +4,53 @@ import { useRouter } from 'vue-router'
 import SvNavBar from '@/components/ui/SvNavBar.vue'
 import SvCard from '@/components/ui/SvCard.vue'
 import SvIcon from '@/components/ui/SvIcon.vue'
-import SvCheckbox from '@/components/ui/SvCheckbox.vue'
 import SvDisclaimer from '@/components/ui/SvDisclaimer.vue'
 import http, { type ApiResp } from '@/api/http'
 import { toast } from '@/stores/ui'
 import { useContentStore, type ExerciseDef } from '@/stores/content'
 
-interface PlanExercise { exerciseId: string; reason: string; schedule: string }
-interface Plan { planTitle: string; matchedExercises: PlanExercise[]; psyEducation?: { topic: string; content: string } }
+interface PlanItem { seq: number; exerciseId: string; guidance: string; scheduledDate: string; doneAt: string | null; exerciseName: string; durationMin: number }
+interface PlanView { planId: string; title: string; days: number; daysLeft: number; doneCount: number; totalCount: number; startDate: string; endDate: string; status: string; items: PlanItem[] }
 interface ExRecord { id: number; exerciseName: string; completed: boolean; feedback: string; createdAt: string }
 
 const router = useRouter()
 const content = useContentStore()
 
 const exercises = computed<ExerciseDef[]>(() => content.exercises ?? [])
-const plan = ref<Plan | null>(null)
+const plan = ref<PlanView | null>(null)
+const allItems = ref<PlanItem[]>([])
 const records = ref<ExRecord[]>([])
-const active = ref<string | null>(null)          // 跟练中的练习 id
-const doneSteps = ref<boolean[]>([])
-const checkinMsg = ref('')
 const loading = ref(true)
-
-const byId = computed(() => Object.fromEntries(exercises.value.map((e) => [e.id, e])))
-const activeEx = computed(() => active.value ? byId.value[active.value] : null)
 
 async function load() {
   loading.value = true
   try {
-    const [, rec] = await Promise.all([
+    const [, rec, pl] = await Promise.all([
       content.ensureExercises(),
       http.get<ApiResp<ExRecord[]>>('/exercise-records', { params: { limit: 10 } }),
+      http.get<ApiResp<{ plan: PlanView | null }>>('/plans/active'),
     ])
     records.value = rec.data.data
-    try {
-      // 最新疏导方案（SUPPORT 报告）
-      const { data } = await http.get<ApiResp<{ items: { id: number; type: string }[] }>>('/reports', {
-        params: { page: 0, size: 20 },
-      })
-      const sup = data.data.items.find((i) => i.type === 'SUPPORT')
-      if (sup) {
-        const d = await http.get<ApiResp<{ content: Plan }>>(`/reports/${sup.id}`)
-        plan.value = d.data.data.content
-      }
-    } catch { /* 无方案时仅展示练习库 */ }
+    plan.value = pl.data.data.plan
+    if (plan.value) {
+      const d = await http.get<ApiResp<PlanView>>(`/plans/${plan.value.planId}`)
+      allItems.value = d.data.data.items
+    }
   } finally {
     loading.value = false
   }
 }
 onMounted(() => load().catch(() => toast('加载失败')))
 
-function startFollow(id: string) {
-  active.value = id
-  doneSteps.value = (byId.value[id]?.steps ?? []).map(() => false)
-  checkinMsg.value = ''
-  document.getElementById('sv-follow')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+function goFollow(item: PlanItem) {
+  router.push(`/practice/room/${item.exerciseId}?planId=${plan.value?.planId || ''}&seq=${item.seq}&scheduled=${item.scheduledDate}`)
+}
+function goFree(id: string) {
+  router.push(`/practice/room/${id}`)
 }
 
-async function checkin(completed: boolean) {
-  if (!active.value) return
-  if (completed && doneSteps.value.some((d) => !d)) {
-    checkinMsg.value = '还有步骤没走完，先慢慢做完再说 🙂'
-    return
-  }
-  try {
-    await http.post('/exercise-records', { exerciseId: active.value, completed })
-    checkinMsg.value = completed ? '已打卡，照顾自己的动作值得被记住。' : '已记录，随时可以回来继续。'
-    records.value.unshift({
-      id: Date.now(), exerciseName: byId.value[active.value].name, completed, feedback: '',
-      createdAt: new Date().toISOString(),
-    })
-    if (completed) active.value = null
-  } catch (e: any) {
-    toast(e.message || '打卡失败')
-  }
-}
-
+const today = () => new Date().toLocaleDateString('en-CA')
+const dayLabel = (d: string) => (d === today() ? '今天' : d.slice(5).replace('-', '/'))
 const fmtTime = (s: string) => (s ? s.slice(0, 16).replace('T', ' ') : '')
 </script>
 
@@ -99,44 +71,32 @@ const fmtTime = (s: string) => (s ? s.slice(0, 16).replace('T', ' ') : '')
         </button>
       </SvCard>
 
-      <!-- ① 心屿给的最新方案 -->
+      <!-- ① 进行中的小计划（G4） -->
       <SvCard v-if="plan">
-        <h3 class="t">🌿 {{ plan.planTitle }}</h3>
-        <div v-for="m in plan.matchedExercises" :key="m.exerciseId" class="match">
-          <div class="match-head">
-            <b>{{ byId[m.exerciseId]?.name || m.exerciseId }}</b>
-            <em class="sched">{{ m.schedule }}</em>
+        <div class="plan-head">
+          <h3 class="t">🌿 {{ plan.title }}</h3>
+          <span class="sv-cap prog">{{ plan.doneCount }}/{{ plan.totalCount }} · 剩 {{ plan.daysLeft }} 天</span>
+        </div>
+        <div v-for="it in allItems" :key="it.seq" class="pitem" :class="{ on: !!it.doneAt }">
+          <div class="pi-left">
+            <em class="sched">{{ dayLabel(it.scheduledDate) }}</em>
+            <div class="pi-txt">
+              <b>{{ it.exerciseName }}</b>
+              <small>{{ it.guidance || `约 ${it.durationMin} 分钟` }}</small>
+            </div>
           </div>
-          <p class="sv-muted">{{ m.reason }}</p>
-          <button class="sv-btn sm" @click="startFollow(m.exerciseId)">开始跟练</button>
+          <button v-if="!it.doneAt" class="sv-btn sm" :disabled="it.scheduledDate > today()" @click="goFollow(it)">
+            {{ it.scheduledDate === today() ? '去跟练' : '提前做' }}</button>
+          <span v-else class="ok" aria-label="已完成">✓</span>
         </div>
-        <div v-if="plan.psyEducation" class="edu">
-          <b>{{ plan.psyEducation.topic }}</b>
-          <p class="sv-muted">{{ plan.psyEducation.content }}</p>
-        </div>
-        <SvDisclaimer class="disc" text="方案由 AI 基于你的记录生成，是自助练习参考；练习请量力而行。" />
+        <SvDisclaimer class="disc" text="计划由 AI 基于你的疏导结果生成，是自助练习参考；某一天没做到不算失败。" />
+      </SvCard>
+      <SvCard v-else-if="!loading">
+        <h3 class="t">还没有进行中的计划</h3>
+        <p class="sv-muted">写一篇情绪日记并允许疏导后，心屿会为你排一个几天的小计划。也可以直接从下面练习库挑一个开始。</p>
       </SvCard>
 
-      <!-- ② 跟练模式 -->
-      <SvCard v-if="activeEx" id="sv-follow">
-        <h3 class="t">{{ activeEx.name }}
-          <small class="sv-muted">约 {{ activeEx.durationMin }} 分钟</small></h3>
-        <div v-for="(s, i) in activeEx.steps" :key="i" class="step" :class="{ on: doneSteps[i] }">
-          <button class="step-btn" @click="doneSteps[i] = !doneSteps[i]"
-            :aria-pressed="doneSteps[i]">
-            <SvCheckbox :model-value="doneSteps[i]" :label="s.step" />
-            <span><b>{{ s.step }}</b><p class="sv-muted">{{ s.desc }}</p></span>
-          </button>
-        </div>
-        <p v-if="checkinMsg" class="okmsg">{{ checkinMsg }}</p>
-        <div class="btns">
-          <button class="sv-btn" :disabled="doneSteps.some((d) => !d)" @click="checkin(true)">完成并打卡</button>
-          <button class="sv-btn ghost" @click="checkin(false)">今天先不做</button>
-          <button class="sv-btn plain" @click="active = null">收起</button>
-        </div>
-      </SvCard>
-
-      <!-- ③ 练习库 -->
+      <!-- ② 练习库（自由跟练，C4 沉浸模式） -->
       <SvCard>
         <h3 class="t">练习库</h3>
         <p v-if="loading" class="sv-muted">加载中…</p>
@@ -146,12 +106,12 @@ const fmtTime = (s: string) => (s ? s.slice(0, 16).replace('T', ' ') : '')
               <b>{{ e.name }}</b>
               <small>{{ e.durationMin }} 分钟 · {{ e.steps.length }} 步</small>
             </div>
-            <button class="sv-btn ghost sm" @click="startFollow(e.id)">跟练</button>
+            <button class="sv-btn ghost sm" @click="goFree(e.id)">跟练</button>
           </div>
         </div>
       </SvCard>
 
-      <!-- ④ 打卡足迹 -->
+      <!-- ③ 打卡足迹 -->
       <SvCard>
         <h3 class="t">打卡足迹</h3>
         <p v-if="!records.length" class="sv-muted">还没有记录——哪怕只完成一次呼吸练习，也算数。</p>
@@ -177,24 +137,20 @@ const fmtTime = (s: string) => (s ? s.slice(0, 16).replace('T', ' ') : '')
 .h-txt b { font-size: var(--sv-fs-callout); display: block; }
 .h-txt small { color: var(--sv-label2); font-size: var(--sv-fs-caption1); line-height: 1.5; display: block; margin-top: 2px; }
 .t { font-size: var(--sv-fs-title3); margin-bottom: var(--sv-s3); }
-.t small { font-size: var(--sv-fs-footnote); font-weight: 400; margin-left: 8px; }
-.match { border: 1px solid var(--sv-sep); border-radius: var(--sv-r-ctl); padding: 12px; margin-bottom: var(--sv-s2); }
-.match-head { display: flex; justify-content: space-between; align-items: baseline; }
-.sched { font-style: normal; font-size: var(--sv-fs-caption1); background: var(--sv-indigo-soft); color: var(--sv-indigo); border-radius: var(--sv-r-pill); padding: 1px 8px; }
-.match p { margin: 6px 0 10px; }
-.edu { margin-top: var(--sv-s3); background: var(--sv-fill3); border-radius: var(--sv-r-ctl); padding: 12px 14px; }
-.edu b { font-size: var(--sv-fs-subhead); }
-.edu p { margin-top: 4px; line-height: 1.7; }
+.plan-head { display: flex; align-items: baseline; justify-content: space-between; }
+.plan-head .t { margin-bottom: 0; }
+.prog { color: var(--sv-label2); margin-bottom: var(--sv-s3); }
+.pitem { display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  border: 1px solid var(--sv-sep); border-radius: var(--sv-r-ctl); padding: 10px 12px; margin-bottom: var(--sv-s2); }
+.pitem.on { background: color-mix(in srgb, var(--sv-mint) 10%, var(--sv-card)); }
+.pi-left { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.sched { font-style: normal; font-size: var(--sv-fs-caption1); background: var(--sv-indigo-soft); color: var(--sv-indigo);
+  border-radius: var(--sv-r-pill); padding: 1px 8px; flex: none; }
+.pi-txt { min-width: 0; }
+.pi-txt b { display: block; font-size: var(--sv-fs-footnote); }
+.pi-txt small { color: var(--sv-label2); font-size: var(--sv-fs-caption1); display: block; margin-top: 2px; }
+.ok { color: var(--sv-mint); font-weight: 700; font-size: 18px; }
 .disc { margin-top: var(--sv-s3); }
-.step { border-radius: var(--sv-r-ctl); margin-bottom: var(--sv-s2); background: var(--sv-fill3); transition: background .2s; }
-.step.on { background: color-mix(in srgb, var(--sv-mint) 12%, var(--sv-card)); }
-.step-btn { display: flex; gap: var(--sv-s3); align-items: flex-start; width: 100%; padding: 12px;
-  border: none; background: transparent; cursor: pointer; text-align: left; font-family: inherit; color: var(--sv-label); }
-.step-btn b { font-size: var(--sv-fs-subhead); }
-.step-btn p { margin-top: 3px; }
-.okmsg { color: var(--sv-mint); font-size: var(--sv-fs-footnote); margin-bottom: var(--sv-s2); }
-.btns { display: flex; gap: var(--sv-s2); flex-wrap: wrap; margin-top: var(--sv-s3); }
-.btns .sv-btn { width: auto; flex: 1; justify-content: center; }
 .lib { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .lib-item { display: flex; justify-content: space-between; align-items: center; gap: 6px;
   border: 1px solid var(--sv-sep); border-radius: var(--sv-r-ctl); padding: 10px 12px; }
@@ -203,5 +159,5 @@ const fmtTime = (s: string) => (s ? s.slice(0, 16).replace('T', ' ') : '')
 .recs li { padding: 8px 0; border-bottom: 1px dashed var(--sv-sep); font-size: var(--sv-fs-footnote); display: flex; gap: 8px; align-items: baseline; }
 .recs li:last-child { border-bottom: none; }
 .recs small { color: var(--sv-label3); margin-left: auto; font-variant-numeric: tabular-nums; }
-.ok { color: var(--sv-mint); font-weight: 700; } .no { color: var(--sv-label3); }
+.no { color: var(--sv-label3); }
 </style>

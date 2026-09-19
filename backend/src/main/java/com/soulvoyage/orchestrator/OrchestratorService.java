@@ -92,11 +92,19 @@ public class OrchestratorService {
             JsonNode last = null;
             boolean degraded = false;
             int seq = 0;
+            JsonNode base = input;
             for (StepSpec spec : steps) {
                 seq++;
                 if (isCancelled(taskId)) return;
                 try {
-                    last = executeStep(t, spec, seq, input, last);
+                    last = executeStep(t, spec, seq, base, last);
+                    // 文本源随上下文穿透：上游步产出 diaryText（如 COMPANION digest）时提升为顶层，
+                    // 使 EMOTION/TRACE/RISK_ARCHIVE 按既有契约消费多步流水线（DIARY 等顶层已有则不变）
+                    if (last != null && last.hasNonNull("diaryText") && !base.hasNonNull("diaryText")) {
+                        base = base.deepCopy();
+                        ((com.fasterxml.jackson.databind.node.ObjectNode) base)
+                                .set("diaryText", last.get("diaryText"));
+                    }
                 } catch (OutputInvalidException e) {
                     // 校验失败不重试：步骤降级，流水线终止为 PARTIAL_SUCCESS（手册 §3.6）
                     logStep(t.getId(), spec, seq, "DEGRADED", 0, null, e.getMessage());

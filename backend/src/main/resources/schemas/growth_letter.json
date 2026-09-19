@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "GrowthLetter",
+  "type": "object",
+  "required": ["letter", "insufficientEvidence"],
+  "properties": {
+    "letter": { "type": "string", "minLength": 20, "maxLength": 1200 },
+    "weekGlow": { "type": "string", "maxLength": 60, "description": "一句话：上周最值得被看见的一件小事" },
+    "insufficientEvidence": { "type": "boolean" },
+    "disclaimer": { "type": "boolean", "const": true },
+    "letterId": { "type": "string" },
+    "statWeek": { "type": "string" }
+  },
+  "additionalProperties": false
+}

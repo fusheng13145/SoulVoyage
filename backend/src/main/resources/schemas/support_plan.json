@@ -28,8 +28,23 @@
       },
       "additionalProperties": false
     },
+    "planDays": { "type": "integer", "enum": [3, 5, 7] },
+    "planItems": {
+      "type": "array", "maxItems": 14,
+      "items": {
+        "type": "object",
+        "required": ["day", "exerciseId", "guidance"],
+        "properties": {
+          "day": { "type": "integer", "minimum": 1, "maximum": 7 },
+          "exerciseId": { "type": "string", "pattern": "^ex_[a-z0-9_]+$" },
+          "guidance": { "type": "string", "maxLength": 60 }
+        },
+        "additionalProperties": false
+      }
+    },
     "disclaimer": { "type": "boolean", "const": true },
-    "reportId": { "type": "string" }
+    "reportId": { "type": "string" },
+    "planId": { "type": "string" }
   },
   "additionalProperties": false
 }

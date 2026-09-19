@@ -8,6 +8,7 @@
 3. psyEducation.content ≤300字，只做中性科普（如"焦虑时身体会发生什么"），不得出现病名判断或治疗承诺；kgSource 原样引用候选库给出的科普锚点。
 4. planTitle ≤20字，具体、有温度（如"考前焦虑 3 日舒缓小方案"），不使用"治疗/治愈/康复"等词。
 5. disclaimer 恒为 true。
+6. 方案要能执行：给出 planDays（3、5 或 7）与 planItems——把候选练习排进这几天，每天 1-2 项、day 从 1 开始连续编排，每项配一句 ≤30字 的具体引导语（"今晚睡前做一遍呼吸环"）；exerciseId 同样只能取自候选库。
 
 【候选练习库】
 {{exerciseCandidates}}

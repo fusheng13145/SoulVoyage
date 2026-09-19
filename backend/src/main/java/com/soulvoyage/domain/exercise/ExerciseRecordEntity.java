@@ -25,6 +25,23 @@ public class ExerciseRecordEntity {
     @Column(name = "plan_report_id")
     private Long planReportId;        // 来源疏导方案报告（可空）
 
+    @Column(name = "plan_id")
+    private Long planId;              // G4 挂真实成长计划（可空）
+
+    @Column(name = "plan_item_seq")
+    private Integer planItemSeq;      // 计划内条目序号（完成时回写 plan_item）
+
+    @Column(name = "scheduled_date")
+    private java.time.LocalDate scheduledDate; // C4 排期日
+
+    /** O1 业务归属日（Asia/Shanghai），UK(user,exercise,check_date) 防同日重复 */
+    @Column(name = "check_date", nullable = false)
+    private java.time.LocalDate checkDate;
+
+    /** C4 实际跟练时长（秒），前端计时上报 */
+    @Column(name = "duration_actual")
+    private Integer durationActual;
+
     @Column(nullable = false)
     private Short completed = 0;
 

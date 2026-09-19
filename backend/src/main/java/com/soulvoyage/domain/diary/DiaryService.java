@@ -43,6 +43,7 @@ public class DiaryService {
     private final CryptoService crypto;
     private final ObjectMapper mapper;
     private final com.soulvoyage.common.time.BusinessCalendar cal;
+    private final com.soulvoyage.domain.achievement.AchievementService achievements;
 
     private ZoneId zone() { return cal.zone(); }
 
@@ -62,6 +63,11 @@ public class DiaryService {
         d.setMoodSelfRating(mood);
         d.setTaskId(task.getId());
         diaryRepo.save(d);
+        try {
+            achievements.evaluate(userId);   // FIRST_DIARY 等成就；失败不阻断日记落库
+        } catch (Exception e) {
+            log.warn("achievement eval after diary write failed user={}", userId, e);
+        }
     }
 
     /** 列表（月份分组在前端做）：范围过滤 → 解密 → q 子串过滤 → 分页；只回预览不回原文 */

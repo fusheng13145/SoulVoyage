@@ -30,6 +30,8 @@ public class MockLlmClient implements LlmClient {
             case "npc_v1" -> "```json\n" + npcMock(req.user()) + "\n```";
             case "simulate_review_v1" -> "```json\n" + reviewMock(req.user()) + "\n```";
             case "support_v1" -> "```json\n" + supportMock(req.user()) + "\n```";
+            case "companion_v1" -> "```json\n" + companionMock(req.user()) + "\n```";
+            case "growth_letter_v1" -> "```json\n" + letterMock(req.user()) + "\n```";
             default -> throw new LlmUnavailableException("Mock 未覆盖模板: " + req.template());
         };
         return new LlmResponse(content, "mock-llm-v1",
@@ -241,7 +243,76 @@ public class MockLlmClient implements LlmClient {
                 + "升起时，呼吸、肌肉与注意力都会随之变化；先照顾身体的反应，思路往往会慢慢回到可处理的状态。"
                 + "下面是几个不需要意志力就能开始的小动作。");
         edu.put("kgSource", anchor);
+        // G4：把 matchedExercises 排成 3 天可执行计划（每日 1 项，轮转候选）
+        out.put("planDays", 3);
+        ArrayNode planItems = out.putArray("planItems");
+        int pi = 0;
+        for (JsonNode m : matched) {
+            ObjectNode it = planItems.addObject();
+            it.put("day", (pi % 3) + 1);
+            it.put("exerciseId", m.path("exerciseId").asText());
+            it.put("guidance", "（mock）第 " + ((pi % 3) + 1) + " 天："
+                    + m.path("exerciseId").asText() + "，做完就算赢。");
+            pi++;
+        }
         out.put("disclaimer", true);
+        return out.toString();
+    }
+
+    /** growth_letter_v1：user 即素材 JSON；引文逐字取自素材闭集，保证反向校验可回放 */
+    private String letterMock(String materialJson) {
+        JsonNode mat = parse(materialJson);
+        JsonNode quotes = mat.path("quotes");
+        var out = mapper.createObjectNode();
+        var sb = new StringBuilder("见字如面。（mock）这一周，小岛收到了你 ")
+                .append(mat.path("dataPoints").asInt(0)).append(" 次记录");
+        if (mat.path("emotionTop").asText("").length() > 0) {
+            sb.append("，出现最多的情绪是").append(mat.path("emotionTop").asText());
+        }
+        if (mat.path("prevAvgValence").isNumber()) {
+            sb.append("；心情均值从 ").append(mat.path("prevAvgValence").asDouble())
+                    .append(" 走到了 ").append(mat.path("avgValence").asDouble());
+        }
+        if (mat.path("exercisesDone").asInt(0) > 0) {
+            sb.append("。你还完成了 ").append(mat.path("exercisesDone").asInt(0)).append(" 次练习");
+        }
+        if (!quotes.isEmpty()) {
+            sb.append("。读到你写下「").append(quotes.get(0).asText())
+                    .append("」那句话时，我在岛这头记了很久。");
+        }
+        sb.append("下周也按自己的节奏来，记录本身就是在照顾自己。 落款：心屿小岛");
+        out.put("letter", sb.toString());
+        out.put("weekGlow", quotes.isEmpty() ? "这周的亮点，是你还愿意记录。"
+                : "最亮的一刻：你写下「" + quotes.get(0).asText() + "」。");
+        out.put("insufficientEvidence", mat.path("insufficient").asBoolean(false));
+        out.put("disclaimer", true);
+        return out.toString();
+    }
+
+    /** companion_v1：按情绪响应策略档位出确定性台词；profileFollowUp 时回引画像事件（"记得你"演示锚点） */
+    private String companionMock(String userJson) {
+        JsonNode req = parse(userJson);
+        String mood = req.path("mood").asText("FOLLOW");
+        String lastUser = "";
+        JsonNode tr = req.path("transcript");
+        for (int i = tr.size() - 1; i >= 0; i--) {
+            if (tr.get(i).hasNonNull("user")) { lastUser = tr.get(i).path("user").asText(); break; }
+        }
+        String echo = lastUser.length() > 24 ? lastUser.substring(0, 24) + "…" : lastUser;
+        String reply;
+        if (req.path("profileFollowUp").asBoolean(false) && !req.path("profileEntity").asText("").isBlank()) {
+            reply = "你来啦。上次你说的「" + req.path("profileEntity").asText()
+                    + "」那摊事，后来怎么样了？";
+        } else {
+            reply = switch (mood) {
+                case "LOW_ENERGY" -> "嗯，我在听。「" + echo + "」——这种事摊上谁都不好受，不用急着好起来。";
+                case "WARM_UP" -> "听起来你今天松了一点？「" + echo + "」挺好的，愿意多说说吗？";
+                default -> "「" + echo + "」，然后呢？我想听。";
+            };
+        }
+        var out = mapper.createObjectNode();
+        out.put("reply", reply);
+        out.put("moodTag", mood);
         return out.toString();
     }
 

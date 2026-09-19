@@ -11,7 +11,7 @@ function onKey(e: KeyboardEvent) {
 </script>
 
 <template>
-  <Teleport to="#sv-layer">
+  <Teleport to="#sv-layer" defer>
     <transition name="dlg">
       <div v-if="dialogState" class="wrap" @keydown="onKey" role="presentation">
         <div class="veil" @click="resolveDialog(false)" />

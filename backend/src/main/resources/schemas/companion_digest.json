@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CompanionDigest",
+  "type": "object",
+  "required": ["diaryText", "sessionId", "analyzedTurns", "excludedTurns"],
+  "properties": {
+    "diaryText": { "type": "string", "maxLength": 4200 },
+    "sessionId": { "type": "integer" },
+    "analyzedTurns": { "type": "integer", "minimum": 0 },
+    "excludedTurns": { "type": "integer", "minimum": 0 }
+  },
+  "additionalProperties": false
+}

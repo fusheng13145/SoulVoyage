@@ -51,6 +51,10 @@ public class ArchiveService {
     private final ExerciseRecordRepository exerciseRepo;
     private final BusinessCalendar cal;
     private final com.soulvoyage.domain.diary.DiaryRepository diaryRepo;
+    private final com.soulvoyage.domain.companion.CompanionSessionRepository companionSessionRepo;
+    private final com.soulvoyage.domain.companion.CompanionTurnRepository companionTurnRepo;
+    private final com.soulvoyage.domain.checkin.MoodCheckInRepository checkInRepo;
+    private final com.soulvoyage.domain.letter.GrowthLetterRepository letterRepo;
     private final UserRepository userRepo;
     private final CryptoService crypto;
     private final AuditService audit;
@@ -152,6 +156,9 @@ public class ArchiveService {
         snapshot.set("profiles", allProfiles(userId));
         snapshot.set("exerciseRecords", allExercises(userId));
         snapshot.set("riskEvents", allRiskEvents(userId));
+        snapshot.set("companion", allCompanion(userId));
+        snapshot.set("moodCheckIns", allCheckIns(userId));
+        snapshot.set("growthLetters", allLetters(userId));
 
         String fileId = Ulid.next();
         exports.put(fileId, new Snapshot(userId, snapshot, Instant.now().plus(EXPORT_TTL)));
@@ -275,6 +282,62 @@ public class ArchiveService {
                 n.set("evidence", mapper.readTree(crypto.decryptUserField(userId, r.getEvidenceRefEnc())));
             } catch (Exception e) {
                 n.put("evidence", "（无法解密：密钥已销毁）");
+            }
+        }
+        return arr;
+    }
+
+    /** C0 漫聊逐轮明文导出（用户消息 ✦ 加密存储，导出属主解密；注销销毁后自然不可解） */
+    private ArrayNode allCompanion(long userId) {
+        var arr = mapper.createArrayNode();
+        var sessions = companionSessionRepo.findByUserIdOrderByChatDateDescIdDesc(userId,
+                org.springframework.data.domain.PageRequest.of(0, 50)).getContent();
+        for (var s : sessions) {
+            ObjectNode sn = arr.addObject();
+            sn.put("chatDate", s.getChatDate().toString()).put("segmentNo", s.getSegmentNo())
+                    .put("status", s.getStatus()).put("turns", s.getTurns());
+            var turns = sn.putArray("turnList");
+            for (var t : companionTurnRepo.findBySessionIdOrderByTurnNoAsc(s.getId())) {
+                ObjectNode tn = turns.addObject();
+                tn.put("turnNo", t.getTurnNo()).put("aiText", t.getAiText())
+                        .put("noAnalyze", t.getNoAnalyze() == 1);
+                try {
+                    tn.put("userText", crypto.decryptUserField(userId, t.getUserTextEnc()));
+                } catch (Exception e) {
+                    tn.put("userText", "（无法解密：密钥已销毁）");
+                }
+            }
+        }
+        return arr;
+    }
+
+    private ArrayNode allCheckIns(long userId) {
+        var arr = mapper.createArrayNode();
+        for (var c : checkInRepo.findByUserIdOrderByCheckDateDesc(userId)) {
+            ObjectNode n = arr.addObject();
+            n.put("checkDate", c.getCheckDate().toString()).put("emotionCode", c.getEmotionCode());
+            if (c.getRating() != null) n.put("rating", c.getRating().intValue());
+            if (c.getEnergy() != null) n.put("energy", c.getEnergy().intValue());
+            if (c.getNoteEnc() == null) {
+                n.putNull("note");
+            } else try {
+                n.put("note", crypto.decryptUserField(userId, c.getNoteEnc()));
+            } catch (Exception e) {
+                n.put("note", "（无法解密：密钥已销毁）");
+            }
+        }
+        return arr;
+    }
+
+    private ArrayNode allLetters(long userId) {
+        var arr = mapper.createArrayNode();
+        for (var l : letterRepo.findByUserIdOrderByStatWeekDesc(userId)) {
+            ObjectNode n = arr.addObject();
+            n.put("statWeek", l.getStatWeek());
+            try {
+                n.set("content", mapper.readTree(crypto.decryptUserField(userId, l.getContentEnc())));
+            } catch (Exception e) {
+                n.put("content", "（无法解密：密钥已销毁）");
             }
         }
         return arr;

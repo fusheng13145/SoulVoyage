@@ -117,7 +117,7 @@ CREATE TABLE emotion_trajectory (
   id              BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   user_id         BIGINT UNSIGNED NOT NULL,
   record_date     DATE            NOT NULL,
-  source_type     VARCHAR(16)     NOT NULL COMMENT 'DIARY/SELF_RATING/SIMULATE',
+  source_type     VARCHAR(16)     NOT NULL COMMENT 'DIARY/SELF_RATING/SIMULATE/CHAT(M7 漫聊分段消化)',
   source_id       BIGINT UNSIGNED NULL COMMENT '来源记录id',
   primary_emotion VARCHAR(32)     NOT NULL COMMENT '16基础情绪枚举',
   valence         DECIMAL(4,3)    NOT NULL COMMENT '效价 -1.000~1.000',
@@ -270,12 +270,140 @@ CREATE TABLE exercise_record (
   user_id     BIGINT UNSIGNED NOT NULL,
   exercise_id BIGINT UNSIGNED NOT NULL,
   plan_report_id BIGINT UNSIGNED NULL COMMENT '来源疏导方案报告',
+  plan_id     BIGINT UNSIGNED NULL COMMENT 'G4 挂真实成长计划',
+  plan_item_seq INT             NULL COMMENT '计划内条目序号（完成时回写 plan_item）',
+  scheduled_date DATE           NULL COMMENT 'C4 排期日（来自 plan_item.scheduled_date）',
+  check_date  DATE            NOT NULL COMMENT 'O1 业务归属日（Asia/Shanghai），同日防重复',
+  duration_actual INT           NULL COMMENT 'C4 实际跟练时长（秒），伪流时代由前端计时上报',
   completed   TINYINT         NOT NULL DEFAULT 0,
   feedback    VARCHAR(255)    NULL,
   created_at  DATETIME(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   KEY idx_user_time (user_id, created_at),
-  KEY idx_exercise (exercise_id)
-) COMMENT='练习打卡';
+  KEY idx_exercise (exercise_id),
+  KEY idx_plan (plan_id),
+  UNIQUE KEY uk_user_ex_date (user_id, exercise_id, check_date)
+) COMMENT='练习打卡（M7：同日同练习幂等）';
+
+-- ---------- M7 · 树洞漫聊（C0） ----------
+
+CREATE TABLE companion_session (
+  id           BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id      BIGINT UNSIGNED NOT NULL,
+  chat_date    DATE            NOT NULL COMMENT 'O1 业务日；分段键=自然日+30min 静默',
+  segment_no   INT             NOT NULL DEFAULT 1 COMMENT '当日第几段',
+  status       VARCHAR(16)     NOT NULL DEFAULT 'ACTIVE' COMMENT 'ACTIVE/SEALED(分段封口待消化)/DIGESTED(已进 COMPANION_PIPELINE)',
+  turns        INT             NOT NULL DEFAULT 0,
+  last_turn_at DATETIME(3)     NULL COMMENT '静默计时基准（30min 无新回合即封段）',
+  excl_flag    TINYINT         NOT NULL DEFAULT 0 COMMENT '会话级排除分析（companion_analysis_on 关闭时新建会话置 1）',
+  digested_at  DATETIME(3)     NULL,
+  created_at   DATETIME(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  UNIQUE KEY uk_user_date_seg (user_id, chat_date, segment_no),
+  KEY idx_user_status (user_id, status)
+) COMMENT='漫聊会话分段';
+
+CREATE TABLE companion_turn (
+  id            BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  session_id    BIGINT UNSIGNED NOT NULL,
+  turn_no       INT             NOT NULL,
+  user_text_enc BLOB            NOT NULL COMMENT '✦ 用户消息密文（同 simulate 规范）',
+  ai_text       TEXT            NOT NULL COMMENT '陪伴回复（平台生成明文）',
+  mood_tag      VARCHAR(16)     NULL COMMENT '本轮情绪响应策略档位 FOLLOW/LOW_ENERGY/WARM_lift…',
+  risk_hit      TINYINT         NOT NULL DEFAULT 0 COMMENT '逐轮 RiskRules 命中（HIGH 当轮拦截）',
+  no_analyze    TINYINT         NOT NULL DEFAULT 0 COMMENT '「这句别分析」：本条排除画像管道',
+  created_at    DATETIME(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  UNIQUE KEY uk_session_turn (session_id, turn_no)
+) COMMENT='漫聊逐轮记录';
+
+-- ---------- M7 · 成长陪伴（G 系列） ----------
+
+CREATE TABLE mood_check_in (
+  id           BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id      BIGINT UNSIGNED NOT NULL,
+  check_date   DATE            NOT NULL COMMENT 'O1 业务归属日，支持补写/修改',
+  rating       TINYINT         NULL COMMENT '整体心情 1-5（可空：只选表情不打分）',
+  emotion_code VARCHAR(16)     NOT NULL COMMENT '16 情绪盘闭集 code（与前端 EMOTIONS 同源）',
+  energy       TINYINT         NULL COMMENT '能量值 1-5',
+  note_enc     BLOB            NULL COMMENT '✦ 可选一句话密文',
+  made_up      TINYINT         NOT NULL DEFAULT 0 COMMENT 'G3 补签救济（每自然月 1 次）',
+  created_at   DATETIME(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  updated_at   DATETIME(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  UNIQUE KEY uk_user_check (user_id, check_date)
+) COMMENT='G1 每日心情打卡（每日一条，可改）';
+
+CREATE TABLE growth_plan (
+  id               BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id          BIGINT UNSIGNED NOT NULL,
+  source_report_id BIGINT UNSIGNED NULL COMMENT '来源 SUPPORT 报告',
+  days             TINYINT         NOT NULL DEFAULT 3 COMMENT '3/5/7',
+  title            VARCHAR(128)    NOT NULL,
+  status           VARCHAR(16)     NOT NULL DEFAULT 'ACTION' COMMENT 'ACTION/DONE/DROPPED',
+  items_json       JSON            NULL COMMENT '生成时快照（权威逐日数据在 plan_item）',
+  start_date       DATE            NOT NULL,
+  end_date         DATE            NOT NULL,
+  summary_done     TINYINT         NOT NULL DEFAULT 0 COMMENT '到期小结是否已生成',
+  created_at       DATETIME(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  KEY idx_user_status (user_id, status),
+  KEY idx_user_end (user_id, end_date)
+) COMMENT='G4 成长计划（短期减压方案的可执行载体）';
+
+CREATE TABLE plan_item (
+  id             BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  plan_id        BIGINT UNSIGNED NOT NULL,
+  seq            INT             NOT NULL COMMENT '全局序号，从 1（按 scheduled_date+日内次序）',
+  exercise_code  VARCHAR(32)     NOT NULL,
+  guidance       VARCHAR(255)    NULL COMMENT '一句引导语',
+  scheduled_date DATE            NOT NULL,
+  done_at        DATETIME(3)     NULL,
+  feedback       VARCHAR(255)    NULL,
+  UNIQUE KEY uk_plan_seq (plan_id, seq),
+  KEY idx_plan_date (plan_id, scheduled_date)
+) COMMENT='G4 计划逐日条目';
+
+CREATE TABLE notification (
+  id         BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id    BIGINT UNSIGNED NOT NULL,
+  kind       VARCHAR(16)     NOT NULL COMMENT 'SYSTEM/PLAN/ACHIEVEMENT/LETTER/RISK_CARE',
+  dedup_key  VARCHAR(64)     NULL COMMENT '幂等键（如 checkin:2026-09-19），定时扫描重跑不重复',
+  title      VARCHAR(64)     NOT NULL,
+  body       VARCHAR(500)    NOT NULL,
+  link       VARCHAR(128)    NULL COMMENT '应用内跳转路径（实现增列：点击直达）',
+  read_at    DATETIME(3)     NULL,
+  created_at DATETIME(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  UNIQUE KEY uk_user_dedup (user_id, dedup_key),
+  KEY idx_user_time (user_id, created_at),
+  KEY idx_user_unread (user_id, read_at)
+) COMMENT='G5 站内通知（无短信/邮件，隐私最小化）';
+
+CREATE TABLE user_preferences (
+  id                     BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id                BIGINT UNSIGNED NOT NULL,
+  theme                  VARCHAR(8)      NOT NULL DEFAULT 'system' COMMENT 'system/light/dark',
+  checkin_reminder_on    TINYINT         NOT NULL DEFAULT 0 COMMENT '默认关，首次开启引导',
+  reminder_time          CHAR(5)         NOT NULL DEFAULT '20:00' COMMENT 'HH:MM 业务时区',
+  plan_reminder_on       TINYINT         NOT NULL DEFAULT 0,
+  letter_on              TINYINT         NOT NULL DEFAULT 1,
+  haptic_on              TINYINT         NOT NULL DEFAULT 1,
+  companion_analysis_on  TINYINT         NOT NULL DEFAULT 1 COMMENT 'C0 漫聊参与情绪分析总开关',
+  updated_at             DATETIME(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  UNIQUE KEY uk_user (user_id)
+) COMMENT='G5 用户偏好（服务端真源，前端 localStorage 降级为缓存）';
+
+CREATE TABLE user_achievement (
+  id           BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id      BIGINT UNSIGNED NOT NULL,
+  code         VARCHAR(32)     NOT NULL COMMENT 'FIRST_DIARY/FIRST_A_GRADE/STREAK_7/ALL_EXERCISES/NO_REPEAT_DISTORTION/STREAK_30/COMPANION_OPENED...',
+  unlocked_at  DATETIME(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  UNIQUE KEY uk_user_code (user_id, code)
+) COMMENT='G3 成就徽章（全部指向自我关照行为，无分数竞争）';
+
+CREATE TABLE growth_letter (
+  id           BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id      BIGINT UNSIGNED NOT NULL,
+  stat_week    CHAR(8)         NOT NULL COMMENT 'ISO 周，如 2026-W38',
+  content_enc  BLOB            NOT NULL COMMENT '✦ 第二人称信正文密文',
+  created_at   DATETIME(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  UNIQUE KEY uk_user_week (user_id, stat_week)
+) COMMENT='G6 成长来信（每周一个人格化周报）';
 
 -- ---------- 系统与审计 ----------
 
