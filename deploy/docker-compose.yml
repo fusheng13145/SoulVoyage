@@ -1,0 +1,52 @@
+# 心屿漫行 SoulVoyage — 预留编排（当前开发阶段使用本机 MySQL/Redis，本文件暂不启用）
+# 切换 Docker 时：docker compose up -d && 后端设 SV_MYSQL_HOST=mysql SV_REDIS_HOST=redis SV_NEO4J_ENABLED=true
+name: soulvoyage
+
+services:
+  mysql:
+    image: mysql:8.4
+    ports: ["3306:3306"]
+    environment:
+      MYSQL_ROOT_PASSWORD: ${SV_MYSQL_ROOT_PASS:?}
+      MYSQL_DATABASE: soulvoyage
+      MYSQL_USER: soulvoyage
+      MYSQL_PASSWORD: ${SV_MYSQL_PASS:?}
+    volumes:
+      - ./mysql-data:/var/lib/mysql
+      - ./sql:/docker-entrypoint-initdb.d:ro   # schema.sql 首次自动导入
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_0900_ai_ci
+
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+    volumes:
+      - ./redis-data:/data
+
+  neo4j:
+    image: neo4j:5-community
+    ports: ["7474:7474", "7687:7687"]
+    environment:
+      NEO4J_AUTH: neo4j/${SV_NEO4J_PASS:?}
+      NEO4J_PLUGINS: '["apoc"]'
+    volumes:
+      - ./neo4j-data:/data
+      - ./neo4j:/import:ro
+
+  app:
+    build: ../backend
+    ports: ["8080:8080"]
+    depends_on: [mysql, redis, neo4j]
+    environment:
+      SV_MYSQL_HOST: mysql
+      SV_REDIS_HOST: redis
+      SV_NEO4J_ENABLED: "true"
+      SV_MASTER_KEY: ${SV_MASTER_KEY:?}
+      SV_JWT_SECRET: ${SV_JWT_SECRET:?}
+      SV_LLM_PROVIDER: ${SV_LLM_PROVIDER:-mock}
+      SV_LLM_API_KEY: ${SV_LLM_API_KEY:-}
+
+  web:
+    image: nginx:alpine
+    ports: ["80:80"]
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro

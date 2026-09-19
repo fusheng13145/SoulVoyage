@@ -1,0 +1,36 @@
+# --- Java / Maven ---
+backend/target/
+*.class
+*.jar
+!.mvn/wrapper/maven-wrapper.jar
+
+# --- Node / Vue ---
+frontend/node_modules/
+frontend/dist/
+*.local
+
+# --- IDE ---
+.idea/
+.vscode/
+*.iml
+
+# --- 环境与密钥（绝不入库）---
+.env
+.env.*
+*.env
+!.env.example
+!*.env.example
+*.pem
+*.p12
+keystore/
+
+# --- 日志与本地数据 ---
+logs/
+*.log
+deploy/mysql-data/
+deploy/neo4j-data/
+deploy/redis-data/
+
+# --- OS ---
+Thumbs.db
+.DS_Store

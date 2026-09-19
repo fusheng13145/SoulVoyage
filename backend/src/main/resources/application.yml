@@ -1,0 +1,54 @@
+server:
+  port: 8080
+  shutdown: graceful
+
+spring:
+  application:
+    name: soulvoyage
+  lifecycle:
+    timeout-per-shutdown-phase: 20s
+  datasource:
+    # 本机 MySQL 8.4（后续切换 docker-compose 时仅改此处，见 deploy/docker-compose.yml）
+    url: jdbc:mysql://${SV_MYSQL_HOST:127.0.0.1}:${SV_MYSQL_PORT:3306}/soulvoyage?useSSL=false&serverTimezone=UTC&characterEncoding=utf8&allowPublicKeyRetrieval=true
+    username: ${SV_MYSQL_USER:soulvoyage}
+    password: ${SV_MYSQL_PASS:CHANGE_ME_local_dev}
+    hikari:
+      maximum-pool-size: 16
+  jpa:
+    hibernate:
+      ddl-auto: none   # 表结构以 deploy/sql/schema.sql 为唯一事实源
+    open-in-view: false
+    properties:
+      hibernate.jdbc.time_zone: UTC
+  data:
+    redis:
+      host: ${SV_REDIS_HOST:127.0.0.1}   # 本机 Redis（D:\Redis）
+      port: ${SV_REDIS_PORT:6379}
+      timeout: 3s
+  threads:
+    virtual:
+      enabled: true    # Java 21 虚拟线程：LLM 调用为 I/O 密集
+
+soulvoyage:
+  security:
+    jwt:
+      secret: ${SV_JWT_SECRET:DEV_ONLY_CHANGE_ME_DEV_ONLY_CHANGE_ME_32B+}   # ≥32字节
+      access-ttl: 30m
+      refresh-ttl: 7d
+    master-key: ${SV_MASTER_KEY:}          # Base64 32字节主密钥 MK；为空则启动时生成临时密钥并告警（仅限开发）
+  llm:
+    provider: ${SV_LLM_PROVIDER:mock}      # mock | dashscope | openai-compatible（M1 接入）
+  neo4j:
+    enabled: ${SV_NEO4J_ENABLED:false}     # 本机暂未安装，M2 接入时置 true
+
+logging:
+  pattern:
+    console: "%d{HH:mm:ss.SSS} %-5level [%X{traceId:-}] %logger{36} - %msg%n"
+  level:
+    com.soulvoyage: DEBUG
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
