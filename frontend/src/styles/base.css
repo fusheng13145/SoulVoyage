@@ -1,0 +1,63 @@
+/* 全局基础样式：排版 / 按钮 / 通用件（DS1–DS4 落地，组件态样式各自 scoped） */
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+html, body { height: 100%; }
+body {
+  margin: 0;
+  font-family: var(--sv-font);
+  font-size: var(--sv-body);
+  line-height: 1.6;
+  color: var(--sv-label);
+  background: var(--sv-bg);
+  -webkit-font-smoothing: antialiased;
+  font-variant-numeric: tabular-nums;
+}
+#app { min-height: 100dvh; }
+
+h1, h2, h3, h4, p, ul, ol, figure { margin: 0; }
+ul, ol { padding: 0; list-style: none; }
+a { color: var(--sv-indigo); text-decoration: none; }
+button { font-family: inherit; }
+:focus-visible { outline: 2.5px solid var(--sv-blue); outline-offset: 2px; border-radius: 6px; }
+
+/* 阅读列（DS2） */
+.sv-prose { max-width: 68ch; }
+.sv-muted { color: var(--sv-label2); font-size: var(--sv-fs-footnote); line-height: 1.6; }
+.sv-cap { color: var(--sv-label3); font-size: var(--sv-fs-caption1); }
+
+/* 按钮（14px 圆角控件） */
+.sv-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--sv-s2);
+  width: 100%; min-height: var(--sv-s8); padding: 14px var(--sv-s5);
+  border: none; border-radius: var(--sv-r-ctl);
+  font-size: var(--sv-fs-headline); font-weight: 600; cursor: pointer;
+  background: var(--sv-indigo); color: #fff;
+  transition: transform 0.12s var(--sv-ease), opacity 0.15s;
+}
+.sv-btn:active { transform: scale(0.97); }
+.sv-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+.sv-btn.ghost { background: var(--sv-fill2); color: var(--sv-indigo); }
+.sv-btn.danger { background: var(--sv-red); }
+.sv-btn.plain { background: transparent; color: var(--sv-indigo); }
+.sv-btn.sm { width: auto; min-height: 36px; padding: 9px 14px; font-size: var(--sv-fs-subhead); }
+
+/* 卡片表面：dark 下描边替代阴影（DS2） */
+.sv-surface {
+  background: var(--sv-card);
+  border-radius: var(--sv-r-card);
+  box-shadow: var(--sv-sh-1);
+}
+[data-theme="dark"] .sv-surface { border: 1px solid var(--sv-sep); box-shadow: none; }
+
+/* 滚动容器隐藏滚动条（观感），但保留键盘滚动 */
+.sv-scroll { overflow-y: auto; overscroll-behavior: contain; scrollbar-width: none; }
+.sv-scroll::-webkit-scrollbar { display: none; }
+
+/* 减动效全局降级（DS4） */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

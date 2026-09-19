@@ -1,14 +1,13 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import http, { TOKEN_KEY, REFRESH_KEY, type ApiResp } from '../api/http'
-
-interface TokenResp {
-  accessToken: string; refreshToken: string; userId: number
-  nickname: string; role: string; deletionPending: boolean
-}
+import SvIcon from '@/components/ui/SvIcon.vue'
+import { useAuthStore } from '@/stores/auth'
+import { toast } from '@/stores/ui'
 
 const router = useRouter()
+const auth = useAuthStore()
+
 const mode = ref<'login' | 'register'>('login')
 const username = ref('')
 const password = ref('')
@@ -17,19 +16,14 @@ const error = ref('')
 const loading = ref(false)
 
 async function submit() {
+  if (loading.value) return
   error.value = ''
   loading.value = true
   try {
-    const path = mode.value === 'login' ? '/auth/login' : '/auth/register'
-    const { data } = await http.post<ApiResp<TokenResp>>(path, {
-      username: username.value, password: password.value, nickname: nickname.value,
-    })
-    localStorage.setItem(TOKEN_KEY, data.data.accessToken)
-    localStorage.setItem(REFRESH_KEY, data.data.refreshToken)
-    // S2：注销冷静期内登录 → 首页提示可撤回
-    if (data.data.deletionPending) sessionStorage.setItem('sv_del_pending', '1')
-    else sessionStorage.removeItem('sv_del_pending')
-    router.push('/')
+    if (mode.value === 'login') await auth.login(username.value, password.value)
+    else await auth.register(username.value, password.value, nickname.value)
+    toast(mode.value === 'login' ? '欢迎回到心屿' : '登岛成功，从这里开始漫行')
+    router.replace('/today')
   } catch (e: any) {
     error.value = e.message ?? '操作失败'
   } finally {
@@ -39,37 +33,57 @@ async function submit() {
 </script>
 
 <template>
-  <div class="page">
-    <div class="card">
-      <h1>心屿漫行 <small>SoulVoyage</small></h1>
-      <p class="sub">多 Agent 青年心理自助成长平台</p>
-      <div class="tabs">
-        <button :class="{ on: mode === 'login' }" @click="mode = 'login'">登录</button>
-        <button :class="{ on: mode === 'register' }" @click="mode = 'register'">注册</button>
-      </div>
-      <form @submit.prevent="submit">
-        <input v-model="username" placeholder="用户名" maxlength="32" required />
-        <input v-model="password" type="password" placeholder="密码（≥8位）" maxlength="64" required />
-        <input v-if="mode === 'register'" v-model="nickname" placeholder="昵称（可选）" maxlength="32" />
-        <p v-if="error" class="err">{{ error }}</p>
-        <button class="primary" :disabled="loading">{{ loading ? '请稍候…' : (mode === 'login' ? '进入心屿' : '注册并进入') }}</button>
-      </form>
-      <p class="policy">本平台为心理自助工具，不构成医学诊断或治疗建议；如遇心理危机请拨打 12356。</p>
+  <div class="login">
+    <div class="brand">
+      <span class="logo"><SvIcon name="i-island" :size="56" tone="inherit" /></span>
+      <h1>心屿漫行</h1>
+      <p class="sv-muted">多 Agent 青年心理自助成长平台</p>
     </div>
+
+    <form class="card sv-surface" @submit.prevent="submit">
+      <div class="seg" role="tablist" aria-label="登录或注册">
+        <button type="button" role="tab" :aria-selected="mode === 'login'" :class="{ on: mode === 'login' }" @click="mode = 'login'">登录</button>
+        <button type="button" role="tab" :aria-selected="mode === 'register'" :class="{ on: mode === 'register' }" @click="mode = 'register'">注册</button>
+      </div>
+
+      <label>用户名
+        <input v-model="username" autocomplete="username" maxlength="32" required />
+      </label>
+      <label>密码
+        <input v-model="password" type="password" autocomplete="current-password" placeholder="≥ 8 位" maxlength="64" required />
+      </label>
+      <label v-if="mode === 'register'">昵称（可选）
+        <input v-model="nickname" maxlength="32" />
+      </label>
+
+      <p v-if="error" class="err" role="alert">{{ error }}</p>
+      <button class="sv-btn" type="submit" :disabled="loading || !username || !password">
+        {{ loading ? '请稍候…' : (mode === 'login' ? '进入心屿' : '注册并进入') }}</button>
+    </form>
+
+    <router-link to="/crisis" class="help">需要支持？查看危机资源</router-link>
+    <p class="policy sv-cap">本平台为心理自助工具，不构成医学诊断或治疗建议；如遇心理危机请拨打 12356。</p>
   </div>
 </template>
 
 <style scoped>
-.page { min-height: 100vh; display: grid; place-items: center; background: linear-gradient(160deg, #eef4ff, #f7effa); }
-.card { width: 360px; background: #fff; border-radius: 16px; padding: 32px 28px; box-shadow: 0 12px 40px rgba(80, 90, 160, .15); }
-h1 { margin: 0; font-size: 24px; } h1 small { font-size: 13px; color: #8a93b5; font-weight: normal; }
-.sub { color: #7a819e; margin: 4px 0 20px; font-size: 13px; }
-.tabs { display: flex; gap: 8px; margin-bottom: 16px; }
-.tabs button { flex: 1; padding: 8px; border: 1px solid #dde3f3; background: #f6f8fd; border-radius: 8px; cursor: pointer; }
-.tabs button.on { background: #5b6cff; color: #fff; border-color: #5b6cff; }
-form { display: flex; flex-direction: column; gap: 12px; }
-input { padding: 10px 12px; border: 1px solid #dde3f3; border-radius: 8px; font-size: 14px; }
-.primary { padding: 11px; background: #5b6cff; color: #fff; border: 0; border-radius: 8px; font-size: 15px; cursor: pointer; }
-.err { color: #d4574e; font-size: 13px; margin: 0; }
-.policy { color: #9aa1bd; font-size: 12px; margin-top: 20px; line-height: 1.6; }
+.login { display: flex; flex-direction: column; align-items: center; padding: calc(var(--sv-safe-t) + 64px) var(--sv-s5) var(--sv-s6); }
+.brand { text-align: center; margin-bottom: var(--sv-s6); }
+.logo { display: grid; place-items: center; width: 88px; height: 88px; margin: 0 auto var(--sv-s3);
+  border-radius: 28px; background: linear-gradient(160deg, var(--sv-indigo), var(--sv-blue)); color: #fff;
+  box-shadow: var(--sv-sh-2); }
+h1 { font-size: var(--sv-fs-title1); letter-spacing: 2px; }
+.brand .sv-muted { margin-top: 4px; }
+.card { width: 100%; max-width: 380px; padding: var(--sv-s5); display: flex; flex-direction: column; gap: var(--sv-s4); }
+.seg { display: flex; padding: 2px; gap: 2px; background: var(--sv-fill2); border-radius: 10px; }
+.seg button { flex: 1; min-height: 32px; border: none; border-radius: 8px; background: transparent; cursor: pointer;
+  font-size: var(--sv-fs-subhead); color: var(--sv-label); font-family: inherit; }
+.seg button.on { background: var(--sv-card); font-weight: 600; box-shadow: 0 1px 4px rgba(0,0,0,.12); }
+label { display: flex; flex-direction: column; gap: 6px; font-size: var(--sv-fs-footnote); color: var(--sv-label2); }
+input { border: 1px solid var(--sv-sep); background: var(--sv-bg); border-radius: var(--sv-r-ctl);
+  padding: 12px 14px; font-size: var(--sv-fs-subhead); color: var(--sv-label); outline: none; font-family: inherit; }
+input:focus { border-color: var(--sv-indigo); }
+.err { color: var(--sv-red); font-size: var(--sv-fs-footnote); }
+.help { margin-top: var(--sv-s5); font-size: var(--sv-fs-footnote); }
+.policy { text-align: center; margin-top: var(--sv-s2); line-height: 1.6; max-width: 320px; }
 </style>

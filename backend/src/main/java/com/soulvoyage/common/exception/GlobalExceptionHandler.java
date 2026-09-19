@@ -11,6 +11,8 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import java.io.IOException;
+
 /**
  * S3：业务异常映射真实 HTTP 状态码（401/403/404/409/4xx/5xx），
  * body 仍返回统一 ApiResponse 结构且 code 保留原错误码——前端两套判据都可用。
@@ -41,6 +43,12 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(AuthenticationException.class)
     public ResponseEntity<ApiResponse<Void>> auth(AuthenticationException e) {
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ApiResponse.fail(ErrorCode.UNAUTHORIZED, null));
+    }
+
+    /** 客户端中途断连（SSE 掐线等）属正常现象：吞掉，避免 ERROR 噪音与向 event-stream 写 JSON 的二次失败 */
+    @ExceptionHandler(IOException.class)
+    public void clientAbort(IOException e) {
+        log.debug("client aborted connection: {}", e.getMessage());
     }
 
     @ExceptionHandler(Exception.class)

@@ -3,6 +3,8 @@ package com.soulvoyage.domain.emotion;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.soulvoyage.auth.AuthPrincipal;
 import com.soulvoyage.common.api.ApiResponse;
+import com.soulvoyage.common.api.ErrorCode;
+import com.soulvoyage.common.exception.BizException;
 import com.soulvoyage.common.time.BusinessCalendar;
 import com.soulvoyage.domain.crisis.CrisisState;
 import com.soulvoyage.domain.profile.EmotionProfileEntity;
@@ -12,6 +14,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
@@ -51,6 +54,46 @@ public class EmotionController {
                 .toList();
         return ApiResponse.ok(Map.of("from", start.toString(), "to", end.toString(), "points", points));
     }
+
+    /**
+     * M6 轻量打卡（SELF_RATING）：今日页情绪盘直写轨迹点，不等任务管线。
+     * M7 会升级为完整打卡表，本接口保持同一 sourceType 以兼容下游消费。
+     */
+    @PostMapping("/self-rating")
+    public ApiResponse<Map<String, Object>> selfRating(
+            @AuthenticationPrincipal AuthPrincipal p,
+            @RequestBody SelfRatingReq req) {
+        String emotion = req.emotion() == null ? "" : req.emotion().trim();
+        if (emotion.isEmpty() || emotion.length() > 32)
+            throw new BizException(ErrorCode.BAD_PARAMS, "emotion 需为 1-32 字");
+        if (req.valence() == null || req.valence().abs().compareTo(BigDecimal.ONE) > 0)
+            throw new BizException(ErrorCode.BAD_PARAMS, "valence 需在 [-1,1]");
+        if (req.intensity() == null || req.intensity().compareTo(BigDecimal.ZERO) < 0
+                || req.intensity().compareTo(BigDecimal.ONE) > 0)
+            throw new BizException(ErrorCode.BAD_PARAMS, "intensity 需在 [0,1]");
+        LocalDate today = cal.today();
+        LocalDate date = req.date() == null ? today : req.date();
+        if (date.isAfter(today))
+            throw new BizException(ErrorCode.BAD_PARAMS, "打卡日期不能晚于今天");
+        String note = req.note() == null ? null : req.note().trim();
+        if (note != null && note.isEmpty()) note = null;
+        if (note != null && note.length() > 200)
+            throw new BizException(ErrorCode.BAD_PARAMS, "一句话最多 200 字");
+
+        EmotionTrajectoryEntity t = new EmotionTrajectoryEntity();
+        t.setUserId(p.userId());
+        t.setRecordDate(date);
+        t.setSourceType("SELF_RATING");
+        t.setPrimaryEmotion(emotion);
+        t.setValence(req.valence().setScale(3, java.math.RoundingMode.HALF_UP));
+        t.setIntensity(req.intensity().setScale(2, java.math.RoundingMode.HALF_UP));
+        if (note != null) t.setEventTags(mapper.createArrayNode().add(note).toString());
+        t = trajRepo.save(t);
+        return ApiResponse.ok(Map.of("id", t.getId(), "date", date.toString()));
+    }
+
+    public record SelfRatingReq(String emotion, BigDecimal valence, BigDecimal intensity,
+                                String note, LocalDate date) {}
 
     @GetMapping("/profile")
     public ApiResponse<Map<String, Object>> profile(@AuthenticationPrincipal AuthPrincipal p) {

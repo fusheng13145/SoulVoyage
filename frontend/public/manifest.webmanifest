@@ -1,0 +1,16 @@
+{
+  "name": "心屿漫行 SoulVoyage",
+  "short_name": "心屿漫行",
+  "description": "多 Agent 青年心理自助成长空间",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F2F2F7",
+  "theme_color": "#5B6CFF",
+  "lang": "zh-CN",
+  "icons": [
+    { "src": "/icons/island.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/icons/island-maskable.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}

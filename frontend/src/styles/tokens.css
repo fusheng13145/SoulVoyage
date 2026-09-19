@@ -1,0 +1,119 @@
+/* 设计 Token（手册 DS2 · light/dark 双值，data-theme 挂在 <html>） */
+:root {
+  color-scheme: light;
+
+  /* 品牌屿蓝 + iOS 系统语义色 */
+  --sv-indigo: #5B6CFF;
+  --sv-indigo-soft: rgba(91, 108, 255, 0.12);
+  --sv-blue: #0A84FF;
+  --sv-mint: #30D158;
+  --sv-amber: #FF9F0A;
+  --sv-red: #FF453A;
+  --sv-pink: #FF375F;
+  --sv-purple: #BF5AF2;
+  --sv-teal: #64D2FF;
+
+  /* 表面 */
+  --sv-bg: #F2F2F7;
+  --sv-card: #FFFFFF;
+  --sv-card2: #FFFFFF;
+  --sv-label: #1C1C1E;
+  --sv-label2: rgba(60, 60, 67, 0.6);
+  --sv-label3: rgba(60, 60, 67, 0.3);
+  --sv-sep: rgba(60, 60, 67, 0.08);
+  --sv-fill2: rgba(120, 120, 128, 0.12);
+  --sv-fill3: rgba(120, 120, 128, 0.08);
+  --sv-chrome: rgba(242, 242, 247, 0.78);
+  --sv-dim: rgba(0, 0, 0, 0.4);
+
+  /* 16 情绪专属色谱（打卡盘/日历/曲线共用） */
+  --e-joy: #FFD60A;
+  --e-calm: #30D158;
+  --e-anx: #FF9F0A;
+  --e-anger: #FF453A;
+  --e-sad: #5E5CE6;
+  --e-numb: #8E8E93;
+  --e-shame: #FF375F;
+  --e-fear: #BF5AF2;
+  --e-lonely: #64D2FF;
+  --e-grati: #FFB340;
+  --e-confuse: #a1a3b8;
+  --e-tired: #7a869c;
+  --e-expect: #32ADE6;
+  --e-bored: #98989F;
+  --e-griev: #AC8E68;
+  --e-pressure: #FF6482;
+
+  /* 排印（DS2 九级字阶） */
+  --sv-font: "SF Pro Text", "SF Pro Display", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  --sv-fs-largename: 34px;
+  --sv-fs-title1: 28px;
+  --sv-fs-title2: 22px;
+  --sv-fs-title3: 20px;
+  --sv-fs-headline: 17px;
+  --sv-fs-body: 17px;
+  --sv-fs-callout: 16px;
+  --sv-fs-subhead: 15px;
+  --sv-fs-footnote: 13px;
+  --sv-fs-caption1: 12px;
+  --sv-fs-caption2: 11px;
+
+  /* 形态（4pt 栅格 / 圆角 / 阴影 / 曲线） */
+  --sv-s1: 4px; --sv-s2: 8px; --sv-s3: 12px; --sv-s4: 16px;
+  --sv-s5: 20px; --sv-s6: 24px; --sv-s7: 32px; --sv-s8: 44px;
+  --sv-r-card: 20px;
+  --sv-r-sheet: 28px;
+  --sv-r-ctl: 14px;
+  --sv-r-pill: 999px;
+  --sv-sh-1: 0 2px 10px rgba(80, 90, 160, 0.08);
+  --sv-sh-2: 0 8px 30px rgba(80, 90, 160, 0.16);
+  --sv-ease: cubic-bezier(0.32, 0.72, 0, 1);
+  --sv-blur: saturate(180%) blur(20px);
+
+  /* 安全区 */
+  --sv-safe-t: env(safe-area-inset-top, 0px);
+  --sv-safe-b: env(safe-area-inset-bottom, 0px);
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+  --sv-indigo: #7A88FF;
+  --sv-indigo-soft: rgba(122, 136, 255, 0.16);
+  --sv-blue: #409CFF;
+  --sv-mint: #34C759;
+  --sv-amber: #FFB340;
+  --sv-red: #FF453A;
+
+  --sv-bg: #000000;
+  --sv-card: #1C1C1E;
+  --sv-card2: #2C2C2E;
+  --sv-label: #FFFFFF;
+  --sv-label2: rgba(235, 235, 245, 0.6);
+  --sv-label3: rgba(235, 235, 245, 0.3);
+  --sv-sep: rgba(84, 84, 88, 0.36);
+  --sv-fill2: rgba(110, 110, 115, 0.28);
+  --sv-fill3: rgba(110, 110, 115, 0.18);
+  --sv-chrome: rgba(18, 18, 20, 0.82);
+  --sv-dim: rgba(0, 0, 0, 0.6);
+
+  --e-joy: #FFD60A;
+  --e-calm: #34C759;
+  --e-anx: #FFB340;
+  --e-anger: #FF453A;
+  --e-sad: #7A88FF;
+  --e-numb: #98989F;
+  --e-shame: #FF375F;
+  --e-fear: #BF5AF2;
+  --e-lonely: #64D2FF;
+  --e-grati: #FFB340;
+  --e-confuse: #8E8E93;
+  --e-tired: #777982;
+  --e-expect: #409CFF;
+  --e-bored: #7C7C81;
+  --e-griev: #A2845E;
+  --e-pressure: #FF6482;
+
+  /* dark 下阴影失效：以描边替代（DS2） */
+  --sv-sh-1: none;
+  --sv-sh-2: none;
+}

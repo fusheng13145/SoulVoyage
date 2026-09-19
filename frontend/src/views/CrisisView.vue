@@ -1,60 +1,88 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import http, { type ApiResp } from '../api/http'
+import SvIcon from '@/components/ui/SvIcon.vue'
+import { useCrisisStore, type RefResource } from '@/stores/crisis'
+import { useAuthStore } from '@/stores/auth'
 
-interface Referral {
-  boundary: string
-  resources: { name: string; value: string; type: string; note: string }[]
-}
-const referral = ref<Referral | null>(null)
+const crisis = useCrisisStore()
+const auth = useAuthStore()
+const resources = ref<RefResource[]>([])
 const loading = ref(true)
 
 onMounted(async () => {
-  try {
-    const { data } = await http.get<ApiResp<Referral>>('/risk/resources')
-    referral.value = data.data
-  } finally {
-    loading.value = false
-  }
+  await crisis.ensure()
+  resources.value = await crisis.resources()
+  loading.value = false
+  if (auth.me) crisis.refreshProfile().catch(() => { /* 匿名可浏览 */ })
 })
+
+const tel = (v: string) => `tel:${v.replace(/[^0-9+]/g, '')}`
 </script>
 
 <template>
   <div class="crisis-page">
     <header>
-      <router-link to="/" class="back">← 返回</router-link>
-      <b>需要支持的时候，你并不孤单</b>
+      <router-link to="/today" class="back" aria-label="返回首页"><SvIcon name="i-back" :size="18" tone="inherit" /> 返回</router-link>
+      <span class="ct">支持资源</span>
     </header>
+
     <main>
       <p class="intro">如果此刻很难熬，下面这些是真实、免费、可以随时连接的人和渠道。
-        联系他们不代表"严重了"，只代表你愿意照顾自己。</p>
+        联系他们不代表「严重了」，只代表你愿意照顾自己。</p>
 
-      <div v-if="loading" class="hint">加载中…</div>
-      <template v-else-if="referral">
-        <div v-for="r in referral.resources" :key="r.name" class="row">
-          <div class="rname">{{ r.name }}</div>
-          <div class="rvalue">{{ r.value }}</div>
-          <div class="rnote">{{ r.note }}</div>
+      <p v-if="loading" class="sv-muted" role="status">资源加载中…</p>
+      <template v-else>
+        <a v-for="r in resources" :key="r.name" class="row sv-surface" :href="r.type === 'PHONE' ? tel(r.value) : r.value"
+          :aria-label="`${r.type === 'PHONE' ? '拨打' : '联系'} ${r.name} ${r.value}`">
+          <span class="r-ico" aria-hidden="true"><SvIcon name="i-phone" :size="22" tone="inherit" /></span>
+          <span class="r-mid">
+            <span class="rname">{{ r.name }}</span>
+            <span class="rnote sv-cap">{{ r.note }}</span>
+          </span>
+          <b class="rvalue">{{ r.value }}</b>
+        </a>
+
+        <div class="emergency">
+          紧急情况（正在发生伤害）请直接拨打
+          <span class="nums"><a href="tel:110">110</a> / <a href="tel:120">120</a></span>
         </div>
-        <div class="emergency">紧急情况（正在发生伤害）请直接拨打 <b>110 / 120</b></div>
-        <p class="boundary">{{ referral.boundary }}</p>
+        <p class="sv-cap boundary">{{ crisis.referral?.boundary || '心屿漫行是自助工具，不做诊断，也不能替代专业帮助。转介即我们能陪你走的最远一步。' }}</p>
       </template>
+
+      <p class="sv-cap warm">你不需要独自扛着这一切。</p>
     </main>
   </div>
 </template>
 
 <style scoped>
-.crisis-page { min-height: 100vh; background: #fffaf8; }
-header { display: flex; align-items: center; gap: 16px; padding: 14px 28px; background: #fff; box-shadow: 0 1px 6px rgba(0,0,0,.05); }
-.back { color: #5b6cff; text-decoration: none; }
-main { max-width: 640px; margin: 24px auto; padding: 0 16px; }
-.intro { color: #6a5a56; font-size: 15px; line-height: 1.8; }
-.row { background: #fff; border: 1px solid #f3e2dd; border-radius: 12px; padding: 14px 16px; margin-bottom: 10px; }
-.rname { color: #8c3f36; font-size: 14px; }
-.rvalue { font-size: 22px; font-weight: 700; color: #c04a3f; margin: 2px 0; }
-.rnote { font-size: 12px; color: #9a8a86; }
-.emergency { text-align: center; margin: 16px 0; color: #6a5a56; font-size: 14px; }
-.emergency b { color: #c04a3f; font-size: 16px; }
-.boundary { font-size: 12px; color: #9a8a86; border-top: 1px dashed #eee; padding-top: 12px; line-height: 1.7; }
-.hint { text-align: center; color: #9aa1bd; }
+.crisis-page { min-height: 100%; background: var(--sv-bg); }
+header {
+  position: sticky; top: 0; z-index: 20;
+  display: flex; align-items: center; gap: var(--sv-s3);
+  padding: calc(var(--sv-safe-t) + 8px) var(--sv-s4) 8px;
+  background: color-mix(in srgb, var(--sv-bg) 78%, transparent);
+  backdrop-filter: var(--sv-blur); -webkit-backdrop-filter: var(--sv-blur);
+  border-bottom: 1px solid var(--sv-sep);
+}
+.back { display: inline-flex; align-items: center; gap: 2px; color: var(--sv-indigo); min-height: 44px; font-size: var(--sv-fs-subhead); }
+.ct { margin: 0 auto; font-weight: 600; font-size: var(--sv-fs-headline); }
+main { max-width: 640px; margin: 0 auto; padding: var(--sv-s4) var(--sv-s4) var(--sv-s7); }
+.intro { color: var(--sv-label); font-size: var(--sv-fs-subhead); line-height: 1.9; margin-bottom: var(--sv-s5); }
+.row {
+  display: flex; align-items: center; gap: var(--sv-s3); padding: var(--sv-s4);
+  margin-bottom: 10px; color: var(--sv-label);
+}
+.r-ico { display: grid; place-items: center; width: 44px; height: 44px; flex: none; border-radius: 14px;
+  background: color-mix(in srgb, var(--sv-red) 12%, transparent); color: var(--sv-red); }
+.r-mid { flex: 1 1 0; min-width: 0; }
+.rname { display: block; font-size: var(--sv-fs-subhead); }
+.rnote { display: block; margin-top: 2px; }
+.rvalue {
+  flex: 0 1 auto; max-width: 52%; text-align: right; line-height: 1.35;
+  font-size: var(--sv-fs-title2); font-weight: 700; color: var(--sv-red); font-variant-numeric: tabular-nums;
+}
+.emergency { text-align: center; margin: var(--sv-s5) 0 var(--sv-s3); color: var(--sv-label2); font-size: var(--sv-fs-footnote); }
+.nums a { color: var(--sv-red); font-size: var(--sv-fs-title3); font-weight: 700; text-decoration: none; }
+.boundary { border-top: 1px dashed var(--sv-sep); padding-top: var(--sv-s3); line-height: 1.7; }
+.warm { text-align: center; margin-top: var(--sv-s6); font-size: var(--sv-fs-footnote); color: var(--sv-label2); }
 </style>
