@@ -17,12 +17,26 @@ interface ReportDetail {
   type: string
   title: string
   riskLevel: string
+  starred: boolean
+  feedback: string
+  feedbackNote: string
+  feedbackAt: string
   createdAt: string
   content: Json
 }
 const report = ref<ReportDetail | null>(null)
 const loading = ref(true)
 const expanded = ref(false)
+
+/* L2 报表批注：收藏 + 轻反馈，只影响本账号 */
+const RATINGS = [
+  { value: 'USEFUL', label: '有帮助' },
+  { value: 'UNSURE', label: '一般' },
+  { value: 'UNHELPFUL', label: '不准确' },
+]
+const busy = ref(false)
+const showNote = ref(false)
+const noteDraft = ref('')
 
 const TYPE_LABELS: Record<string, string> = {
   TRACE: '溯源复盘',
@@ -90,12 +104,74 @@ onMounted(async () => {
   try {
     const { data } = await http.get<ApiResp<ReportDetail>>(`/reports/${route.params.id}`)
     report.value = data.data
+    noteDraft.value = data.data.feedbackNote || ''
   } catch (e) {
     toast((e as Error).message || '报告不存在或已删除')
   } finally {
     loading.value = false
   }
 })
+
+async function toggleStar() {
+  const r = report.value
+  if (!r || busy.value) return
+  busy.value = true
+  try {
+    const { data } = await http.post<ApiResp<{ starred: boolean }>>(`/reports/${r.id}/star`, {
+      starred: !r.starred,
+    })
+    r.starred = data.data.starred
+    toast(r.starred ? '已收藏，在档案里可以只看待过的' : '已取消收藏')
+  } catch (e) {
+    toast((e as Error).message || '收藏操作失败')
+  } finally {
+    busy.value = false
+  }
+}
+
+async function pickRating(value: string) {
+  const r = report.value
+  if (!r || busy.value) return
+  const cancel = r.feedback === value && !showNote.value
+  busy.value = true
+  try {
+    if (cancel) {
+      await http.post(`/reports/${r.id}/feedback`, { rating: '' })
+      r.feedback = ''
+      r.feedbackNote = ''
+      noteDraft.value = ''
+      showNote.value = false
+      toast('已撤销这次评价')
+    } else {
+      await http.post(`/reports/${r.id}/feedback`, {
+        rating: value,
+        note: noteDraft.value || r.feedbackNote,
+      })
+      r.feedback = value
+      showNote.value = true
+    }
+  } catch (e) {
+    toast((e as Error).message || '反馈提交失败')
+  } finally {
+    busy.value = false
+  }
+}
+
+async function saveNote() {
+  const r = report.value
+  if (!r || !r.feedback) return
+  busy.value = true
+  try {
+    await http.post(`/reports/${r.id}/feedback`, { rating: r.feedback, note: noteDraft.value })
+    r.feedbackNote = noteDraft.value.trim()
+    showNote.value = false
+    toast('记下了，谢谢你告诉我们的')
+  } catch (e) {
+    toast((e as Error).message || '反馈提交失败')
+  } finally {
+    busy.value = false
+  }
+}
 </script>
 
 <template>
@@ -205,6 +281,53 @@ onMounted(async () => {
           {{ expanded ? '收起正文' : '查看报告正文' }}
         </button>
         <pre v-if="expanded" class="raw sv-muted">{{ JSON.stringify(report.content, null, 2) }}</pre>
+      </SvCard>
+
+      <!-- L2 报表批注：收藏 + 轻反馈，只影响本账号 -->
+      <SvCard>
+        <div class="anno-head">
+          <h3 class="t">这份报告对你有帮助吗</h3>
+          <button
+            type="button"
+            class="star"
+            :class="{ on: report.starred }"
+            :aria-pressed="report.starred"
+            :aria-label="report.starred ? '取消收藏这份报告' : '收藏这份报告'"
+            :disabled="busy"
+            @click="toggleStar"
+          >
+            {{ report.starred ? '★ 已收藏' : '☆ 收藏' }}
+          </button>
+        </div>
+        <div class="rates" role="group" aria-label="报告反馈">
+          <button
+            v-for="opt in RATINGS"
+            :key="opt.value"
+            type="button"
+            class="rate"
+            :class="{ on: report.feedback === opt.value }"
+            :aria-pressed="report.feedback === opt.value"
+            :disabled="busy"
+            @click="pickRating(opt.value)"
+          >
+            {{ opt.label }}
+          </button>
+        </div>
+        <template v-if="showNote">
+          <textarea
+            v-model="noteDraft"
+            class="note"
+            rows="3"
+            maxlength="200"
+            placeholder="哪里说准了、哪里不对，都可以写一句（选填，200 字内，只有你自己看得到）"
+            aria-label="反馈原话"
+          ></textarea>
+          <div class="note-actions">
+            <button type="button" class="save" :disabled="busy" @click="saveNote">保存</button>
+            <button type="button" class="ghost" @click="showNote = false">稍后再说</button>
+          </div>
+        </template>
+        <p v-else-if="report.feedbackNote" class="kept sv-muted">你留过一句：「{{ report.feedbackNote }}」</p>
       </SvCard>
 
       <SvDisclaimer
@@ -430,5 +553,95 @@ h4 {
 .none {
   text-align: center;
   padding: 40px 0;
+}
+.anno-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: var(--sv-s2);
+}
+.anno-head .t {
+  margin-bottom: 0;
+}
+.star {
+  flex: none;
+  border: 1px solid var(--sv-sep);
+  background: var(--sv-fill2);
+  color: var(--sv-label2);
+  border-radius: var(--sv-r-pill);
+  padding: 6px 14px;
+  font-family: inherit;
+  font-size: var(--sv-fs-footnote);
+  cursor: pointer;
+}
+.star.on {
+  border-color: color-mix(in srgb, var(--sv-amber) 45%, transparent);
+  background: color-mix(in srgb, var(--sv-amber) 14%, transparent);
+  color: var(--sv-amber);
+}
+.rates {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.rate {
+  flex: 1 1 auto;
+  min-height: 44px;
+  border: 1px solid var(--sv-sep);
+  background: var(--sv-card);
+  color: var(--sv-label2);
+  border-radius: var(--sv-r-ctl);
+  font-family: inherit;
+  font-size: var(--sv-fs-footnote);
+  cursor: pointer;
+}
+.rate.on {
+  border-color: var(--sv-indigo);
+  background: var(--sv-indigo-soft);
+  color: var(--sv-indigo);
+  font-weight: 600;
+}
+.note {
+  width: 100%;
+  margin-top: var(--sv-s3);
+  padding: 10px 12px;
+  border: 1px solid var(--sv-sep);
+  border-radius: var(--sv-r-ctl);
+  background: var(--sv-fill2);
+  color: var(--sv-label1);
+  font-family: inherit;
+  font-size: var(--sv-fs-subhead);
+  line-height: 1.6;
+  resize: vertical;
+  box-sizing: border-box;
+}
+.note-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: var(--sv-s2);
+}
+.save,
+.ghost {
+  border-radius: var(--sv-r-pill);
+  padding: 8px 18px;
+  font-family: inherit;
+  font-size: var(--sv-fs-footnote);
+  cursor: pointer;
+}
+.save {
+  border: none;
+  background: var(--sv-indigo);
+  color: #fff;
+}
+.ghost {
+  border: 1px solid var(--sv-sep);
+  background: transparent;
+  color: var(--sv-label2);
+}
+.kept {
+  margin-top: var(--sv-s2);
+  font-size: var(--sv-fs-footnote);
+  line-height: 1.7;
 }
 </style>

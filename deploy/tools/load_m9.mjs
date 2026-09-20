@@ -4,6 +4,9 @@
 // Mock LLM 下游（SV_LLM_PROVIDER=mock），量的是本平台自身链路（Controller/Service/DB/Redis），不含外部模型时延。
 // 前置：dev 后端起在 :8080；admin 需已提权（脚本自动探测并给出提示）。
 // 用法：node deploy/tools/load_m9.mjs [--users 40] [--think 36] [--duration 300] [--base http://localhost:8080]
+//      [--out 落盘路径] [--llm 下游口径] [--note 备注]——M10 复测真协议下游：
+//      node deploy/tools/load_m9.mjs --out deploy/load_m10_results.json \
+//        --llm "openai-compat stub @127.0.0.1:8787" --note "LLM 走真 HTTP/SSE，含桩侧 120ms 首包 + 15ms/块"
 const BASE = (apiVal('--base') || 'http://localhost:8080') + '/api/v1';
 const USERS = Number(apiVal('--users') || 40);
 const THINK_MS = Number(apiVal('--think') || 36000);
@@ -241,10 +244,11 @@ const summary = {
   overallErrPct: +(totalErr / totalN * 100).toFixed(2),
   p50: +pct(all, 0.5).toFixed(1), p95: +pct(all, 0.95).toFixed(1),
   p99: +pct(all, 0.99).toFixed(1), max: +all[all.length - 1].toFixed(1),
+  llm: (apiVal('--llm') || 'in-process mock') + '；' + (apiVal('--note') || ''),
   model: '1k DAU ≈ 2.2 req/s（活跃小时均值）；本轮按参数折算' + (+(totalN / elapsed / 2.2).toFixed(2)) + 'x 目标流量',
   perEndpoint: rows,
 };
-const out = 'deploy/load_m9_results.json';
+const out = apiVal('--out') || 'deploy/load_m9_results.json';
 const { writeFileSync } = await import('node:fs');
 writeFileSync(out, JSON.stringify(summary, null, 2));
 console.table(rows.map(({ endpoint, n, errRate, p50, p95, p99, max }) => ({ endpoint, n, errRate, p50, p95, p99, max })));

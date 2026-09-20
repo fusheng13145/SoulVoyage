@@ -95,14 +95,17 @@ public class NotificationService {
                 "unreadCount", repo.countByUserIdAndReadAtIsNull(userId));
     }
 
+    /** 属主断言：别人的通知与不存在的通知同样 404，不靠"静默成功"掩盖越权（M10 IDOR 矩阵） */
     @org.springframework.transaction.annotation.Transactional
     public void markRead(long userId, long id) {
-        repo.findById(id).filter(n -> n.getUserId().equals(userId)).ifPresent(n -> {
-            if (n.getReadAt() == null) {
-                n.setReadAt(Instant.now());
-                repo.save(n);
-            }
-        });
+        NotificationEntity n = repo.findById(id)
+                .filter(x -> x.getUserId().equals(userId))
+                .orElseThrow(() -> new com.soulvoyage.common.exception.BizException(
+                        com.soulvoyage.common.api.ErrorCode.NOT_FOUND));
+        if (n.getReadAt() == null) {
+            n.setReadAt(Instant.now());
+            repo.save(n);
+        }
     }
 
     @org.springframework.transaction.annotation.Transactional

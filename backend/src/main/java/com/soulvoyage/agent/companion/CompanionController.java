@@ -16,8 +16,8 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
-import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * 树洞漫聊接口（下篇·C0，下篇·八）：打开/续聊、逐轮 SSE（含危机事件）、这句别分析、收段、历史回放。
@@ -65,15 +65,28 @@ public class CompanionController {
         return ApiResponse.ok(service.transcript(p.userId(), id));
     }
 
-    /** 逐轮：SSE 流式（ai_delta × n →（危机时）crisis → turn_done） */
+    /**
+     * 逐轮：SSE 流式（ai_delta × n →（危机时）crisis → turn_done）。
+     * ai_delta 是模型边生成边转发的真流式增量，只含 reply 字段文本；turn_done.aiText 是该轮权威全文
+     * （危机话术、防依赖引导、校验失败降级都可能与增量拼接结果不同，客户端以它收尾）。
+     */
     @PostMapping(value = "/sessions/{id}/turns", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter turn(@AuthenticationPrincipal AuthPrincipal p,
                            @PathVariable Long id,
                            @RequestBody TurnReq req) {
         SseEmitter emitter = new SseEmitter(60_000L);
+        AtomicBoolean pipeBroken = new AtomicBoolean(false);
         CompanionService.TurnResult r;
         try {
-            r = service.turn(p.userId(), id, req.userText());
+            r = service.turn(p.userId(), id, req.userText(), delta -> {
+                if (pipeBroken.get()) return;
+                try {
+                    emitter.send(SseEmitter.event().name("ai_delta")
+                            .data(Map.of("text", delta), MediaType.APPLICATION_JSON));
+                } catch (Exception e) {
+                    pipeBroken.set(true);   // 客户端已走：停止外发，回合照常落库（成本不白花）
+                }
+            });
         } catch (BizException e) {
             try {
                 emitter.send(SseEmitter.event().name("error")
@@ -85,11 +98,6 @@ public class CompanionController {
             return emitter;
         }
         try {
-            for (String chunk : CompanionController.splitForStream(r.aiText())) {
-                emitter.send(SseEmitter.event().name("ai_delta")
-                        .data(Map.of("text", chunk), MediaType.APPLICATION_JSON));
-                Thread.sleep(40);   // 打字机节奏；接真实流式模型后替换为 token 回调（技术债第 5 条同源）
-            }
             if (r.crisis()) {
                 emitter.send(SseEmitter.event().name("crisis").data(Map.of(
                         "level", "HIGH", "hotline", "12356",
@@ -97,12 +105,9 @@ public class CompanionController {
             }
             emitter.send(SseEmitter.event().name("turn_done").data(Map.of(
                     "turnId", r.turnId(), "turnNo", r.turnNo(), "moodTag", r.moodTag(),
-                    "crisis", r.crisis(), "guidanceShown", r.guidanceShown(),
+                    "aiText", r.aiText(), "crisis", r.crisis(), "guidanceShown", r.guidanceShown(),
                     "remainingToday", r.remainingToday())));
             emitter.complete();
-        } catch (InterruptedException ie) {
-            Thread.currentThread().interrupt();
-            emitter.completeWithError(ie);
         } catch (Exception e) {
             log.warn("companion turn sse failed session={}", id, e);
             emitter.completeWithError(e);
@@ -118,20 +123,12 @@ public class CompanionController {
         return ApiResponse.ok(Map.of("turnId", turnId, "noAnalyze", true));
     }
 
-    /** 收段：封口 + 交 COMPANION_PIPELINE，202 语义返回 taskNo（无可消化内容时 taskNo=null） */
+    /** 收段：封口 + 交 COMPANION_PIPELINE，202 语义返回 taskNo；无可消化内容时为空串（不伪造任务） */
     @PostMapping("/sessions/{id}/end")
     public ResponseEntity<ApiResponse<Map<String, Object>>> end(@AuthenticationPrincipal AuthPrincipal p,
                                                                 @PathVariable Long id) {
         String taskNo = service.end(p.userId(), id);
         return ResponseEntity.accepted().body(ApiResponse.ok(Map.of(
                 "sessionId", id, "taskNo", taskNo == null ? "" : taskNo)));
-    }
-
-    static List<String> splitForStream(String text) {
-        List<String> out = new java.util.ArrayList<>();
-        for (int i = 0; i < text.length(); i += 12) {
-            out.add(text.substring(i, Math.min(text.length(), i + 12)));
-        }
-        return out;
     }
 }

@@ -239,6 +239,8 @@ async function send() {
         tension.value = e.data.tension
         lastTag.value = e.data.stateTag || ''
         maxReached.value = !!e.data.maxTurnsReached
+        // 增量只负责打字体感；危机退出/校验降级的文本以服务端全文收尾
+        if (e.data.npcText) npc.text = e.data.npcText
         if (!npc.text) npc.text = '……'
       } else if (e.event === 'crisis') {
         crisis.value = true

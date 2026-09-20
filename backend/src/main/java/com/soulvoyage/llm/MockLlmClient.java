@@ -24,7 +24,32 @@ public class MockLlmClient implements LlmClient {
     public LlmResponse doChat(LlmRequest req) {
         long t0 = System.currentTimeMillis();
         sleep(300);   // 模拟网络延迟，便于观察 SSE 进度体验
-        String content = switch (req.template()) {
+        String content = contentFor(req);
+        return new LlmResponse(content, "mock-llm-v1",
+                estTokens(req.system() + req.user()), estTokens(content), System.currentTimeMillis() - t0);
+    }
+
+    /** 流式同源：同一份样例输出按码点分块吐出，让 Mock 也能验证真流式的调用面与解析器 */
+    @Override
+    public LlmResponse doStream(LlmRequest req, TokenSink sink) {
+        long t0 = System.currentTimeMillis();
+        sleep(120);   // 首包延迟
+        String content = contentFor(req);
+        int[] cps = content.codePoints().toArray();
+        StringBuilder acc = new StringBuilder();
+        for (int i = 0; i < cps.length; i += 6) {
+            String piece = new String(cps, i, Math.min(6, cps.length - i));
+            acc.append(piece);
+            sink.onDelta(piece);
+            sleep(18);
+        }
+        sink.onComplete(acc.toString());
+        return new LlmResponse(acc.toString(), "mock-llm-v1",
+                estTokens(req.system() + req.user()), estTokens(content), System.currentTimeMillis() - t0);
+    }
+
+    private String contentFor(LlmRequest req) {
+        return switch (req.template()) {
             case "emotion_v1" -> "```json\n" + emotionMock(req.user()) + "\n```";
             case "trace_v1" -> "```json\n" + traceMock(req.user()) + "\n```";
             case "npc_v1" -> "```json\n" + npcMock(req.user()) + "\n```";
@@ -34,8 +59,6 @@ public class MockLlmClient implements LlmClient {
             case "growth_letter_v1" -> "```json\n" + letterMock(req.user()) + "\n```";
             default -> throw new LlmUnavailableException("Mock 未覆盖模板: " + req.template());
         };
-        return new LlmResponse(content, "mock-llm-v1",
-                estTokens(req.system() + req.user()), estTokens(content), System.currentTimeMillis() - t0);
     }
 
     private String emotionMock(String text) {

@@ -3,6 +3,7 @@ package com.soulvoyage.admin;
 import com.soulvoyage.common.api.ApiResponse;
 import com.soulvoyage.common.time.BusinessCalendar;
 import com.soulvoyage.domain.risk.RiskEventRepository;
+import com.soulvoyage.domain.report.ReportRepository;
 import com.soulvoyage.domain.task.TaskInstanceRepository;
 import com.soulvoyage.domain.task.TaskStepLogRepository;
 import io.micrometer.core.instrument.Counter;
@@ -37,6 +38,7 @@ public class AdminMetricsController {
     private final TaskInstanceRepository taskRepo;
     private final TaskStepLogRepository stepRepo;
     private final RiskEventRepository riskRepo;
+    private final ReportRepository reportRepo;
     private final MeterRegistry registry;
     private final BusinessCalendar cal;
 
@@ -57,11 +59,19 @@ public class AdminMetricsController {
         List<Object[]> rows = stepRepo.costRowsSince(windowFrom);
         resp.put("agents", agentStats(rows));
         resp.put("tokensByDay", tokensByDay(rows, zone));
+        resp.put("reportFeedback", feedbackStats(reportRepo.countFeedbackSince(windowFrom)));
         resp.put("runtime", runtimeSnapshot());
         return ApiResponse.ok(resp);
     }
 
     // ---------------- DB 聚合 ----------------
+
+    /** L2 反馈档位分布（含未评计数之外的三档） */
+    private Map<String, Long> feedbackStats(List<Object[]> rows) {
+        Map<String, Long> m = new TreeMap<>();
+        for (Object[] r : rows) m.put((String) r[0], ((Number) r[1]).longValue());
+        return m;
+    }
 
     private Map<String, Object> taskStats(List<Object[]> statusCounts) {
         Map<String, Long> byStatus = new TreeMap<>();
@@ -134,16 +144,19 @@ public class AdminMetricsController {
                 "taskSubmitted", sumCounters("sv.task.submit"),
                 "llmCalls", (long) registry.find("sv.llm.call").timers().stream()
                         .mapToDouble(io.micrometer.core.instrument.Timer::count).sum(),
-                "tokensIn", sumCountersTagged("sv.llm.tokens", "in"),
-                "tokensOut", sumCountersTagged("sv.llm.tokens", "out"));
+                "tokensIn", sumCountersTagged("sv.llm.tokens", "dir", "in"),
+                "tokensOut", sumCountersTagged("sv.llm.tokens", "dir", "out"),
+                "llmRejects", Map.of(
+                        "rateLimited", sumCountersTagged("sv.llm.reject", "reason", "rate_limited"),
+                        "queueTimeout", sumCountersTagged("sv.llm.reject", "reason", "queue_timeout")));
     }
 
     private long sumCounters(String name) {
         return (long) registry.find(name).counters().stream().mapToDouble(Counter::count).sum();
     }
 
-    private long sumCountersTagged(String name, String dir) {
-        return (long) registry.find(name).tag("dir", dir).counters().stream()
+    private long sumCountersTagged(String name, String tag, String value) {
+        return (long) registry.find(name).tag(tag, value).counters().stream()
                 .mapToDouble(Counter::count).sum();
     }
 

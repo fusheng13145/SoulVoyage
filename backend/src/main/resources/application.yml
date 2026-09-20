@@ -54,6 +54,10 @@ soulvoyage:
     api-key: ${SV_LLM_API_KEY:}
     model: ${SV_LLM_MODEL:}
     timeout: 60s
+    # §九 高并发承诺：LLM 出入口的令牌桶 + 在途并发闸门（0=该层关闭）
+    rate-per-minute: ${SV_LLM_RATE_PER_MIN:600}
+    max-in-flight: ${SV_LLM_MAX_IN_FLIGHT:32}
+    queue-wait: ${SV_LLM_QUEUE_WAIT:1500ms}
   neo4j:
     enabled: ${SV_NEO4J_ENABLED:false}     # 本机暂未安装，M2 接入时置 true
 

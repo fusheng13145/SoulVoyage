@@ -678,6 +678,80 @@
         }
       }
     },
+    "/api/v1/reports/{id}/star" : {
+      "post" : {
+        "tags" : [ "report-controller" ],
+        "operationId" : "star",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/StarReq"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseMapStringObject"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/reports/{id}/feedback" : {
+      "post" : {
+        "tags" : [ "report-controller" ],
+        "operationId" : "feedback",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/FeedbackReq"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseMapStringObject"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/readings/favorites" : {
       "get" : {
         "tags" : [ "reading-controller" ],
@@ -1691,6 +1765,43 @@
         "tags" : [ "report-controller" ],
         "operationId" : "list_2",
         "parameters" : [ {
+          "name" : "type",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "riskLevel",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "starred",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "boolean"
+          }
+        }, {
+          "name" : "from",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date"
+          }
+        }, {
+          "name" : "to",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "format" : "date"
+          }
+        }, {
           "name" : "page",
           "in" : "query",
           "required" : false,
@@ -2865,6 +2976,28 @@
           "timeout" : {
             "type" : "integer",
             "format" : "int64"
+          }
+        }
+      },
+      "StarReq" : {
+        "required" : [ "starred" ],
+        "type" : "object",
+        "properties" : {
+          "starred" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "FeedbackReq" : {
+        "type" : "object",
+        "properties" : {
+          "rating" : {
+            "type" : "string"
+          },
+          "note" : {
+            "maxLength" : 200,
+            "minLength" : 0,
+            "type" : "string"
           }
         }
       },

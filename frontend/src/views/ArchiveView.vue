@@ -28,6 +28,8 @@ interface ReportMeta {
   type: string
   title: string
   riskLevel: string
+  starred: boolean
+  feedback: string | null
   createdAt: string
 }
 interface FavoriteView {
@@ -39,7 +41,17 @@ interface FavoriteView {
 interface Snapshot {
   nickname: string
   generatedAt: string
-  reports: { id: number; type: string; title: string; riskLevel: string; date: string; content: Json }[]
+  reports: {
+    id: number
+    type: string
+    title: string
+    riskLevel: string
+    date: string
+    starred?: boolean
+    feedback?: string
+    feedbackNote?: string
+    content: Json
+  }[]
   emotionPoints: Summary['emotionPoints']
   profiles: {
     statWeek: string
@@ -56,6 +68,7 @@ const allReports = ref<ReportMeta[]>([])
 const favorites = ref<FavoriteView[]>([])
 const repTotal = ref(0)
 const repPage = ref(0)
+const onlyStarred = ref(false)
 const exporting = ref(false)
 const snapshot = ref<Snapshot | null>(null) // 领取后的导出快照（打印页）
 const loading = ref(true)
@@ -72,6 +85,7 @@ const TYPE_LABELS: Record<string, string> = {
 const riskLabel = computed(
   () => ({ LOW: '平稳', MEDIUM: '需要关照', HIGH: '关怀中' }) as Record<string, string>,
 )
+const FEEDBACK_LABELS: Record<string, string> = { USEFUL: '有帮助', UNSURE: '一般', UNHELPFUL: '不准确' }
 const riskTone = (r: string) => ({ HIGH: 'var(--sv-red)', MEDIUM: 'var(--sv-amber)' })[r] || 'var(--sv-mint)'
 
 async function load() {
@@ -79,9 +93,7 @@ async function load() {
   try {
     const [s, r, fv] = await Promise.all([
       http.get<ApiResp<Summary>>('/archive/summary'),
-      http.get<ApiResp<{ items: ReportMeta[]; total: number }>>('/reports', {
-        params: { page: 0, size: 10 },
-      }),
+      fetchReports(0),
       http.get<ApiResp<FavoriteView[]>>('/readings/favorites').catch(() => null), // N3 收藏加载失败不挡档案
     ])
     summary.value = s.data.data
@@ -96,12 +108,25 @@ async function load() {
 }
 onMounted(load)
 
+/** C2 扩展过滤：starred=1 只看收藏；列表仍按时间倒序 */
+function fetchReports(page: number) {
+  return http.get<ApiResp<{ items: ReportMeta[]; total: number }>>('/reports', {
+    params: { page, size: 10, ...(onlyStarred.value ? { starred: true } : {}) },
+  })
+}
+
 async function moreReports() {
   repPage.value += 1
-  const { data } = await http.get<ApiResp<{ items: ReportMeta[] }>>('/reports', {
-    params: { page: repPage.value, size: 10 },
-  })
+  const { data } = await fetchReports(repPage.value)
   allReports.value = [...allReports.value, ...data.data.items]
+}
+
+async function toggleStarredFilter() {
+  onlyStarred.value = !onlyStarred.value
+  repPage.value = 0
+  const { data } = await fetchReports(0)
+  allReports.value = data.data.items
+  repTotal.value = data.data.total
 }
 
 /** 导出：POST 领限时 fileId → GET 一次性领取快照 → 打印视图 */
@@ -154,7 +179,11 @@ function doPrint() {
           <div v-for="r in snapshot.reports" :key="r.id" class="snap-report">
             <b>{{ r.title }}</b>
             <span class="type">{{ TYPE_LABELS[r.type] || r.type }}</span>
-            <small>{{ r.date }}</small>
+            <small>{{ r.date }}{{ r.starred ? ' · ★ 已收藏' : '' }}</small>
+            <p v-if="r.feedback" class="insight sv-muted">
+              我的评价：{{ FEEDBACK_LABELS[r.feedback] || r.feedback }}
+              <span v-if="r.feedbackNote">·「{{ r.feedbackNote }}」</span>
+            </p>
             <template v-if="r.content && typeof r.content === 'object'">
               <p v-if="r.content.report?.insight" class="insight sv-muted">
                 💡 {{ r.content.report.insight }}
@@ -236,7 +265,25 @@ function doPrint() {
           />
         </SvList>
 
-        <SvList title="全部报告">
+        <SvList>
+          <template #title>
+            <span class="rep-title">
+              全部报告
+              <button
+                type="button"
+                class="flt"
+                :class="{ on: onlyStarred }"
+                :aria-pressed="onlyStarred"
+                :aria-label="onlyStarred ? '显示全部报告' : '只显示收藏的报告'"
+                @click="toggleStarredFilter"
+              >
+                {{ onlyStarred ? '★ 只看收藏' : '☆ 全部' }}
+              </button>
+            </span>
+          </template>
+          <p v-if="!allReports.length" class="empty sv-muted">
+            {{ onlyStarred ? '还没有收藏过的报告，打开报告点右上☆。' : '还没有报告。' }}
+          </p>
           <SvCell
             v-for="r in allReports"
             :key="r.id"
@@ -245,7 +292,11 @@ function doPrint() {
             icon="i-doc"
             :tone="riskTone(r.riskLevel)"
             :to="`/archive/report/${r.id}`"
-          />
+          >
+            <template v-if="r.starred" #extra>
+              <span class="star" aria-label="已收藏">★</span>
+            </template>
+          </SvCell>
           <button v-if="allReports.length < repTotal" class="sv-btn ghost more" @click="moreReports">
             加载更多
           </button>
@@ -371,6 +422,31 @@ function doPrint() {
 }
 .empty {
   padding: 10px 16px;
+}
+.rep-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.flt {
+  border: 1px solid var(--sv-sep);
+  background: var(--sv-card);
+  color: var(--sv-label2);
+  border-radius: var(--sv-r-pill);
+  padding: 3px 10px;
+  font-family: inherit;
+  font-size: var(--sv-fs-caption1);
+  letter-spacing: 0;
+  cursor: pointer;
+}
+.flt.on {
+  border-color: color-mix(in srgb, var(--sv-amber) 45%, transparent);
+  background: color-mix(in srgb, var(--sv-amber) 14%, transparent);
+  color: var(--sv-amber);
+}
+.star {
+  color: var(--sv-amber);
+  font-size: var(--sv-fs-callout);
 }
 .more {
   width: auto;

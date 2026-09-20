@@ -114,6 +114,8 @@ async function send() {
         ai.turnNo = e.data.turnNo
         ai.crisis = !!e.data.crisis
         remaining.value = e.data.remainingToday
+        // 增量只负责打字体感；危机话术/防依赖引导/降级文本以服务端全文收尾
+        if (e.data.aiText) ai.text = e.data.aiText
         if (!ai.text) ai.text = '……'
       } else if (e.event === 'crisis') {
         ai.crisis = true

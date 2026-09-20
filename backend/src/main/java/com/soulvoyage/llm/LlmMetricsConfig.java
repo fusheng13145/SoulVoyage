@@ -1,6 +1,7 @@
 package com.soulvoyage.llm;
 
 import io.micrometer.core.instrument.MeterRegistry;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 
 import java.time.Duration;
@@ -9,7 +10,11 @@ import java.time.Duration;
 @Configuration
 public class LlmMetricsConfig {
 
-    LlmMetricsConfig(MeterRegistry reg) {
+    LlmMetricsConfig(MeterRegistry reg,
+                     @Value("${soulvoyage.llm.rate-per-minute:600}") long ratePerMinute,
+                     @Value("${soulvoyage.llm.max-in-flight:32}") int maxInFlight,
+                     @Value("${soulvoyage.llm.queue-wait:1500ms}") Duration queueWait) {
+        LlmGuard.configure(ratePerMinute, maxInFlight, queueWait, reg);
         LlmUsageCollector.setHook(resp -> {
             String model = resp.model() == null ? "unknown" : resp.model();
             reg.timer("sv.llm.call", "model", model).record(Duration.ofMillis(resp.costMs()));

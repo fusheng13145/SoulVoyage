@@ -214,7 +214,18 @@ public class ArchiveService {
                 userId, org.springframework.data.domain.PageRequest.of(0, 200)).getContent()) {
             ObjectNode n = arr.addObject();
             n.put("id", r.getId()).put("type", r.getType()).put("title", r.getTitle())
-                    .put("riskLevel", r.getRiskLevel()).put("date", dateOf(r));
+                    .put("riskLevel", r.getRiskLevel()).put("date", dateOf(r))
+                    .put("starred", r.getStarred() != 0);
+            if (r.getFeedback() != null) {
+                n.put("feedback", r.getFeedback());
+                if (r.getFeedbackNoteEnc() != null) {
+                    try {
+                        n.put("feedbackNote", crypto.decryptUserField(userId, r.getFeedbackNoteEnc()));
+                    } catch (Exception e) {
+                        n.put("feedbackNote", "（反馈原文无法解密：密钥已销毁）");
+                    }
+                }
+            }
             try {
                 n.set("content", mapper.readTree(crypto.decryptUserField(userId, r.getContentEnc())));
             } catch (Exception e) {

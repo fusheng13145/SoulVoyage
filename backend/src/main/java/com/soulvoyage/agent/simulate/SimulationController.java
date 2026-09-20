@@ -17,6 +17,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * UC2 模拟训练接口（手册 §6.4）：场景列表 / 开场 / 逐轮（SSE 流式 NPC）/ 结束（202 复盘任务）。
@@ -63,15 +64,27 @@ public class SimulationController {
         return ApiResponse.ok(service.transcript(p.userId(), id));
     }
 
-    /** 逐轮：SSE 流式回 NPC 文本（npc_delta × n → turn_done），危机兜底额外发 crisis 事件 */
+    /**
+     * 逐轮：SSE 流式回 NPC 文本（npc_delta × n → turn_done），危机兜底额外发 crisis 事件。
+     * npc_delta 为模型真流式增量（只含 reply 字段），turn_done.npcText 是权威全文——降级/危机退出会以它为准。
+     */
     @PostMapping(value = "/simulations/{id}/turns", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter turn(@AuthenticationPrincipal AuthPrincipal p,
                            @PathVariable Long id,
                            @Valid @RequestBody TurnReq req) {
         SseEmitter emitter = new SseEmitter(60_000L);
+        AtomicBoolean pipeBroken = new AtomicBoolean(false);
         SimulationService.TurnResult r;
         try {
-            r = service.turn(p.userId(), id, req.userText());
+            r = service.turn(p.userId(), id, req.userText(), delta -> {
+                if (pipeBroken.get()) return;
+                try {
+                    emitter.send(SseEmitter.event().name("npc_delta")
+                            .data(Map.of("text", delta), MediaType.APPLICATION_JSON));
+                } catch (Exception e) {
+                    pipeBroken.set(true);   // 客户端断开：不再外发，回合仍落库
+                }
+            });
         } catch (BizException e) {
             // SSE 上下文里业务失败也以事件下发，前端统一在流内处理
             try {
@@ -84,11 +97,6 @@ public class SimulationController {
             return emitter;
         }
         try {
-            for (String chunk : splitForStream(r.npcText())) {
-                emitter.send(SseEmitter.event().name("npc_delta")
-                        .data(Map.of("text", chunk), MediaType.APPLICATION_JSON));
-                Thread.sleep(40);   // 打字机节奏；接真实流式模型后替换为 token 回调
-            }
             if (r.crisis()) {
                 emitter.send(SseEmitter.event().name("crisis").data(Map.of(
                         "level", "HIGH", "hotline", "12356",
@@ -97,11 +105,9 @@ public class SimulationController {
             emitter.send(SseEmitter.event().name("turn_done").data(Map.of(
                     "turnNo", r.turnNo(), "npcEmotion", r.npcEmotion(), "tension", r.tension(),
                     "stateTag", r.stateTag() == null ? "" : r.stateTag(),
+                    "npcText", r.npcText(), "emotionCue", r.emotionCue(),
                     "crisis", r.crisis(), "maxTurnsReached", r.maxTurnsReached())));
             emitter.complete();
-        } catch (InterruptedException ie) {
-            Thread.currentThread().interrupt();
-            emitter.completeWithError(ie);
         } catch (Exception e) {
             log.warn("turn sse failed sim={}", id, e);
             emitter.completeWithError(e);
@@ -136,13 +142,5 @@ public class SimulationController {
     public ApiResponse<Map<String, String>> interrupt(@AuthenticationPrincipal AuthPrincipal p,
                                                       @PathVariable Long id) {
         return ApiResponse.ok(Map.of("status", service.interrupt(p.userId(), id)));
-    }
-
-    static List<String> splitForStream(String text) {
-        List<String> out = new java.util.ArrayList<>();
-        for (int i = 0; i < text.length(); i += 12) {
-            out.add(text.substring(i, Math.min(text.length(), i + 12)));
-        }
-        return out;
     }
 }

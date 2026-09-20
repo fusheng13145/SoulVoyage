@@ -41,6 +41,22 @@ public class ReportEntity {
     @Column(nullable = false)
     private Short stale = 0;
 
+    /** 报表批注（下篇·L2）：用户自己留的记号，只影响本账号 */
+    @Column(nullable = false)
+    private Short starred = 0;
+
+    /** USEFUL / UNSURE / UNHELPFUL；null=未评 */
+    @Column(length = 16)
+    private String feedback;
+
+    /** ✦ 反馈原话密文（用户输入，与正文同一属主密钥口径） */
+    @Lob
+    @Column(name = "feedback_note_enc")
+    private byte[] feedbackNoteEnc;
+
+    @Column(name = "feedback_at")
+    private Instant feedbackAt;
+
     @Column(name = "created_at", insertable = false, updatable = false)
     private Instant createdAt;
 

@@ -2,9 +2,13 @@ package com.soulvoyage.common.exception;
 
 import com.soulvoyage.common.api.ApiResponse;
 import com.soulvoyage.common.api.ErrorCode;
+import com.soulvoyage.orchestrator.agent.LlmUnavailableException;
+import com.soulvoyage.orchestrator.agent.OutputInvalidException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.ResponseEntity.BodyBuilder;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -16,6 +20,9 @@ import java.io.IOException;
 /**
  * S3：业务异常映射真实 HTTP 状态码（401/403/404/409/4xx/5xx），
  * body 仍返回统一 ApiResponse 结构且 code 保留原错误码——前端两套判据都可用。
+ *
+ * 所有错误响应显式声明 Content-Type: application/json：SSE 端点（任务流/逐轮流）的
+ * Accept 只有 text/event-stream，靠内容协商会让异常处理器二次失败并退化成 500。
  */
 @Slf4j
 @RestControllerAdvice
@@ -23,8 +30,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(BizException.class)
     public ResponseEntity<ApiResponse<Void>> biz(BizException e) {
-        return ResponseEntity.status(httpStatus(e.getErrorCode()))
-                .body(ApiResponse.fail(e.getErrorCode(), e.getMessage()));
+        return json(httpStatus(e.getErrorCode())).body(ApiResponse.fail(e.getErrorCode(), e.getMessage()));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -32,17 +38,17 @@ public class GlobalExceptionHandler {
         String msg = e.getBindingResult().getFieldErrors().stream()
                 .map(f -> f.getField() + ": " + f.getDefaultMessage())
                 .findFirst().orElse("参数不合法");
-        return ResponseEntity.badRequest().body(ApiResponse.fail(ErrorCode.BAD_PARAMS, msg));
+        return json(HttpStatus.BAD_REQUEST).body(ApiResponse.fail(ErrorCode.BAD_PARAMS, msg));
     }
 
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ApiResponse<Void>> denied(AccessDeniedException e) {
-        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(ApiResponse.fail(ErrorCode.FORBIDDEN, null));
+        return json(HttpStatus.FORBIDDEN).body(ApiResponse.fail(ErrorCode.FORBIDDEN, null));
     }
 
     @ExceptionHandler(AuthenticationException.class)
     public ResponseEntity<ApiResponse<Void>> auth(AuthenticationException e) {
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(ApiResponse.fail(ErrorCode.UNAUTHORIZED, null));
+        return json(HttpStatus.UNAUTHORIZED).body(ApiResponse.fail(ErrorCode.UNAUTHORIZED, null));
     }
 
     /** 客户端中途断连（SSE 掐线等）属正常现象：吞掉，避免 ERROR 噪音与向 event-stream 写 JSON 的二次失败 */
@@ -51,11 +57,31 @@ public class GlobalExceptionHandler {
         log.debug("client aborted connection: {}", e.getMessage());
     }
 
+    /** 4001：模型侧不可用（超时/上游 5xx/排队放弃）——同步调用方（内容预览试跑等）走这里 */
+    @ExceptionHandler(LlmUnavailableException.class)
+    public ResponseEntity<ApiResponse<Void>> llmDown(LlmUnavailableException e) {
+        log.warn("llm unavailable: {}", e.getMessage());
+        return json(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(ApiResponse.fail(ErrorCode.LLM_TIMEOUT, e.getMessage()));
+    }
+
+    /** 4003：模型输出没过 Schema/越界词校验——异步链路里表现为步骤 DEGRADED，同步链路里走这里 */
+    @ExceptionHandler(OutputInvalidException.class)
+    public ResponseEntity<ApiResponse<Void>> llmOutputInvalid(OutputInvalidException e) {
+        log.warn("llm output rejected: {}", e.getMessage());
+        return json(HttpStatus.BAD_GATEWAY)
+                .body(ApiResponse.fail(ErrorCode.LLM_OUTPUT_INVALID, e.getMessage()));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Void>> other(Exception e) {
         log.error("unhandled exception", e);
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+        return json(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(ApiResponse.fail(ErrorCode.BAD_PARAMS, "服务内部错误"));
+    }
+
+    private static BodyBuilder json(HttpStatus status) {
+        return ResponseEntity.status(status).contentType(MediaType.APPLICATION_JSON);
     }
 
     private static HttpStatus httpStatus(ErrorCode code) {

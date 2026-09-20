@@ -21,6 +21,7 @@ import com.soulvoyage.domain.risk.RiskEventRepository;
 import com.soulvoyage.llm.LlmClient;
 import com.soulvoyage.llm.OutputValidator;
 import com.soulvoyage.llm.PromptTemplates;
+import com.soulvoyage.llm.StreamedJsonField;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -57,12 +58,12 @@ public class CompanionService {
             "这几天我们聊得很多，我挺珍视这些时刻的。要不要试着把心事写成一篇日记做个深度梳理？"
                     + "或者如果压力实在很重，校心理中心也是一个可以靠一靠的地方。";
 
-    static final int SOFT_CAP_TURNS_PER_DAY = 200;      // 成本护栏（软上限）
+    public static final int SOFT_CAP_TURNS_PER_DAY = 200;   // 成本护栏（软上限）
     static final int GUIDE_OVER_DAILY_TURNS = 100;      // 防依赖：单日 >100 轮视为"重度"
     private static final int GUIDE_CONSECUTIVE_DAYS = 3;
     private static final Duration SILENCE_WINDOW = Duration.ofMinutes(30);
     private static final int TRANSCRIPT_WINDOW = 8;
-    private static final int RATE_LIMIT_PER_MIN = 20;
+    public static final int RATE_LIMIT_PER_MIN = 20;    // 用户级滑动窗（每分钟消息数）
 
     private final CompanionSessionRepository sessionRepo;
     private final CompanionTurnRepository turnRepo;
@@ -132,6 +133,12 @@ public class CompanionService {
 
     /** 逐轮：危机一票 → 响应策略 → LLM 措辞（校验失败降级模板句，不杀会话） */
     public TurnResult turn(long userId, long sessionId, String userText) {
+        return turn(userId, sessionId, userText, delta -> { });
+    }
+
+    /** onDelta：LLM 裸 token 中抽出的 reply 文本，供回合流外发；危机话术/防依赖引导不在此列（真值取返回值） */
+    public TurnResult turn(long userId, long sessionId, String userText,
+                           java.util.function.Consumer<String> onDelta) {
         CompanionSessionEntity s = owned(userId, sessionId);
         if (!"ACTIVE".equals(s.getStatus())) {
             throw new BizException(ErrorCode.BAD_PARAMS, "该段对话已收起，继续聊请开新段");
@@ -160,7 +167,7 @@ public class CompanionService {
         } else {
             CompanionMood.Strategy strategy = CompanionMood.decide(userText, recentMoodTags(s.getId()));
             try {
-                aiText = companionLlmReply(s, strategy, turnNo, userText);
+                aiText = companionLlmReply(s, strategy, turnNo, userText, onDelta);
             } catch (Exception e) {
                 log.warn("companion reply degraded at session={} turn={}: {}", sessionId, turnNo, e.getMessage());
                 aiText = scriptedFallback(strategy, userText);
@@ -356,7 +363,8 @@ public class CompanionService {
     }
 
     private String companionLlmReply(CompanionSessionEntity s, CompanionMood.Strategy strategy,
-                                     int turnNo, String userText) throws Exception {
+                                     int turnNo, String userText,
+                                     java.util.function.Consumer<String> onDelta) throws Exception {
         CompanionContextAssembler.ProfileBlock p = context.assemble(s.getUserId());
         String system = templates.render(templates.system("companion_v1"), Map.of(
                 "moodDirective", CompanionMood.directive(strategy),
@@ -377,7 +385,13 @@ public class CompanionService {
                     .put("ai", t.getAiText());
         }
         tr.addObject().put("turn", turnNo).put("user", userText);
-        var resp = llm.chat(new LlmClient.LlmRequest("companion_v1", system, user.toString(), 300));
+        // 真流式：只把 reply 字段的文本外发给回合流，moodTag 与围栏噪声留给末端校验
+        var field = new StreamedJsonField("reply");
+        var resp = llm.stream(new LlmClient.LlmRequest("companion_v1", system, user.toString(), 300),
+                delta -> {
+                    String piece = field.feed(delta);
+                    if (!piece.isEmpty()) onDelta.accept(piece);
+                });
         JsonNode out = validator.validate("companion_reply.json", resp.content());
         return out.path("reply").asText();
     }

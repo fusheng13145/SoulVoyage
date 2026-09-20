@@ -260,6 +260,38 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/v1/reports/{id}/star': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post: operations['star']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/reports/{id}/feedback': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post: operations['feedback']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/v1/readings/favorites': {
     parameters: {
       query?: never
@@ -1400,6 +1432,13 @@ export interface components {
       /** Format: int64 */
       timeout?: number
     }
+    StarReq: {
+      starred: boolean
+    }
+    FeedbackReq: {
+      rating?: string
+      note?: string
+    }
     FavoriteReq: {
       type: string
       refCode: string
@@ -2194,6 +2233,58 @@ export interface operations {
         }
         content: {
           '*/*': components['schemas']['ApiResponseMapStringString']
+        }
+      }
+    }
+  }
+  star: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: number
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['StarReq']
+      }
+    }
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          '*/*': components['schemas']['ApiResponseMapStringObject']
+        }
+      }
+    }
+  }
+  feedback: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: number
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['FeedbackReq']
+      }
+    }
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          '*/*': components['schemas']['ApiResponseMapStringObject']
         }
       }
     }
@@ -3060,6 +3151,11 @@ export interface operations {
   list_2: {
     parameters: {
       query?: {
+        type?: string
+        riskLevel?: string
+        starred?: boolean
+        from?: string
+        to?: string
         page?: number
         size?: number
       }

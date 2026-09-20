@@ -14,6 +14,7 @@ import com.soulvoyage.domain.simulate.SimulateTurnRepository;
 import com.soulvoyage.llm.LlmClient;
 import com.soulvoyage.llm.OutputValidator;
 import com.soulvoyage.llm.PromptTemplates;
+import com.soulvoyage.llm.StreamedJsonField;
 import com.soulvoyage.orchestrator.OrchestratorService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -97,6 +98,12 @@ public class SimulationService {
     }
 
     public TurnResult turn(long userId, long simulateId, String userText) {
+        return turn(userId, simulateId, userText, delta -> { });
+    }
+
+    /** onDelta：模型裸增量（已抽出自 JSON 的 reply 字段），供回合流边生成边外发；文本真值仍以返回的 npcText 为准 */
+    public TurnResult turn(long userId, long simulateId, String userText,
+                           java.util.function.Consumer<String> onDelta) {
         SimulateSessionEntity s = owned(userId, simulateId);
         if ("INTERRUPTED".equals(s.getStatus())) {
             s.setStatus("RUNNING");     // C3 续练：中断会话可直接接着说
@@ -127,7 +134,7 @@ public class SimulationService {
             s.setFinishedAt(Instant.now());
         } else {
             try {
-                JsonNode reply = npcLlmReply(s, scene, d, turnNo, userText);
+                JsonNode reply = npcLlmReply(s, scene, d, turnNo, userText, onDelta);
                 npcText = reply.path("reply").asText();
                 emotionCue = reply.path("emotionCue").asText("");
             } catch (Exception e) {
@@ -269,7 +276,8 @@ public class SimulationService {
     // ---------------- internals ----------------
 
     private JsonNode npcLlmReply(SimulateSessionEntity s, SceneCard scene,
-                                 NpcDirector.Decision d, int turnNo, String userText) {
+                                 NpcDirector.Decision d, int turnNo, String userText,
+                                 java.util.function.Consumer<String> onDelta) {
         String system = templates.render(templates.system("npc_v1"), Map.ofEntries(
                 Map.entry("sceneTitle", scene.title()),
                 Map.entry("sceneBackground", scene.description()),
@@ -283,7 +291,12 @@ public class SimulationService {
                 Map.entry("intensity", String.valueOf(d.intensity())),
                 Map.entry("coachMemory", readCoachMemory(s))));
         String user = buildTurnPayload(s, scene, d, turnNo, userText);
-        var resp = llm.chat(new LlmClient.LlmRequest("npc_v1", system, user, 400));
+        // 真流式：裸 token 里只把 reply 字段的文本外发（emotionCue/围栏噪声不透出），校验仍对完整输出做一次
+        var field = new StreamedJsonField("reply");
+        var resp = llm.stream(new LlmClient.LlmRequest("npc_v1", system, user, 400), delta -> {
+            String piece = field.feed(delta);
+            if (!piece.isEmpty()) onDelta.accept(piece);
+        });
         return validator.validate("npc_reply.json", resp.content());
     }
 
