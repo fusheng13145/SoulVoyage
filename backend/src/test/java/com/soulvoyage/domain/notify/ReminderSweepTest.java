@@ -95,4 +95,16 @@ class ReminderSweepTest {
         scheduler.sweepPlan(LocalDateTime.of(cal.today().plusDays(1), java.time.LocalTime.of(21, 5)));
         assertEquals(1, countKind(uid, "PLAN"));
     }
+
+    /** 门禁口径"总开关可验证"的关闭侧：sweep 只遍历 flag=1 的偏好行，关掉即全局静音 */
+    @Test
+    void turningSwitchesOffSilencesEveryReminder() {
+        long uid = newUser();
+        prefs.update(uid, Map.of("checkinReminderOn", false, "planReminderOn", false, "reminderTime", "20:00"));
+        var late = LocalDateTime.of(cal.today(), java.time.LocalTime.of(21, 5));
+        scheduler.sweepCheckIn(late);
+        scheduler.sweepPlan(late);
+        assertEquals(0, countKind(uid, "SYSTEM"), "关掉打卡提醒后不得发声");
+        assertEquals(0, countKind(uid, "PLAN"), "关掉计划提醒后不得发声");
+    }
 }
