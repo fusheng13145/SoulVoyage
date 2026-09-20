@@ -40,7 +40,7 @@ import java.util.stream.Collectors;
 public class SupportAgent implements Agent {
 
     private static final int CANDIDATE_LIMIT = 4;
-    private static final String PSY_ANCHOR = "node:psy_self_regulation_body";
+    private static final int PSY_LIMIT = 3;
 
     /** 主导情绪 → 练习库适用标签（exercise.applyEmotions 的英文枚举，与 schema 种子同源） */
     private static final Map<String, List<String>> EMOTION_TO_CATEGORIES = Map.ofEntries(
@@ -61,6 +61,7 @@ public class SupportAgent implements Agent {
     private final PromptTemplates templates;
     private final OutputValidator validator;
     private final ExerciseCatalog exercises;
+    private final com.soulvoyage.kg.KgSearchService kg;
     private final CryptoService crypto;
     private final ReportRepository reportRepo;
     private final AgentMessageRepository msgRepo;
@@ -79,16 +80,18 @@ public class SupportAgent implements Agent {
 
         Set<String> categories = categoriesFor(emotion, trace);
         List<Exercise> candidates = pickCandidates(categories, trace);
+        List<com.soulvoyage.kg.KgSearchService.PsyTopicCard> psyCandidates = psyCandidatesFor(emotion, trace);
 
         String system = templates.render(templates.system("support_v1"), Map.of(
                 "exerciseCandidates", candidateBlock(candidates),
-                "psyAnchor", PSY_ANCHOR));
-        String user = buildUserPayload(emotion, trace, candidates);
+                "psyCandidates", psyBlock(psyCandidates)));
+        String user = buildUserPayload(emotion, trace, candidates, psyCandidates);
 
         var resp = llm.chat(new LlmClient.LlmRequest("support_v1", system, user, 1200));
         JsonNode result = validator.validate(rt.spec().outputSchema(), resp.content());
 
         assertExerciseIds(result, candidates);
+        correctKgSource(result, psyCandidates);
 
         String primary = emotion.path("primaryEmotion").asText("情绪");
         ReportEntity report = new ReportEntity();
@@ -155,8 +158,39 @@ public class SupportAgent implements Agent {
         return List.of(exercises.require("ex_54321"));
     }
 
-    private String candidateBlock(List<Exercise> candidates) {
+    /** N2：按 TRACE 压力源 + 主导情绪召回真实科普候选；无命中时兜底一篇通用科普（闭集永不为空） */
+    private List<com.soulvoyage.kg.KgSearchService.PsyTopicCard> psyCandidatesFor(JsonNode emotion, JsonNode trace) {
+        var stressors = new java.util.ArrayList<String>();
+        for (JsonNode s : trace.path("stressors")) {
+            String src = s.path("source").asText("");
+            if (!src.isBlank()) stressors.add(src);
+        }
+        var cards = kg.psyTopicsFor(stressors, emotion.path("primaryEmotion").asText(""), PSY_LIMIT);
+        return cards.isEmpty() ? kg.psyTopicsFor(kg.stressorOptions(), null, 1) : cards;
+    }
+
+    private String psyBlock(List<com.soulvoyage.kg.KgSearchService.PsyTopicCard> cards) {
         var sb = new StringBuilder();
+        for (var c : cards) {
+            sb.append("- node:").append(c.kgNodeId()).append(" | ").append(c.title())
+                    .append(" | ").append(c.summary())
+                    .append(" | 微行动: ").append(c.microAction()).append('\n');
+        }
+        return sb.toString();
+    }
+
+    /** kgSource 反向校验的温和版：引用越界不打断干预，就地纠正为候选首篇并告警 */
+    static void correctKgSource(JsonNode result, List<com.soulvoyage.kg.KgSearchService.PsyTopicCard> cards) {
+        if (!(result instanceof com.fasterxml.jackson.databind.node.ObjectNode root)) return;
+        if (!(root.path("psyEducation") instanceof com.fasterxml.jackson.databind.node.ObjectNode edu)) return;
+        String code = edu.path("kgSource").asText("").replaceFirst("^node:", "");
+        boolean ok = !cards.isEmpty() && cards.stream().anyMatch(c -> c.kgNodeId().equals(code));
+        if (!ok) {
+            edu.put("kgSource", "node:" + cards.get(0).kgNodeId());
+        }
+    }
+
+    private String candidateBlock(List<Exercise> candidates) {        var sb = new StringBuilder();
         for (Exercise e : candidates) {
             sb.append("- id=").append(e.id()).append(" | ").append(e.name())
                     .append(" | 适用=").append(e.applyEmotions())
@@ -168,14 +202,15 @@ public class SupportAgent implements Agent {
         return sb.toString();
     }
 
-    private String buildUserPayload(JsonNode emotion, JsonNode trace, List<Exercise> candidates) {
+    private String buildUserPayload(JsonNode emotion, JsonNode trace, List<Exercise> candidates,
+                                    List<com.soulvoyage.kg.KgSearchService.PsyTopicCard> psyCandidates) {
         var root = mapper.createObjectNode();
         root.set("emotionResult", emotion.deepCopy());
         ObjectNode tp = root.putObject("traceSignals");
         tp.set("stressors", trace.path("stressors").deepCopy());
         tp.set("cognitiveDistortions", trace.path("cognitiveDistortions").deepCopy());
         root.set("candidates", mapper.valueToTree(candidates));
-        root.put("psyAnchor", PSY_ANCHOR);
+        root.set("psyCandidates", mapper.valueToTree(psyCandidates));
         return root.toString();
     }
 

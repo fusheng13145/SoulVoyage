@@ -19,8 +19,8 @@ public class ExerciseRecordEntity {
     @Column(name = "user_id", nullable = false)
     private Long userId;
 
-    @Column(name = "exercise_id", nullable = false)
-    private Long exerciseId;          // exercise_library 种子自增 id（闭集内）
+    @Column(name = "exercise_code", nullable = false, length = 32)
+    private String exerciseCode;      // M8：exercise_library.code（ex_*），统一编码替代自增 id 外键
 
     @Column(name = "plan_report_id")
     private Long planReportId;        // 来源疏导方案报告（可空）

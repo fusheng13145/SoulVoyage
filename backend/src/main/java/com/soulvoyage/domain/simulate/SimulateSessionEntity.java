@@ -24,12 +24,25 @@ public class SimulateSessionEntity {
     @Column(nullable = false, length = 8)
     private String difficulty = "NORMAL";
 
-    /** RUNNING / FINISHED / ABORTED_RISK（轮数上限在服务层断言，不占持久状态） */
+    /** RUNNING / FINISHED / ABORTED_RISK / INTERRUPTED（C3 中途退出留档；轮数上限在服务层断言，不占持久状态） */
     @Column(nullable = false, length = 16)
     private String status = "RUNNING";
 
     @Column(name = "total_turns", nullable = false)
     private Integer totalTurns = 0;
+
+    /** C3 复盘四维均分（0-100），历史卡与雷达图数据源 */
+    @Column(name = "avg_score", precision = 4, scale = 1)
+    private java.math.BigDecimal avgScore;
+
+    /** C3 各维度分 {LISTEN:72,...} JSON 明文（非敏感，聚合统计） */
+    @Column(name = "dimension_scores", length = 256)
+    private String dimensionScores;
+
+    /** ✦ C3 弱项维度+一句话评语，续练时解密注入 NPC prompt */
+    @Lob
+    @Column(name = "weaknesses_enc")
+    private byte[] weaknessesEnc;
 
     /** ✦ 导演模块状态快照：{tension, mood, keyEvents[]} JSON 密文 */
     @Lob

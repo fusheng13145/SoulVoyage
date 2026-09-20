@@ -19,6 +19,7 @@ interface Summary {
   trainingScores: { date: string; avgScore: number }[]
 }
 interface ReportMeta { id: number; type: string; title: string; riskLevel: string; createdAt: string }
+interface FavoriteView { type: string; refCode: string; title?: string; summary?: string }
 interface Snapshot {
   nickname: string; generatedAt: string
   reports: { id: number; type: string; title: string; riskLevel: string; date: string; content: any }[]
@@ -29,6 +30,7 @@ interface Snapshot {
 const router = useRouter()
 const summary = ref<Summary | null>(null)
 const allReports = ref<ReportMeta[]>([])
+const favorites = ref<FavoriteView[]>([])
 const repTotal = ref(0)
 const repPage = ref(0)
 const exporting = ref(false)
@@ -45,13 +47,15 @@ const riskTone = (r: string) => ({ HIGH: 'var(--sv-red)', MEDIUM: 'var(--sv-ambe
 async function load() {
   loading.value = true
   try {
-    const [s, r] = await Promise.all([
+    const [s, r, fv] = await Promise.all([
       http.get<ApiResp<Summary>>('/archive/summary'),
       http.get<ApiResp<{ items: ReportMeta[]; total: number }>>('/reports', { params: { page: 0, size: 10 } }),
+      http.get<ApiResp<FavoriteView[]>>('/readings/favorites').catch(() => null),  // N3 收藏加载失败不挡档案
     ])
     summary.value = s.data.data
     allReports.value = r.data.data.items
     repTotal.value = r.data.data.total
+    favorites.value = fv?.data.data ?? []
   } catch (e: any) {
     toast(e.message || '档案加载失败')
   } finally {
@@ -195,6 +199,17 @@ function doPrint() { window.print() }
           <h3 class="t">训练分数趋势</h3>
           <ul class="points">
             <li v-for="(t, i) in summary.trainingScores" :key="i">{{ t.date || '—' }} · 综合分 {{ t.avgScore }}</li>
+          </ul>
+        </SvCard>
+
+        <SvCard v-if="favorites.length">
+          <h3 class="t">我的收藏（{{ favorites.length }}）</h3>
+          <ul class="points">
+            <li v-for="f in favorites" :key="f.refCode">
+              <SvIcon name="i-star" :size="14" tone="label2" />
+              <span>{{ f.title || f.refCode }}</span>
+              <small>{{ f.title ? '每日一读' : '内容已下架' }}</small>
+            </li>
           </ul>
         </SvCard>
 

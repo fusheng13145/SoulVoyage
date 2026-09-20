@@ -28,6 +28,7 @@ public class TaskController {
     private final OrchestratorService orchestrator;
     private final TaskEventBus bus;
     private final com.soulvoyage.domain.diary.DiaryService diary;
+    private final com.soulvoyage.domain.task.TaskInstanceRepository tasks;
 
     @PostMapping
     public ResponseEntity<ApiResponse<Map<String, String>>> submit(
@@ -40,6 +41,35 @@ public class TaskController {
         }
         return ResponseEntity.accepted()
                 .body(ApiResponse.ok(Map.of("taskNo", t.getTaskNo(), "status", t.getStatus())));
+    }
+
+    /** C5 任务历史列表：pipelineCode/status 可选过滤（只回元信息，产物走 /tasks/{taskNo}） */
+    @GetMapping
+    public ApiResponse<Map<String, Object>> list(
+            @AuthenticationPrincipal AuthPrincipal p,
+            @RequestParam(required = false) String pipelineCode,
+            @RequestParam(required = false) String status,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        var result = tasks.findUserTasks(p.userId(),
+                blankToNull(pipelineCode), blankToNull(status),
+                org.springframework.data.domain.PageRequest.of(page, Math.min(Math.max(size, 1), 50)));
+        var items = result.getContent().stream().map(t -> {
+            Map<String, Object> n = new java.util.LinkedHashMap<String, Object>();
+            n.put("taskNo", t.getTaskNo());
+            n.put("pipelineCode", t.getPipelineCode());
+            n.put("status", t.getStatus());
+            n.put("createdAt", t.getCreatedAt() == null ? "" : t.getCreatedAt().toString());
+            n.put("finishedAt", t.getFinishedAt() == null ? "" : t.getFinishedAt().toString());
+            n.put("errorMsg", t.getErrorMsg());
+            return n;
+        }).toList();
+        return ApiResponse.ok(Map.of("items", items, "page", result.getNumber(),
+                "size", result.getSize(), "total", result.getTotalElements()));
+    }
+
+    private static String blankToNull(String s) {
+        return s == null || s.isBlank() ? null : s;
     }
 
     @GetMapping("/{taskNo}")

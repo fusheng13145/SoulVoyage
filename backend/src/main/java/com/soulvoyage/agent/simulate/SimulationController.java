@@ -41,7 +41,8 @@ public class SimulationController {
                 "code", c.code(), "title", c.title(), "description", c.description(),
                 "npcName", c.npcName(), "relation", c.relation(),
                 "difficulties", c.difficulties(), "goalDimensions", c.goalDimensions(),
-                "maxTurns", c.maxTurns())).toList());
+                "maxTurns", c.maxTurns(),
+                "tags", c.tags(), "recommendedFor", c.recommendedFor())).toList());
     }
 
     @PostMapping("/simulations")
@@ -108,11 +109,33 @@ public class SimulationController {
         return emitter;
     }
 
+    /** C3 会话列表：?status=INTERRUPTED 可单独捞"上次没练完" */
+    @GetMapping("/simulations")
+    public ApiResponse<Map<String, Object>> list(@AuthenticationPrincipal AuthPrincipal p,
+                                                 @RequestParam(required = false) String status,
+                                                 @RequestParam(defaultValue = "0") int page,
+                                                 @RequestParam(defaultValue = "10") int size) {
+        return ApiResponse.ok(service.list(p.userId(), status, page, size));
+    }
+
+    /** C3 训练历史卡：每场景 best/avg/上次四维雷达 */
+    @GetMapping("/simulations/stats")
+    public ApiResponse<List<Map<String, Object>>> stats(@AuthenticationPrincipal AuthPrincipal p) {
+        return ApiResponse.ok(service.stats(p.userId()));
+    }
+
     @PostMapping("/simulations/{id}/finish")
     public ResponseEntity<ApiResponse<Map<String, String>>> finish(
             @AuthenticationPrincipal AuthPrincipal p, @PathVariable Long id) {
         String taskNo = service.finish(p.userId(), id);
         return ResponseEntity.accepted().body(ApiResponse.ok(Map.of("taskNo", taskNo)));
+    }
+
+    /** C3 中途退出：留档 INTERRUPTED（可续练/可复盘），下一轮发言自动回到进行中 */
+    @PostMapping("/simulations/{id}/interrupt")
+    public ApiResponse<Map<String, String>> interrupt(@AuthenticationPrincipal AuthPrincipal p,
+                                                      @PathVariable Long id) {
+        return ApiResponse.ok(Map.of("status", service.interrupt(p.userId(), id)));
     }
 
     static List<String> splitForStream(String text) {

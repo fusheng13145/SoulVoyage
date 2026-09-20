@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
+import { onBeforeRouteLeave } from 'vue-router'
 import SvNavBar from '@/components/ui/SvNavBar.vue'
 import SvCard from '@/components/ui/SvCard.vue'
 import SvBubble from '@/components/ui/SvBubble.vue'
@@ -10,18 +11,102 @@ import SvDisclaimer from '@/components/ui/SvDisclaimer.vue'
 import CrisisReferral from '@/components/CrisisReferral.vue'
 import http, { type ApiResp } from '@/api/http'
 import { postSse, streamTask } from '@/api/sse'
-import { toast } from '@/stores/ui'
+import { confirmDialog, toast } from '@/stores/ui'
 import { useContentStore, type Scene } from '@/stores/content'
+import { useCrisisStore } from '@/stores/crisis'
 
 const content = useContentStore()
+const crisisStore = useCrisisStore()
 
 const stage = ref<'scenes' | 'chat' | 'review'>('scenes')
 const error = ref('')
 
-// —— 场景选择 ——
+// —— 场景选择（N1：标签筛选 + 画像推荐）——
 const scenes = computed(() => content.scenes ?? [])
 const picked = ref<Record<string, string>>({})
+const activeTag = ref<string | null>(null)
 const DIFFS: Record<string, string> = { MILD: '温和', NORMAL: '普通', HARD: '强硬' }
+
+const allTags = computed(() => {
+  const set = new Set<string>()
+  scenes.value.forEach((s) => (s.tags ?? []).forEach((t) => set.add(t)))
+  return [...set]
+})
+
+/** 近 4 周压力源 Top3：与场景 recommendedFor 求交集即"根据你的档案推荐" */
+const topStressors = computed(() => {
+  const m = new Map<string, number>()
+  crisisStore.weeks.slice(-4).forEach((w) =>
+    w.stressorTop?.forEach((s) => m.set(s.name, (m.get(s.name) || 0) + s.count)))
+  return [...m.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3).map((e) => e[0])
+})
+
+const recommended = computed(() => new Set(
+  scenes.value.filter((s) => (s.recommendedFor ?? []).some((t) => topStressors.value.includes(t)))
+    .map((s) => s.code)))
+
+const visibleScenes = computed(() => {
+  const list = activeTag.value
+    ? scenes.value.filter((s) => s.tags?.includes(activeTag.value!))
+    : [...scenes.value]
+  return list.sort((a, b) => Number(recommended.value.has(b.code)) - Number(recommended.value.has(a.code)))
+})
+
+onMounted(() => {
+  loadExtras()
+  if (!crisisStore.weeks.length) crisisStore.refreshProfile().catch(() => { /* 无画像则不推荐 */ })
+})
+
+/* C3：上次没练完 + 历史 best 分 */
+interface SimItem { simulateId: number; sceneCode: string; sceneTitle: string; status: string; totalTurns: number }
+interface SimStat { sceneCode: string; bestScore?: number | null; lastDimensions?: Record<string, number> }
+const unfinished = ref<SimItem[]>([])
+const statsMap = ref<Record<string, SimStat>>({})
+
+async function loadExtras() {
+  try {
+    const { data } = await http.get<ApiResp<{ items: SimItem[] }>>('/simulations',
+      { params: { status: 'INTERRUPTED', page: 0, size: 5 } })
+    unfinished.value = data.data.items
+  } catch { /* 列表失败只影响续练提示 */ }
+  try {
+    const { data } = await http.get<ApiResp<SimStat[]>>('/simulations/stats')
+    statsMap.value = Object.fromEntries(data.data.map((s) => [s.sceneCode, s]))
+  } catch { /* 无历史则不展示 best */ }
+}
+
+async function resume(it: SimItem) {
+  error.value = ''
+  try {
+    const { data } = await http.get<ApiResp<any>>(`/simulations/${it.simulateId}`)
+    const t = data.data
+    session.value = { simulateId: t.simulateId, title: t.sceneTitle, npcName: t.npcName }
+    msgs.value = t.turns.flatMap((x: any) => [
+      { role: 'user' as const, text: x.userText },
+      { role: 'npc' as const, text: x.npcText, turnNo: x.turnNo },
+    ])
+    mood.value = t.turns.length ? t.turns[t.turns.length - 1].npcEmotion : ''
+    lastTag.value = ''; crisis.value = false
+    maxReached.value = t.totalTurns >= t.maxTurns
+    unfinished.value = unfinished.value.filter((u) => u.simulateId !== it.simulateId)
+    stage.value = 'chat'
+    scrollChat()
+  } catch (e: any) {
+    error.value = e.message || '继续训练失败'
+  }
+}
+
+onBeforeRouteLeave(async (_to, _from, next) => {
+  if (stage.value !== 'chat' || !session.value || crisis.value) return next()
+  const ok = await confirmDialog({
+    title: '要中途退出吗？',
+    message: '已练的对话会留档为「未练完」，随时可以回来接着说；也可以先「结束并复盘」拿评分。',
+    confirmText: '退出并留档',
+  })
+  if (!ok) return next(false)
+  await http.post(`/simulations/${session.value.simulateId}/interrupt`, {}).catch(() => { /* 静默 */ })
+  next()
+})
 
 content.ensureScenes().then((list) => {
   list.forEach((s) => { picked.value[s.code] = s.difficulties.includes('NORMAL') ? 'NORMAL' : s.difficulties[0] })
@@ -158,6 +243,7 @@ function restart() {
   msgs.value = []
   stage.value = 'scenes'
   content.ensureScenes(true).catch(() => { /* 保持旧列表 */ })
+  loadExtras()
   toast('换个场景，重新开口')
 }
 </script>
@@ -172,10 +258,29 @@ function restart() {
       <template v-if="stage === 'scenes'">
         <p class="tip sv-muted">选一个最近让你头疼的人际局面，和「数字人」先练一遍——安全地试错，再回到现实。</p>
         <p v-if="error && !scenes.length" class="err" role="alert">{{ error }}</p>
-        <SvCard v-for="s in scenes" :key="s.code" :pad="false" class="scene">
+        <!-- C3：上次没练完，继续上次说到第几句 -->
+        <SvCard v-if="unfinished.length" :pad="false" class="resume">
+          <div v-for="u in unfinished" :key="u.simulateId" class="r-row">
+            <div class="r-txt"><b>上次没练完 · {{ u.sceneTitle }}</b>
+              <small>已经练到第 {{ u.totalTurns }} 轮，接着上次说</small></div>
+            <button class="sv-btn sm" @click="resume(u)">继续练</button>
+          </div>
+        </SvCard>
+        <div v-if="allTags.length" class="tagbar" role="group" aria-label="场景标签筛选">
+          <SvChip :model-value="!activeTag" @update:model-value="activeTag = null">全部</SvChip>
+          <SvChip v-for="t in allTags" :key="t" :model-value="activeTag === t"
+            @update:model-value="activeTag = activeTag === t ? null : t">{{ t }}</SvChip>
+        </div>
+        <p v-if="activeTag && !visibleScenes.length" class="sv-muted empty-tip">这个标签下暂时没有场景，看看「全部」？</p>
+        <p v-else-if="topStressors.length && recommended.size" class="rec-note sv-cap">
+          <SvIcon name="i-sparkle" :size="14" tone="inherit" /> 已按你近几周的「{{ topStressors.join('、') }}」优先排序
+        </p>
+        <SvCard v-for="s in visibleScenes" :key="s.code" :pad="false" class="scene">
           <div class="s-head">
             <span class="s-ico"><SvIcon name="i-grid" :size="20" tone="inherit" /></span>
-            <div><b>{{ s.title }}</b><small>{{ s.npcName }} · 你的{{ s.relation }}</small></div>
+            <div><b>{{ s.title }}</b><small>{{ s.npcName }} · 你的{{ s.relation }}<template
+              v-if="statsMap[s.code]?.bestScore != null"> · 最佳 {{ statsMap[s.code].bestScore }} 分</template></small></div>
+            <span v-if="recommended.has(s.code)" class="rec-badge">档案推荐</span>
           </div>
           <p class="desc">{{ s.description }}</p>
           <p class="dims sv-cap">考察
@@ -273,6 +378,16 @@ function restart() {
               <p class="to">建议：{{ r.optimized }}</p>
             </div>
           </template>
+
+          <template v-if="review.referenceCaseDetail">
+            <h4>类似局面，别人怎么谈</h4>
+            <div class="refcase">
+              <b>{{ review.referenceCaseDetail.title }}</b>
+              <p class="sv-muted">{{ review.referenceCaseDetail.situation }}</p>
+              <p class="from">容易火上浇油：{{ review.referenceCaseDetail.unhelpful }}</p>
+              <p class="to">更有效的说法：{{ review.referenceCaseDetail.helpful }}</p>
+            </div>
+          </template>
         </SvCard>
 
         <CrisisReferral v-if="receipt && (receipt.riskLevel === 'HIGH' || receipt.referral?.show)"
@@ -297,6 +412,11 @@ function restart() {
 <style scoped>
 .body { padding: 0 var(--sv-s4); }
 .tip { margin-bottom: var(--sv-s3); line-height: 1.7; }
+.tagbar { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: var(--sv-s2); }
+.rec-note { display: flex; align-items: center; gap: 4px; margin: 0 0 var(--sv-s3); color: var(--sv-indigo); }
+.empty-tip { text-align: center; padding: var(--sv-s5) 0; }
+.rec-badge { margin-left: auto; flex: none; align-self: flex-start; background: var(--sv-indigo-soft); color: var(--sv-indigo);
+  border-radius: var(--sv-r-pill); padding: 2px 8px; font-size: var(--sv-fs-caption1); }
 .err { color: var(--sv-red); font-size: var(--sv-fs-footnote); margin: var(--sv-s2) 0; }
 .scene { padding: var(--sv-s4); }
 .s-head { display: flex; align-items: center; gap: var(--sv-s3); margin-bottom: var(--sv-s2); }
@@ -351,6 +471,17 @@ h4 { margin: var(--sv-s4) 0 var(--sv-s2); font-size: var(--sv-fs-footnote); colo
 .rewrite { border-radius: var(--sv-r-ctl); padding: 10px 12px; margin-bottom: var(--sv-s2); background: color-mix(in srgb, var(--sv-mint) 8%, var(--sv-card)); font-size: var(--sv-fs-footnote); }
 .rewrite .from { text-decoration: line-through; }
 .rewrite .to { color: var(--sv-mint); margin-top: 4px; }
+.resume { padding: var(--sv-s3) var(--sv-s4); margin-bottom: var(--sv-s3);
+  background: color-mix(in srgb, var(--sv-indigo) 6%, var(--sv-card)); }
+.r-row { display: flex; align-items: center; gap: 10px; padding: 6px 0; }
+.r-txt { flex: 1; min-width: 0; }
+.r-txt b { display: block; font-size: var(--sv-fs-footnote); }
+.r-txt small { color: var(--sv-label2); font-size: var(--sv-fs-caption1); }
+.refcase { border-radius: var(--sv-r-ctl); padding: 10px 12px; margin-bottom: var(--sv-s2);
+  background: var(--sv-fill3); font-size: var(--sv-fs-footnote); }
+.refcase b { font-size: var(--sv-fs-subhead); }
+.refcase .from { color: var(--sv-label2); margin-top: 6px; }
+.refcase .to { color: var(--sv-mint); margin-top: 4px; }
 .fin { display: flex; flex-direction: column; gap: var(--sv-s2); margin-top: var(--sv-s4); }
 .loading { text-align: center; padding: var(--sv-s6) 0; }
 .foot { text-align: center; margin-top: var(--sv-s4); }

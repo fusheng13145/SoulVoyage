@@ -9,12 +9,12 @@ import java.util.Optional;
 public interface ExerciseRecordRepository extends JpaRepository<ExerciseRecordEntity, Long> {
     List<ExerciseRecordEntity> findByUserIdOrderByCreatedAtDescIdDesc(Long userId);
 
-    /** C4：同日同练习覆盖式打卡（UK(user,exercise,check_date)） */
-    Optional<ExerciseRecordEntity> findByUserIdAndExerciseIdAndCheckDate(Long userId, Long exerciseId,
-                                                                         LocalDate checkDate);
+    /** C4：同日同练习覆盖式打卡（UK(user,exercise,check_date)；M8 起按 code） */
+    Optional<ExerciseRecordEntity> findByUserIdAndExerciseCodeAndCheckDate(Long userId, String exerciseCode,
+                                                                           LocalDate checkDate);
 
     @org.springframework.data.jpa.repository.Query(
-            "select count(distinct e.exerciseId) from ExerciseRecordEntity e where e.userId = :userId and e.completed = 1")
+            "select count(distinct e.exerciseCode) from ExerciseRecordEntity e where e.userId = :userId and e.completed = 1")
     long countDistinctCompletedExercises(@org.springframework.data.repository.query.Param("userId") Long userId);
 
     long countByUserIdAndCompletedNot(Long userId, Short completed);

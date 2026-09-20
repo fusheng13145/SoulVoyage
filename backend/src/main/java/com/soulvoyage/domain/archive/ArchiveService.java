@@ -55,6 +55,7 @@ public class ArchiveService {
     private final com.soulvoyage.domain.companion.CompanionTurnRepository companionTurnRepo;
     private final com.soulvoyage.domain.checkin.MoodCheckInRepository checkInRepo;
     private final com.soulvoyage.domain.letter.GrowthLetterRepository letterRepo;
+    private final com.soulvoyage.domain.content.ReadingService reading;
     private final UserRepository userRepo;
     private final CryptoService crypto;
     private final AuditService audit;
@@ -159,6 +160,7 @@ public class ArchiveService {
         snapshot.set("companion", allCompanion(userId));
         snapshot.set("moodCheckIns", allCheckIns(userId));
         snapshot.set("growthLetters", allLetters(userId));
+        snapshot.set("favorites", mapper.valueToTree(reading.favoritesForExport(userId)));
 
         String fileId = Ulid.next();
         exports.put(fileId, new Snapshot(userId, snapshot, Instant.now().plus(EXPORT_TTL)));
@@ -258,7 +260,7 @@ public class ArchiveService {
         var arr = mapper.createArrayNode();
         for (ExerciseRecordEntity x : exerciseRepo.findByUserIdOrderByCreatedAtDescIdDesc(userId)) {
             ObjectNode n = arr.addObject();
-            n.put("exerciseId", x.getExerciseId())
+            n.put("exerciseCode", x.getExerciseCode())
                     .put("completed", x.getCompleted().intValue())
                     .put("feedback", x.getFeedback() == null ? "" : x.getFeedback())
                     .put("date", x.getCreatedAt() == null ? "" : x.getCreatedAt().toString());

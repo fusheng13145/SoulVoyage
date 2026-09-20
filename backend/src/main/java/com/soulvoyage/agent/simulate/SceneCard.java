@@ -4,8 +4,8 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 人际训练场景卡（手册 §4.3）。M3 与 KG 同策略：classpath resources/scenes/scenes.json 为唯一事实源，
- * deploy/sql/seed_scenes.sql 同源导 MySQL（管理端热更新在后续迭代切表读取）。
+ * 人际训练场景卡（手册 §4.3）。M8 起 DB（scene_card）为运行时真源，
+ * classpath scenes/scenes.json 仅作 ContentDataSeeder 初始种子（N4 热更新）。
  */
 public record SceneCard(
         String code,
@@ -17,7 +17,9 @@ public record SceneCard(
         Persona persona,
         List<String> goalDimensions,
         int maxTurns,
-        Map<String, String> openingLines
+        Map<String, String> openingLines,
+        List<String> tags,
+        List<String> recommendedFor
 ) {
     public record Persona(String motivation, String bottomLine, String triggers, String style) {}
 

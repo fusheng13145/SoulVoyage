@@ -1,10 +1,11 @@
 package com.soulvoyage.kg;
 
 import java.util.List;
+import java.util.Optional;
 
 /**
  * 知识图谱检索服务（手册 §5.3）：Agent 不裸查库，由本服务预先注入候选集。
- * 当前实现：InMemoryKgService（classpath JSON，词条与 Neo4j seed.cypher 同源）。
+ * 当前实现：DbKgService（kg_node 表真源 + ContentStore 版本缓存，classpath JSON 仅作种子）。
  * Neo4j 就绪后：新增 driver 实现并按 soulvoyage.neo4j.enabled 切换，接口不变。
  */
 public interface KgSearchService {
@@ -21,6 +22,33 @@ public interface KgSearchService {
     /** 误区节点是否存在（用于 Agent 输出的 kgNodeId 反向校验） */
     boolean distortionExists(String kgNodeId);
 
+    /** N2：按压力源/情绪召回心理科普候选（SUPPORT 真 kgSource、每日一读供给共用） */
+    List<PsyTopicCard> psyTopicsFor(List<String> stressors, String primaryEmotion, int maxCount);
+
+    /** N2：按 code 精确取科普（收藏夹回放等） */
+    Optional<PsyTopicCard> psyTopic(String code);
+
+    /** N2：按场景标签 + 误区召回沟通案例（REVIEW 复盘引用） */
+    List<CommCaseCard> casesFor(String sceneTag, List<String> distortionIds, int maxCount);
+
+    /** N2：科普节点是否存在（SUPPORT 输出 kgSource 反向校验） */
+    boolean psyTopicExists(String code);
+
+    /** N2：沟通案例节点是否存在（REVIEW 输出引用反向校验） */
+    boolean commCaseExists(String code);
+
     record DistortionCard(String kgNodeId, String name, String definition,
-                          String typicalSignature, String socraticTemplate) {}
+                          String typicalSignature, String socraticTemplate, List<String> socraticTemplates) {
+        /** 兼容旧构造：单模板即模板列表首条 */
+        public DistortionCard(String kgNodeId, String name, String definition,
+                              String typicalSignature, String socraticTemplate) {
+            this(kgNodeId, name, definition, typicalSignature, socraticTemplate, List.of(socraticTemplate));
+        }
+    }
+
+    record PsyTopicCard(String kgNodeId, String title, String summary, String microAction,
+                        List<String> aboutTags, int readingSec) {}
+
+    record CommCaseCard(String kgNodeId, String title, String scene, String situation,
+                        String unhelpful, String helpful, List<String> distortionRefs, List<String> techniqueRefs) {}
 }

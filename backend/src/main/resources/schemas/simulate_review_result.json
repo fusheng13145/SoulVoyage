@@ -55,6 +55,7 @@
       }
     },
     "overallAdvice": { "type": "string", "maxLength": 300 },
+    "referenceCase": { "type": "string", "pattern": "^cc_[a-z_]+$" },
     "reportId": { "type": "string" }
   },
   "additionalProperties": false

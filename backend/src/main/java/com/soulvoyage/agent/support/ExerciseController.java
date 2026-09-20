@@ -70,11 +70,11 @@ public class ExerciseController {
         Exercise ex = catalog.require(req.exerciseId());
         LocalDate day = req.scheduledDate() == null ? cal.today() : req.scheduledDate();
         ExerciseRecordEntity r = recordRepo
-                .findByUserIdAndExerciseIdAndCheckDate(p.userId(), ex.dbId(), day)
+                .findByUserIdAndExerciseCodeAndCheckDate(p.userId(), ex.id(), day)
                 .orElseGet(() -> {
                     ExerciseRecordEntity n = new ExerciseRecordEntity();
                     n.setUserId(p.userId());
-                    n.setExerciseId(ex.dbId());
+                    n.setExerciseCode(ex.id());
                     n.setCheckDate(day);
                     return n;
                 });
@@ -114,11 +114,11 @@ public class ExerciseController {
         Exercise cbt = catalog.require("ex_cbt_write");
         LocalDate day = cal.today();
         ExerciseRecordEntity r = recordRepo
-                .findByUserIdAndExerciseIdAndCheckDate(p.userId(), cbt.dbId(), day)
+                .findByUserIdAndExerciseCodeAndCheckDate(p.userId(), cbt.id(), day)
                 .orElseGet(() -> {
                     ExerciseRecordEntity n = new ExerciseRecordEntity();
                     n.setUserId(p.userId());
-                    n.setExerciseId(cbt.dbId());
+                    n.setExerciseCode(cbt.id());
                     n.setCheckDate(day);
                     return n;
                 });
@@ -150,7 +150,7 @@ public class ExerciseController {
                 .limit(Math.min(limit, 100))
                 .map(r -> {
                     String name = catalog.list().stream()
-                            .filter(e -> e.dbId().equals(r.getExerciseId()))
+                            .filter(e -> e.id().equals(r.getExerciseCode()))
                             .map(Exercise::name).findFirst().orElse("练习");
                     return Map.<String, Object>of(
                             "id", r.getId(), "exerciseName", name,

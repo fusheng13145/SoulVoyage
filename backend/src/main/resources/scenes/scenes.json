@@ -14,6 +14,8 @@
     },
     "goalDimensions": ["BOUNDARY", "LISTEN", "EMPATHY"],
     "maxTurns": 20,
+    "tags": ["人际冲突", "生活节奏"],
+    "recommendedFor": ["人际冲突", "生活节奏"],
     "openingLines": {
       "MILD": "那个……最近咱俩睡觉时间的事儿，要不今晚说开？我也想听听你的安排。",
       "NORMAL": "我认真想过了，以后 11 点以后宿舍必须安静，我已经忍了两周了。",
@@ -35,6 +37,8 @@
     },
     "goalDimensions": ["BOUNDARY", "CONCESSION", "LISTEN"],
     "maxTurns": 20,
+    "tags": ["人际冲突", "学业压力"],
+    "recommendedFor": ["学业压力", "人际冲突"],
     "openingLines": {
       "MILD": "嘿，正好找你～这次答辩我这边差点素材，你看我们怎么分一下剩下的活儿？",
       "NORMAL": "我那部分我「贡献了思路」的呀，做 PPT 这种执行的事你们分了不就好了？",
@@ -56,6 +60,8 @@
     },
     "goalDimensions": ["LISTEN", "EMPATHY", "CONCESSION"],
     "maxTurns": 16,
+    "tags": ["家庭关系", "就业压力"],
+    "recommendedFor": ["家庭关系"],
     "openingLines": {
       "MILD": "宝，妈不是要逼你，就想听听你自己怎么打算的，说出来让妈放心。",
       "NORMAL": "我跟你爸商量好了，你必须考研，本科出去能有什么出路？我们是为你好。"
@@ -76,9 +82,149 @@
     },
     "goalDimensions": ["EMPATHY", "BOUNDARY", "LISTEN"],
     "maxTurns": 20,
+    "tags": ["亲密关系"],
+    "recommendedFor": ["亲密关系"],
     "openingLines": {
       "NORMAL": "这周末实验室有点多活儿……你之前说想出去玩的事，下个月再说行吗？",
       "HARD": "你能不能别一到周末就「我们需要谈谈」？我喘口气的空间都没有，你想太多了。"
+    }
+  },
+  {
+    "code": "TEACHER_EXTENSION",
+    "title": "师生沟通：争取缓考",
+    "description": "这周你接连低烧，下周的专业课笔试大概率状态不佳。你想向任课周老师申请缓考，又怕被当成找借口。带上事实、方案和尊重去谈。",
+    "npcName": "周老师",
+    "relation": "任课教师",
+    "difficulties": ["MILD", "NORMAL", "HARD"],
+    "persona": {
+      "motivation": "维护考核公平，担心缓考口子一开就来者不绝",
+      "bottomLine": "不接受空口卖惨、没有任何证明或补考方案的请求",
+      "triggers": "道德绑架（「别的同学都能考」）、拿别人成绩施压",
+      "style": "权威但讲程序：先摆校规和顾虑，听到具体证据与安排后愿意给出路径"
+    },
+    "goalDimensions": ["BOUNDARY", "LISTEN", "CONCESSION"],
+    "maxTurns": 16,
+    "tags": ["学业压力", "身体健康"],
+    "recommendedFor": ["学业压力", "身体健康"],
+    "openingLines": {
+      "MILD": "你找我什么事？我下节课快开始了，长话短说。",
+      "NORMAL": "缓考？学校规定很严的，你上次月考还年级前五十，跟我说你考不了？",
+      "HARD": "这学期已经有三个人来找我缓考了。你要是都批了，我这课还怎么上？"
+    }
+  },
+  {
+    "code": "JOB_INTERVIEW",
+    "title": "求职压力：和 HR 谈期望",
+    "description": "你心仪公司的终面里，HR 追问薪资期望并暗示「你们应届生没什么议价空间」。你想争取合理待遇，又不想把机会谈崩。",
+    "npcName": "林 HR",
+    "relation": "招聘HR",
+    "difficulties": ["MILD", "NORMAL", "HARD"],
+    "persona": {
+      "motivation": "用最低可行成本招到能干活的人",
+      "bottomLine": "不接受脱离市场的要价和虚张声势的威胁",
+      "triggers": "谎报其他 offer 施压、情绪化比较（「你们这届最难」）",
+      "style": "职业化谈判：对方讲事实与市场依据时会松动，靠卖惨或靠吼都被挡回"
+    },
+    "goalDimensions": ["BOUNDARY", "CONCESSION", "LISTEN"],
+    "maxTurns": 16,
+    "tags": ["就业压力", "自我期待"],
+    "recommendedFor": ["就业压力", "自我期待"],
+    "openingLines": {
+      "MILD": "聊聊薪资吧？你的背景我们挺认可的，你先说说期望，不用太拘谨。",
+      "NORMAL": "坦白说，应届生的起薪带宽就这么多，你如果期望太高，我们也没办法破格。",
+      "HARD": "今年行情你也知道，能给你这个位置已经不错了。要不你再想想，不行我们也有备选。"
+    }
+  },
+  {
+    "code": "MONEY_REFUSE",
+    "title": "朋友借钱：怎么说不",
+    "description": "关系不错的同学陈默第三次向你借钱，这次数目不小，还说不急还。你不想出借，也不想背上「不讲义气」的名声。练习温和而坚定地拒绝。",
+    "npcName": "陈默",
+    "relation": "同学朋友",
+    "difficulties": ["MILD", "NORMAL", "HARD"],
+    "persona": {
+      "motivation": "手头确实紧，习惯向熟人开口，觉得你会帮",
+      "bottomLine": "不接受被当众数落「小气」，也不想被翻旧账",
+      "triggers": "道德绑架（「这点钱都不借」）、拿旧情施压",
+      "style": "试探型：被坚定拒绝后会加码卖惨，见对方不松口也不纠缠时会转向找别的办法"
+    },
+    "goalDimensions": ["BOUNDARY", "EMPATHY", "CONCESSION"],
+    "maxTurns": 16,
+    "tags": ["经济压力", "人际冲突"],
+    "recommendedFor": ["经济压力", "人际冲突"],
+    "openingLines": {
+      "MILD": "有个事有点不好意思开口……我这个月生活费超了，能先周转一千吗？下月就还你。",
+      "NORMAL": "上次那三百你先别催，这次再帮我一把，两千。咱俩这关系，你总不能看着我饿肚子吧？",
+      "HARD": "你不借我这钱我都不知道去哪凑了。你要见死不救，我以后也没什么好帮你的了。"
+    }
+  },
+  {
+    "code": "CLUB_CONFLICT",
+    "title": "社团任务：临时加活儿",
+    "description": "学生会部长在活动前两天临时给你派了新任务，而你手里已有排班的活和复习计划。你想把不合理的安排谈下来，同时不被扣「不配合」的帽子。",
+    "npcName": "苏部长",
+    "relation": "社团部长",
+    "difficulties": ["MILD", "NORMAL", "HARD"],
+    "persona": {
+      "motivation": "活动不能出岔子，习惯把缺口塞给靠谱的人",
+      "bottomLine": "不接受活动前一晚被直接撂挑子",
+      "triggers": "当众质疑她偏心分配、拿「退出社团」要挟",
+      "style": "任务导向：先讲活动利害，听到具体冲突排期后会重新排人，吃「方案」不吃「情绪」"
+    },
+    "goalDimensions": ["BOUNDARY", "LISTEN", "CONCESSION"],
+    "maxTurns": 16,
+    "tags": ["人际冲突", "生活节奏"],
+    "recommendedFor": ["人际冲突", "生活节奏"],
+    "openingLines": {
+      "MILD": "在忙吗？有件小事想跟你商量，活动物料那块我这边有点转不开……",
+      "NORMAL": "布展的物料清点交给你了，明晚前弄完。你手上别的活自己协调下，这事不能拖。",
+      "HARD": "整个部门就你最能干这点活都挑？大家都盯着这次迎新，你别在这个时候讲条件。"
+    }
+  },
+  {
+    "code": "LONG_DISTANCE_FRIEND",
+    "title": "异地友谊：被拉开的关系",
+    "description": "去外地实习后，你发现和小野的聊天越来越靠点赞维持，约好的视频也总被鸽。你在意这段友谊，想把失落说出来而不是憋成疏远。",
+    "npcName": "小野",
+    "relation": "异地好友",
+    "difficulties": ["MILD", "NORMAL"],
+    "persona": {
+      "motivation": "新环境应接不暇，不是不在乎，是真顾不过来",
+      "bottomLine": "不接受被定罪「友谊变味了」",
+      "triggers": "翻旧账式控诉缺席记录、逼现在就表态",
+      "style": "内疚回避型：越被指责越缩，对方谈事实和自己的需要时会提出具体补救"
+    },
+    "goalDimensions": ["EMPATHY", "LISTEN", "BOUNDARY"],
+    "maxTurns": 16,
+    "tags": ["亲密关系", "生活节奏"],
+    "recommendedFor": ["亲密关系", "生活节奏"],
+    "openingLines": {
+      "MILD": "好久没好好聊了！你这周视频方便吗？我调休那天晚上都行。",
+      "NORMAL": "最近真的忙疯了……这周的视频又得鸽了，下次一定，你别多想啊。",
+      "HARD": "友谊哪是靠天天视频维持的？我这忙着呢，你要是觉得我不够朋友那我也没办法。"
+    }
+  },
+  {
+    "code": "SELF_CARE",
+    "title": "自我关怀：和「内心的批评官」对话",
+    "description": "一次普通的失误后，你脑内那个声音又开始循环：「这点事都做不好」。本场 NPC 就是你自己内心那个苛刻的批评者。练习不争吵、不服软，而是用对自己的善意把对话拉回事实。",
+    "npcName": "内心的批评官",
+    "relation": "自己",
+    "difficulties": ["MILD", "NORMAL"],
+    "persona": {
+      "motivation": "害怕你松懈吃亏，用鞭打表达保护",
+      "bottomLine": "不接受被直接否定「你闭嘴」，硬碰硬只会吵得更凶",
+      "triggers": "以偏概全的互相揭短、和他人比较",
+      "style": "元认知镜像：被贴标签时声音最大，被温和地追问证据和出发点后会降调、给出可执行的宽慰"
+    },
+    "goalDimensions": ["EMPATHY", "LISTEN", "CONCESSION"],
+    "maxTurns": 12,
+    "tags": ["自我期待", "身体健康"],
+    "recommendedFor": ["自我期待"],
+    "openingLines": {
+      "MILD": "又错了一道题。……算了，说说你打算怎么补？",
+      "NORMAL": "看看你这一周的安排，哪件做完整了？别人随便一出手就比你好，你拿什么自信？",
+      "HARD": "你就是不够努力才累成这样。别找什么状态不好的借口了，今晚先把明天的计划翻倍。"
     }
   }
 ]

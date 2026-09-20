@@ -13,7 +13,7 @@
 ```
 backend/     SpringBoot 3 + Java 21 单体（orchestrator / agent / llm / kg / crypto ...）
 frontend/    Vue3 + TypeScript + Vite
-deploy/      sql/schema.sql（库表唯一事实源）+ seed_scenes.sql · neo4j/seed.cypher · tools/ · docker-compose.yml（后续引入）
+deploy/      sql/schema.sql（库表唯一事实源）+ sql/migrate_mN.sql · neo4j/seed.cypher · tools/ · docker-compose.yml（后续引入）
 docs/        项目手册.md（唯一事实源）· demo/V2交互原型.html（M6 视觉基线）
 ```
 
@@ -25,7 +25,7 @@ docs/        项目手册.md（唯一事实源）· demo/V2交互原型.html（M
 | Maven | 3.9 | |
 | MySQL | 8.4 @127.0.0.1:3306（服务 MySQL84） | 库 `soulvoyage`，账号 `soulvoyage`，先导入 `deploy/sql/schema.sql` |
 | Redis | @127.0.0.1:6379 免密 | 会话上下文 / 任务态 / JWT 黑名单 |
-| Neo4j | 暂未安装 | `soulvoyage.neo4j.enabled=false`，KG 走内存版词条（`resources/kg/`，与 `deploy/neo4j/seed.cypher` 同源），Neo4j 就绪后换 driver 实现 |
+| Neo4j | 暂未安装 | `soulvoyage.neo4j.enabled=false`，KG 走 DB 词条表（`kg_node`，启动时由 `resources/kg/*.json` 播种，与 `deploy/neo4j/seed.cypher` 同源），Neo4j 就绪后换 driver 实现 |
 | LLM | 无 Key | `SV_LLM_PROVIDER=mock` 走 MockLlmClient，接口留好 |
 
 ```bash

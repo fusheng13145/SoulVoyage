@@ -86,15 +86,22 @@ public class MockLlmClient implements LlmClient {
         }
         ArrayNode distortions = out.putArray("cognitiveDistortions");
         ArrayNode socratic = out.putArray("socraticQuestions");
+        int i = 0;
         for (JsonNode c : candidates) {
+            JsonNode templates = c.path("socraticTemplates");
+            String primary = templates.isArray() && templates.size() > 0
+                    ? templates.get(0).asText() : c.path("socraticTemplate").asText();
+            String alternate = templates.isArray() && templates.size() > 1
+                    ? templates.get(1).asText() : primary;
             if (distortions.size() < 2) {
                 ObjectNode d = distortions.addObject();
                 d.put("name", c.path("name").asText());
                 d.put("kgNodeId", c.path("kgNodeId").asText());
                 d.put("trigger", "（mock）与典型句式「" + c.path("typicalSignature").asText() + "」相符");
-                d.put("challengeQuestion", c.path("socraticTemplate").asText());
+                d.put("challengeQuestion", i % 2 == 0 ? primary : alternate);
             }
-            if (socratic.size() < 3) socratic.add(c.path("socraticTemplate").asText());
+            if (socratic.size() < 3) socratic.add(i % 2 == 0 ? primary : alternate);
+            i++;
         }
         if (socratic.isEmpty()) socratic.add("如果一周后再看这件事，你会用哪个词形容当时的自己？");
         ObjectNode report = out.putObject("report");
@@ -207,6 +214,10 @@ public class MockLlmClient implements LlmClient {
         if (dCnt > 0) wk.add("有 " + dCnt + " 轮出现指控式表达，直接推高冲突");
         else wk.add("请求多为模糊提议，缺少可执行的时间与数字");
         out.put("overallAdvice", "（mock）开场先复述对方一句再讲事实；把「你总是」换成「这周有 X 次」；每个诉求落在一个具体可执行的小请求上。");
+        JsonNode caseCands = req.path("caseCandidates");
+        if (caseCands.isArray() && !caseCands.isEmpty()) {
+            out.put("referenceCase", caseCands.get(0).path("kgNodeId").asText());
+        }
         return out.toString();
     }
 
@@ -214,8 +225,8 @@ public class MockLlmClient implements LlmClient {
     private String supportMock(String userJson) {
         JsonNode req = parse(userJson);
         JsonNode candidates = req.path("candidates");
+        JsonNode psyCandidates = req.path("psyCandidates");
         String emotion = req.path("emotionResult").path("primaryEmotion").asText("情绪");
-        String anchor = req.path("psyAnchor").asText("node:psy_self_regulation_body");
         String[] schedules = {"此刻", "今晚睡前", "明天早上"};
 
         var out = mapper.createObjectNode();
@@ -238,11 +249,21 @@ public class MockLlmClient implements LlmClient {
             m.put("schedule", "此刻");
         }
         ObjectNode edu = out.putObject("psyEducation");
-        edu.put("topic", "「" + emotion + "」时身体在发生什么");
-        edu.put("content", "（mock）情绪是身体对处境的信号，而非事实本身。当" + emotion
-                + "升起时，呼吸、肌肉与注意力都会随之变化；先照顾身体的反应，思路往往会慢慢回到可处理的状态。"
-                + "下面是几个不需要意志力就能开始的小动作。");
-        edu.put("kgSource", anchor);
+        // N2：科普来自注入的真实候选卡（引其标题/摘要，kgSource 原样回写 node:<id>，可被反向校验回放）
+        String topic;
+        if (psyCandidates.isArray() && psyCandidates.size() > 0) {
+            JsonNode p = psyCandidates.get(0);
+            topic = p.path("title").asText();
+            edu.put("topic", topic);
+            edu.put("content", "（mock）" + p.path("summary").asText()
+                    + " 试试微行动：" + p.path("microAction").asText());
+            edu.put("kgSource", "node:" + p.path("kgNodeId").asText());
+        } else {
+            edu.put("topic", "「" + emotion + "」时身体在发生什么");
+            edu.put("content", "（mock）情绪是身体对处境的信号，而非事实本身。当" + emotion
+                    + "升起时，呼吸、肌肉与注意力都会随之变化；先照顾身体的反应，思路往往会慢慢回到可处理的状态。");
+            edu.put("kgSource", "node:psy_self_regulation_body");
+        }
         // G4：把 matchedExercises 排成 3 天可执行计划（每日 1 项，轮转候选）
         out.put("planDays", 3);
         ArrayNode planItems = out.putArray("planItems");

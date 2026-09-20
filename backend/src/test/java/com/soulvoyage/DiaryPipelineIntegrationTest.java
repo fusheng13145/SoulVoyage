@@ -199,7 +199,7 @@ class DiaryPipelineIntegrationTest {
     void supportExerciseIdClosedSetAndDisclaimerEnforced() {
         // 练习 id 反向闭集校验（与 KG 候选校验同一模式）
         var candidates = List.of(new com.soulvoyage.agent.support.Exercise(
-                "ex_54321", "EX_54321", 1L, "54321 感官着陆", List.of("ANXIETY"), List.of(), 5));
+                "ex_54321", "54321 感官着陆", List.of("ANXIETY"), List.of(), 5));
         var good = mapper.createObjectNode();
         good.putArray("matchedExercises").addObject().put("exerciseId", "ex_54321");
         assertDoesNotThrow(() -> SupportAgent.assertExerciseIds(good, candidates));

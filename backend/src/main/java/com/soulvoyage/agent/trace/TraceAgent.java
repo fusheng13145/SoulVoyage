@@ -109,7 +109,7 @@ public class TraceAgent implements Agent {
             sb.append("- id=").append(c.kgNodeId()).append(" | ").append(c.name())
                     .append(" | ").append(c.definition())
                     .append(" | 典型句式: ").append(c.typicalSignature())
-                    .append(" | 苏格拉底提问: ").append(c.socraticTemplate()).append('\n');
+                    .append(" | 苏格拉底提问: ").append(String.join(" ／ ", c.socraticTemplates())).append('\n');
         }
         return sb.toString();
     }

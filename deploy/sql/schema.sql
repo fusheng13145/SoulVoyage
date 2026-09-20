@@ -220,18 +220,23 @@ CREATE TABLE scene_card (
   persona_json  JSON            NOT NULL COMMENT 'NPC人设/动机/底线/情绪触发点/背景',
   goal_dimensions JSON          NOT NULL COMMENT '考察维度:LISTEN/BOUNDARY/EMPATHY/CONCESSION',
   max_turns     INT             NOT NULL DEFAULT 20,
+  tags          VARCHAR(128)    NULL COMMENT 'N1 场景标签，逗号分隔：宿舍/师生/求职/友谊/亲密/家庭/自我',
+  recommended_for VARCHAR(128)  NULL COMMENT 'N1 画像推荐：命中的压力源，逗号分隔（与 KG 压力源闭集同源）',
   status        TINYINT         NOT NULL DEFAULT 1 COMMENT '1上架 2下架',
   updated_at    DATETIME(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
   UNIQUE KEY uk_code (code)
-) COMMENT='人际训练场景卡';
+) COMMENT='人际训练场景卡（M8 起 DB 真源，JSON 仅作初始种子）';
 
 CREATE TABLE simulate_session (
   id               BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   user_id          BIGINT UNSIGNED NOT NULL,
   scene_code       VARCHAR(32)     NOT NULL,
   difficulty       VARCHAR(8)      NOT NULL DEFAULT 'NORMAL',
-  status           VARCHAR(16)     NOT NULL DEFAULT 'RUNNING' COMMENT 'RUNNING/WAITING_USER/FINISHED/ABORTED_RISK',
+  status           VARCHAR(16)     NOT NULL DEFAULT 'RUNNING' COMMENT 'RUNNING/WAITING_USER/FINISHED/ABORTED_RISK/INTERRUPTED',
   total_turns      INT             NOT NULL DEFAULT 0,
+  avg_score        DECIMAL(4,1)    NULL COMMENT 'C3 复盘四维均分（0-100 的一位小数）',
+  dimension_scores JSON            NULL COMMENT 'C3 各维度分 {LISTEN:72,...}，雷达图数据源',
+  weaknesses_enc   BLOB            NULL COMMENT '✦ C3 弱项维度+评语摘要，供弱项 prompt 注入',
   npc_state_snap_enc BLOB          NULL COMMENT '✦ NPC 情绪档位/关键事件状态（导演模块快照）',
   report_id        BIGINT UNSIGNED NULL COMMENT '复盘报告',
   started_at       DATETIME(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
@@ -256,19 +261,19 @@ CREATE TABLE simulate_turn (
 
 CREATE TABLE exercise_library (
   id             BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  code           VARCHAR(32)     NOT NULL COMMENT 'EX_54321/EX_478_BREATH/...',
+  code           VARCHAR(32)     NOT NULL COMMENT 'M8 统一小写 ex_*（与 Agent 闭集 id 同名，不再双轨）',
   name           VARCHAR(64)     NOT NULL,
   apply_emotions JSON            NOT NULL COMMENT '适用情绪/场景枚举列表',
   steps_json     JSON            NOT NULL COMMENT '引导步骤（规则层内容，不由LLM生成）',
   duration_min   TINYINT         NOT NULL DEFAULT 5,
   status         TINYINT         NOT NULL DEFAULT 1,
   UNIQUE KEY uk_code (code)
-) COMMENT='自助练习库（闭集）';
+) COMMENT='自助练习库（闭集；M8 起 DB 真源）';
 
 CREATE TABLE exercise_record (
   id          BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   user_id     BIGINT UNSIGNED NOT NULL,
-  exercise_id BIGINT UNSIGNED NOT NULL,
+  exercise_code VARCHAR(32)   NOT NULL COMMENT 'M8：exercise_library.code（ex_*），替代原自增 id 外键',
   plan_report_id BIGINT UNSIGNED NULL COMMENT '来源疏导方案报告',
   plan_id     BIGINT UNSIGNED NULL COMMENT 'G4 挂真实成长计划',
   plan_item_seq INT             NULL COMMENT '计划内条目序号（完成时回写 plan_item）',
@@ -279,10 +284,10 @@ CREATE TABLE exercise_record (
   feedback    VARCHAR(255)    NULL,
   created_at  DATETIME(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   KEY idx_user_time (user_id, created_at),
-  KEY idx_exercise (exercise_id),
+  KEY idx_exercise (exercise_code),
   KEY idx_plan (plan_id),
-  UNIQUE KEY uk_user_ex_date (user_id, exercise_id, check_date)
-) COMMENT='练习打卡（M7：同日同练习幂等）';
+  UNIQUE KEY uk_user_ex_date (user_id, exercise_code, check_date)
+) COMMENT='练习打卡（M7：同日同练习幂等；M8：按 code 关联）';
 
 -- ---------- M7 · 树洞漫聊（C0） ----------
 
@@ -405,6 +410,47 @@ CREATE TABLE growth_letter (
   UNIQUE KEY uk_user_week (user_id, stat_week)
 ) COMMENT='G6 成长来信（每周一个人格化周报）';
 
+-- ---------- M8 · 内容与知识图谱（N1–N4） ----------
+
+CREATE TABLE kg_node (
+  id           BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  type         VARCHAR(16)     NOT NULL COMMENT 'DISTORTION/PSY_TOPIC/COMM_CASE/STRENGTH_TECH（单表多型）',
+  code         VARCHAR(48)     NOT NULL COMMENT 'kgNodeId：cd_*/psy_*/cc_*/st_*，全局唯一',
+  name         VARCHAR(64)     NOT NULL COMMENT '误区名/科普标题/案例标题/技巧名',
+  payload_json JSON            NOT NULL COMMENT '内容字段（definition/emotions/socraticTemplates/summary/aboutTags/…）',
+  status       TINYINT         NOT NULL DEFAULT 1 COMMENT '1上架 2下架',
+  updated_at   DATETIME(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  UNIQUE KEY uk_code (code),
+  KEY idx_type_status (type, status)
+) COMMENT='知识图谱节点（Neo4j 就绪前 DB 即内容真源，词条与 deploy/neo4j/seed.cypher 同源）';
+
+CREATE TABLE content_meta (
+  id         BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  meta_key   VARCHAR(64)   NOT NULL COMMENT 'content:version / kg:stressor_map 等',
+  meta_value TEXT          NOT NULL,
+  updated_at DATETIME(3)   NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  UNIQUE KEY uk_key (meta_key)
+) COMMENT='内容字典与缓存版本（N4 热更新失效信号）';
+
+CREATE TABLE user_read_log (
+  id         BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id    BIGINT UNSIGNED NOT NULL,
+  code       VARCHAR(48)     NOT NULL COMMENT '已读 kg_node.code（psy_*）',
+  read_date  DATE            NOT NULL COMMENT '业务日（Asia/Shanghai），供每日一读去重',
+  created_at DATETIME(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  UNIQUE KEY uk_user_code_date (user_id, code, read_date),
+  KEY idx_user_date (user_id, read_date)
+) COMMENT='N3 阅读记录';
+
+CREATE TABLE user_favorite (
+  id         BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id    BIGINT UNSIGNED NOT NULL,
+  type       VARCHAR(16)     NOT NULL COMMENT 'PSY_TOPIC/REPORT/...',
+  ref_code   VARCHAR(48)     NOT NULL COMMENT 'kg_node.code 或资源编号',
+  created_at DATETIME(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  UNIQUE KEY uk_user_type_ref (user_id, type, ref_code)
+) COMMENT='N3 收藏入档案';
+
 -- ---------- 系统与审计 ----------
 
 CREATE TABLE audit_log (
@@ -432,21 +478,12 @@ CREATE TABLE data_key (
 ) COMMENT='密钥登记（信封加密）';
 
 -- ---------- 种子数据 ----------
+-- M8 起：exercise_library / scene_card / kg_node 不再写死 SQL 种子，
+-- 应用启动时由 ContentDataSeeder 从 classpath JSON（exercises/scenes/kg）导入空表，
+-- 表非空则跳过——JSON 降级为种子源，运行时以 DB 为真源（N4 热更新）。
 
 INSERT INTO role_permission (role, permission_code) VALUES
   ('USER','task:submit'), ('USER','diary:write'), ('USER','simulate:play'),
   ('USER','report:read'), ('USER','archive:export'), ('USER','account:delete'),
   ('ADMIN','task:submit'), ('ADMIN','admin:task'), ('ADMIN','admin:scene'),
   ('ADMIN','admin:audit'), ('ADMIN','admin:risk:view');
-
-INSERT INTO exercise_library (code, name, apply_emotions, steps_json, duration_min) VALUES
-  ('EX_54321','54321 感官着陆','["ANXIETY","FEAR","ACUTE_STRESS"]',
-   '[{"step":"看","desc":"说出你看到的 5 样东西"},{"step":"听","desc":"说出你听到的 4 种声音"},{"step":"触","desc":"触摸 3 样物品并描述质感"},{"step":"闻","desc":"辨认 2 种气味"},{"step":"尝","desc":"感受 1 种味道，或做 1 次深呼吸"}]',5),
-  ('EX_478_BREATH','4-7-8 呼吸','["HIGH_PRESSURE","INSOMNIA","ANXIETY"]',
-   '[{"step":"吸气","desc":"用鼻子吸气 4 秒"},{"step":"屏息","desc":"屏住呼吸 7 秒"},{"step":"呼气","desc":"用嘴缓慢呼气 8 秒"},{"step":"循环","desc":"重复以上循环 4 次"}]',4),
-  ('EX_CBT_WRITE','认知书写三栏表','["SADNESS","SHAME","ANXIETY"]',
-   '[{"step":"情境","desc":"写下触发情绪的具体事件（只写事实）"},{"step":"想法","desc":"写下当时脑中自动冒出的想法"},{"step":"替代","desc":"像朋友辩护一样，写一个更平衡的想法"},{"step":"重评","desc":"给情绪强度重新打分 0-10"}]',10),
-  ('EX_ACTION','行为激活清单','["LOW_MOOD","NUMBNESS"]',
-   '[{"step":"选择","desc":"从清单选 1-2 件 5 分钟内可完成的小事"},{"step":"执行","desc":"今天完成它并勾选"},{"step":"记录","desc":"写下完成后的情绪变化"}]',7),
-  ('EX_NAME_EMOTION','情绪命名练习','["NUMBNESS","CONFUSED"]',
-   '[{"step":"扫描","desc":"闭眼 30 秒感受身体当前的感觉"},{"step":"选择","desc":"从情绪词库选出最接近的 1-2 个词"},{"step":"造句","desc":"用「我感到___，因为___」造一个句子"}]',5);

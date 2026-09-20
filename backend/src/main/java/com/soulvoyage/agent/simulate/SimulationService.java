@@ -21,6 +21,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 模拟训练会话服务（UC2 前半，手册 §6.4）：开场 → 逐轮对话（导演裁决情绪档位 + LLM 人设措辞）→ 交棒复盘。
@@ -56,28 +57,50 @@ public class SimulationService {
     public record TurnResult(int turnNo, String npcText, String emotionCue, String npcEmotion,
                              int tension, String stateTag, boolean crisis, boolean maxTurnsReached) {}
 
-    /** 开场：只创建会话与首句（配置化开场白，不消耗 LLM 调用） */
+    /** 开场：只创建会话与首句（配置化开场白，不消耗 LLM 调用）；同场景有历史弱项时写入教练记忆 */
     public Opened open(long userId, String sceneCode, String difficulty) {
         SceneCard scene = scenes.require(sceneCode);
         String diff = (difficulty == null || difficulty.isBlank()) ? "NORMAL" : difficulty;
         if (!scene.supports(diff)) {
             throw new BizException(ErrorCode.BAD_PARAMS, "该场景不支持难度: " + diff);
         }
+        ObjectNode snap = mapper.createObjectNode().put("tension", initialTension(diff));
+        coachMemory(userId, scene).ifPresent(m -> snap.put("coachMemory", m));
         SimulateSessionEntity s = new SimulateSessionEntity();
         s.setUserId(userId);
         s.setSceneCode(scene.code());
         s.setDifficulty(diff);
-        s.setNpcStateSnapEnc(crypto.encryptUserField(userId,
-                mapper.createObjectNode().put("tension", initialTension(diff)).toString()));
+        s.setNpcStateSnapEnc(crypto.encryptUserField(userId, snap.toString()));
         s = sessionRepo.save(s);
         return new Opened(s.getId(), scene.code(), scene.title(), scene.description(),
                 scene.npcName(), scene.relation(), scene.openingLine(diff),
                 scene.maxTurns(), scene.goalDimensions());
     }
 
+    /** C3 弱项注入：同场景上次复盘的 weaknesses 原话，NPC 据此制造练习机会 */
+    private java.util.Optional<String> coachMemory(long userId, SceneCard scene) {
+        return sessionRepo.findFirstByUserIdAndSceneCodeAndWeaknessesEncIsNotNullOrderByIdDesc(userId, scene.code())
+                .flatMap(x -> {
+                    try {
+                        JsonNode w = mapper.readTree(crypto.decryptUserField(userId, x.getWeaknessesEnc()));
+                        if (!w.isArray() || w.isEmpty()) return java.util.Optional.empty();
+                        var sb = new StringBuilder("TA 上次在这个场景的待改进点：");
+                        for (int i = 0; i < w.size(); i++) {
+                            sb.append(w.get(i).asText());
+                            sb.append(i < w.size() - 1 ? "；" : "。");
+                        }
+                        return java.util.Optional.of(sb.toString());
+                    } catch (Exception e) {
+                        return java.util.Optional.empty();   // 密钥销毁/坏数据：视作无记忆
+                    }
+                });
+    }
+
     public TurnResult turn(long userId, long simulateId, String userText) {
         SimulateSessionEntity s = owned(userId, simulateId);
-        if (!"RUNNING".equals(s.getStatus())) {
+        if ("INTERRUPTED".equals(s.getStatus())) {
+            s.setStatus("RUNNING");     // C3 续练：中断会话可直接接着说
+        } else if (!"RUNNING".equals(s.getStatus())) {
             throw new BizException(ErrorCode.BAD_PARAMS, "会话当前状态不可继续对话: " + s.getStatus());
         }
         SceneCard scene = scenes.require(s.getSceneCode());
@@ -135,6 +158,82 @@ public class SimulationService {
         return orchestrator.submit(userId, "SIMULATE_PIPELINE", input, null).getTaskNo();
     }
 
+    /** C3 中途退出：对话留档为 INTERRUPTED，可续练也可事后复盘已进行的轮次 */
+    public String interrupt(long userId, long simulateId) {
+        SimulateSessionEntity s = owned(userId, simulateId);
+        if ("RUNNING".equals(s.getStatus())) {
+            s.setStatus("INTERRUPTED");
+            sessionRepo.save(s);
+        }
+        return s.getStatus();
+    }
+
+    /** C3 会话列表（分页 + 可选状态过滤） */
+    public Map<String, Object> list(long userId, String status, int page, int size) {
+        var pr = org.springframework.data.domain.PageRequest.of(page, Math.min(Math.max(size, 1), 50));
+        var result = (status == null || status.isBlank())
+                ? sessionRepo.findByUserIdOrderByStartedAtDesc(userId, pr)
+                : sessionRepo.findByUserIdAndStatusOrderByStartedAtDesc(userId, status, pr);
+        var items = result.getContent().stream().map(s -> {
+            Map<String, Object> n = new java.util.LinkedHashMap<String, Object>();
+            n.put("simulateId", s.getId());
+            n.put("sceneCode", s.getSceneCode());
+            n.put("sceneTitle", sceneTitle(s.getSceneCode()));
+            n.put("difficulty", s.getDifficulty());
+            n.put("status", s.getStatus());
+            n.put("totalTurns", s.getTotalTurns());
+            n.put("avgScore", s.getAvgScore());
+            n.put("dimensionScores", parseDims(s.getDimensionScores()));
+            n.put("startedAt", s.getStartedAt() == null ? "" : s.getStartedAt().toString());
+            n.put("finishedAt", s.getFinishedAt() == null ? "" : s.getFinishedAt().toString());
+            n.put("reportId", s.getReportId() == null ? null : "rp_" + s.getReportId());
+            return n;
+        }).toList();
+        return Map.of("items", items, "page", result.getNumber(),
+                "size", result.getSize(), "total", result.getTotalElements());
+    }
+
+    /** C3 训练历史卡：每场景 best/avg 分 + 上次四维雷达 */
+    public List<Map<String, Object>> stats(long userId) {
+        Map<String, List<SimulateSessionEntity>> byScene = new java.util.LinkedHashMap<>();
+        for (SimulateSessionEntity s : sessionRepo.findByUserId(userId)) {
+            byScene.computeIfAbsent(s.getSceneCode(), k -> new java.util.ArrayList<>()).add(s);
+        }
+        var out = new java.util.ArrayList<Map<String, Object>>();
+        byScene.forEach((code, list) -> {
+            Map<String, Object> n = new java.util.LinkedHashMap<>();
+            n.put("sceneCode", code);
+            n.put("sceneTitle", sceneTitle(code));
+            n.put("times", list.size());
+            java.util.OptionalDouble best = list.stream().map(SimulateSessionEntity::getAvgScore)
+                    .filter(java.util.Objects::nonNull).mapToDouble(java.math.BigDecimal::doubleValue).max();
+            java.util.OptionalDouble avg = list.stream().map(SimulateSessionEntity::getAvgScore)
+                    .filter(java.util.Objects::nonNull).mapToDouble(java.math.BigDecimal::doubleValue).average();
+            n.put("bestScore", best.isPresent() ? Math.round(best.getAsDouble() * 10) / 10.0 : null);
+            n.put("avgScore", avg.isPresent() ? Math.round(avg.getAsDouble() * 10) / 10.0 : null);
+            list.stream()
+                    .max(java.util.Comparator.comparing(SimulateSessionEntity::getId))
+                    .filter(x -> x.getDimensionScores() != null)   // 同场景最新一次的雷达
+                    .ifPresent(x -> n.put("lastDimensions", parseDims(x.getDimensionScores())));
+            out.add(n);
+        });
+        return out;
+    }
+
+    private String sceneTitle(String code) {
+        return scenes.list().stream().filter(c -> c.code().equals(code))
+                .map(SceneCard::title).findFirst().orElse(code);
+    }
+
+    private Object parseDims(String json) {
+        if (json == null || json.isBlank()) return Map.of();
+        try {
+            return mapper.readValue(json, new com.fasterxml.jackson.core.type.TypeReference<Map<String, Double>>() {});
+        } catch (Exception e) {
+            return Map.of();
+        }
+    }
+
     /** 会话回放（属主解密）：前端刷新/复盘页对照原文 */
     public JsonNode transcript(long userId, long simulateId) throws Exception {
         SimulateSessionEntity s = owned(userId, simulateId);
@@ -171,20 +270,32 @@ public class SimulationService {
 
     private JsonNode npcLlmReply(SimulateSessionEntity s, SceneCard scene,
                                  NpcDirector.Decision d, int turnNo, String userText) {
-        String system = templates.render(templates.system("npc_v1"), java.util.Map.of(
-                "sceneTitle", scene.title(),
-                "sceneBackground", scene.description(),
-                "npcName", scene.npcName(),
-                "relation", scene.relation(),
-                "motivation", scene.persona().motivation(),
-                "bottomLine", scene.persona().bottomLine(),
-                "triggers", scene.persona().triggers(),
-                "style", scene.persona().style(),
-                "mood", d.mood().name(),
-                "intensity", String.valueOf(d.intensity())));
+        String system = templates.render(templates.system("npc_v1"), Map.ofEntries(
+                Map.entry("sceneTitle", scene.title()),
+                Map.entry("sceneBackground", scene.description()),
+                Map.entry("npcName", scene.npcName()),
+                Map.entry("relation", scene.relation()),
+                Map.entry("motivation", scene.persona().motivation()),
+                Map.entry("bottomLine", scene.persona().bottomLine()),
+                Map.entry("triggers", scene.persona().triggers()),
+                Map.entry("style", scene.persona().style()),
+                Map.entry("mood", d.mood().name()),
+                Map.entry("intensity", String.valueOf(d.intensity())),
+                Map.entry("coachMemory", readCoachMemory(s))));
         String user = buildTurnPayload(s, scene, d, turnNo, userText);
         var resp = llm.chat(new LlmClient.LlmRequest("npc_v1", system, user, 400));
         return validator.validate("npc_reply.json", resp.content());
+    }
+
+    private String readCoachMemory(SimulateSessionEntity s) {
+        try {
+            JsonNode snap = mapper.readTree(
+                    crypto.decryptUserField(s.getUserId(), s.getNpcStateSnapEnc()));
+            if (snap.hasNonNull("coachMemory")) return snap.path("coachMemory").asText();
+        } catch (Exception ignore) {
+            // 快照坏/密钥销毁：按首次训练处理
+        }
+        return "这是你们第一次把这件事摆到台面上，没有历史包袱。";
     }
 
     /** NPC 只知道说出口的话：最近窗口逐字稿 + 本轮输入（手册 §4.3 "不读心"） */
