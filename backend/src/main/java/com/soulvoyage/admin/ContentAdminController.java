@@ -15,10 +15,14 @@ import com.soulvoyage.domain.content.KgNodeEntity;
 import com.soulvoyage.domain.content.KgNodeRepository;
 import com.soulvoyage.domain.content.SceneCardEntity;
 import com.soulvoyage.domain.content.SceneCardRepository;
+import com.soulvoyage.llm.LlmClient;
+import com.soulvoyage.llm.PromptTemplates;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -29,6 +33,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/v1/admin/content")
 @RequiredArgsConstructor
+@PreAuthorize("hasRole('ADMIN') and @perms.has('admin:scene')")
 public class ContentAdminController {
 
     private static final List<String> KG_TYPES = List.of("DISTORTION", "PSY_TOPIC", "COMM_CASE", "STRENGTH_TECH");
@@ -39,6 +44,8 @@ public class ContentAdminController {
     private final ContentStore store;
     private final AuditService audit;
     private final ObjectMapper mapper;
+    private final PromptTemplates prompts;
+    private final LlmClient llm;
 
     public record KgBody(String type, String name, JsonNode payload, Short status) {}
 
@@ -152,6 +159,37 @@ public class ContentAdminController {
         long v = store.bump();
         audit.record(p.userId(), "CONTENT_REFRESH", "content:version", null);
         return ApiResponse.ok(Map.of("contentVersion", v));
+    }
+
+    // ---------------- A3 预览试跑 ----------------
+
+    public record PreviewBody(String template, String user, Map<String, String> vars) {}
+
+    /** 预览试跑：模板存在性 + {{var}} 渲染 + 强制策略注入 + 一次模型调用（开发期即 Mock），全审计 */
+    @PostMapping("/preview")
+    public ApiResponse<Map<String, Object>> preview(@AuthenticationPrincipal AuthPrincipal p,
+                                                    @RequestBody PreviewBody body) {
+        String tpl = body.template() == null ? "" : body.template().trim();
+        if (!tpl.matches("[a-z0-9_]{1,32}") || body.user() == null || body.user().isBlank())
+            throw new BizException(ErrorCode.BAD_PARAMS, "需要合法 template 与 user 文本");
+        String system;
+        try {
+            system = prompts.render(prompts.system(tpl),
+                    body.vars() == null ? Map.of() : body.vars());
+        } catch (Exception ex) {
+            throw new BizException(ErrorCode.NOT_FOUND, "Prompt 模板不存在: " + tpl);
+        }
+        var resp = llm.chat(new LlmClient.LlmRequest(tpl, system, body.user(), 800));
+        audit.record(p.userId(), "CONTENT_PREVIEW", "prompt:" + tpl, null);
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("template", tpl);
+        m.put("system", system);
+        m.put("output", resp.content());
+        m.put("model", resp.model());
+        m.put("tokensIn", resp.tokensIn());
+        m.put("tokensOut", resp.tokensOut());
+        m.put("costMs", resp.costMs());
+        return ApiResponse.ok(m);
     }
 
     // ---------------- internals ----------------

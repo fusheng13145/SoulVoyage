@@ -116,8 +116,8 @@ class M8ContentEcosystemTest {
                 .put("microAction", "读完后写下标题里的关键词")
                 .put("readingSec", 40);
         payload.set("aboutTags", mapper.createArrayNode().add("其他"));
-        var r1 = admin.upsertKg(adminPrincipal, code,
-                new ContentAdminController.KgBody("PSY_TOPIC", "热更新试验篇", payload, (short) 1));
+        var r1 = asAdmin(adminPrincipal, () -> admin.upsertKg(adminPrincipal, code,
+                new ContentAdminController.KgBody("PSY_TOPIC", "热更新试验篇", payload, (short) 1)));
         assertEquals(0, r1.getCode());
         assertEquals(v0 + 1, ((Number) r1.getData().get("contentVersion")).longValue());
         assertTrue(r1.getData().get("effective") instanceof Boolean b && b);
@@ -127,19 +127,19 @@ class M8ContentEcosystemTest {
         assertTrue(kgRepo.findByCode(code).isPresent());
 
         // 下架：读池立刻收敛
-        admin.upsertKg(adminPrincipal, code,
-                new ContentAdminController.KgBody(null, null, null, (short) 0));
+        asAdmin(adminPrincipal, () -> admin.upsertKg(adminPrincipal, code,
+                new ContentAdminController.KgBody(null, null, null, (short) 0)));
         assertTrue(store.psyTopics().stream().noneMatch(p -> p.kgNodeId().equals(code)), "下架后不应在池");
 
         // 场景卡 upsert 同样即时生效
         String sceneCode = "M8_HOT_SCENE";
-        admin.upsertScene(adminPrincipal, sceneCode, new ContentAdminController.SceneBody(
+        asAdmin(adminPrincipal, () -> admin.upsertScene(adminPrincipal, sceneCode, new ContentAdminController.SceneBody(
                 "热更新新场景", "管理端写入的场景描述", List.of("日常相处"), "热更NPC", "同学",
                 mapper.createObjectNode().put("motivation", "m").put("bottomLine", "b")
                         .put("triggers", "t").put("style", "s"),
                 List.of("LISTEN"), 8,
                 mapper.createObjectNode().put("NORMAL", "（热更新开场白）你先说。"),
-                List.of("人际冲突"), List.of("学业压力"), (short) 1));
+                List.of("人际冲突"), List.of("学业压力"), (short) 1)));
         var added = store.scenes().stream().filter(s -> s.code().equals(sceneCode)).findFirst();
         assertTrue(added.isPresent(), "新场景应立即出现在快照");
         assertEquals(List.of("人际冲突"), added.get().tags());
@@ -346,19 +346,31 @@ class M8ContentEcosystemTest {
         taskRepo.save(task(newUser(), "DIARY_PIPELINE", "SUCCESS"));   // 他人任务不得混入
 
         var all = tasks.list(p, null, null, 0, 10).getData();
-        assertEquals(4, ((Number) all.get("total")).intValue());
-        assertEquals(4, ((List<?>) all.get("items")).size());
-        var first = (Map<?, ?>) ((List<?>) all.get("items")).get(0);
+        assertEquals(4, all.total());
+        assertEquals(4, all.items().size());
+        var first = all.items().get(0);
         assertNotNull(first.get("taskNo"));
         assertNotNull(first.get("pipelineCode"));
         assertEquals("", first.get("finishedAt"), "未结束任务 finishedAt 为空串");
 
         var failed = tasks.list(p, "SIMULATE_PIPELINE", "FAILED", 0, 10).getData();
-        assertEquals(1, ((Number) failed.get("total")).intValue());
+        assertEquals(1, failed.total());
 
         var page2 = tasks.list(p, "", "", 1, 3).getData();   // 空串过滤视作不过滤
-        assertEquals(4, ((Number) page2.get("total")).intValue());
-        assertEquals(1, ((List<?>) page2.get("items")).size());
+        assertEquals(4, page2.total());
+        assertEquals(1, page2.items().size());
+    }
+
+    /** @PreAuthorize 走 SecurityContext（直调代理方法不经过滤器），权限真源仍是 role_permission 表 */
+    private <T> T asAdmin(AuthPrincipal p, java.util.function.Supplier<T> call) {
+        var auth = new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
+                p, null, List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_" + p.role())));
+        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(auth);
+        try {
+            return call.get();
+        } finally {
+            org.springframework.security.core.context.SecurityContextHolder.clearContext();
+        }
     }
 
     private TaskInstanceEntity task(long uid, String pipeline, String status) {

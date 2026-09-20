@@ -62,7 +62,7 @@ class SelfRatingTest {
         assertEquals(0, t.getIntensity().compareTo(new BigDecimal("0.68")));
         assertTrue(t.getEventTags().contains("午后晒了太阳"), "备注应进 eventTags");
 
-        Map<String, Object> traj = controller.trajectory(p, today, today).getData();
+        Map<String, Object> traj = controller.trajectory(p, today, today, 30, "day").getData();
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> points = (List<Map<String, Object>>) traj.get("points");
         assertEquals(1, points.size());

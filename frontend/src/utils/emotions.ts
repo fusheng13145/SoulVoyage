@@ -29,7 +29,7 @@ export const EMOTIONS: EmotionMeta[] = [
 ]
 
 export const EMOTION_BY_LABEL: Record<string, EmotionMeta> = Object.fromEntries(
-  EMOTIONS.map((e) => [e.label, e]),
+  EMOTIONS.map(e => [e.label, e]),
 )
 
 /** 后端情绪词（EmotionAgent 输出）到色源的兜底映射 */
@@ -44,4 +44,3 @@ export function valenceColor(v: number): string {
   if (v > -0.3) return 'color-mix(in srgb, var(--e-joy) 55%, var(--sv-card))'
   return 'color-mix(in srgb, var(--sv-red) 62%, var(--sv-card))'
 }
-

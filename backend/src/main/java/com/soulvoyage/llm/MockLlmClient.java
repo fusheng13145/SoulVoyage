@@ -21,7 +21,7 @@ public class MockLlmClient implements LlmClient {
     private final ObjectMapper mapper = new ObjectMapper();
 
     @Override
-    public LlmResponse chat(LlmRequest req) {
+    public LlmResponse doChat(LlmRequest req) {
         long t0 = System.currentTimeMillis();
         sleep(300);   // 模拟网络延迟，便于观察 SSE 进度体验
         String content = switch (req.template()) {

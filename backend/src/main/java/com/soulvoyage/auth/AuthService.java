@@ -88,8 +88,7 @@ public class AuthService {
     }
 
     public void logout(String accessToken, String refreshToken) {
-        jwt.revoke(accessToken);
-        if (refreshToken != null && !refreshToken.isBlank()) jwt.revoke(refreshToken);
+        jwt.logout(accessToken, refreshToken);
     }
 
     private TokenResp tokenResp(UserEntity u) {

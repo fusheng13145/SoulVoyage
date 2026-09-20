@@ -3,13 +3,25 @@ import { ref } from 'vue'
 import http, { type ApiResp } from '@/api/http'
 
 export interface Scene {
-  code: string; title: string; description: string; npcName: string; relation: string
-  background?: string; difficulties: string[]; goalDimensions: string[]; maxTurns: number
-  tags?: string[]; recommendedFor?: string[]
+  code: string
+  title: string
+  description: string
+  npcName: string
+  relation: string
+  background?: string
+  difficulties: string[]
+  goalDimensions: string[]
+  maxTurns: number
+  tags?: string[]
+  recommendedFor?: string[]
 }
 export interface ExerciseDef {
-  id: string; code?: string; name: string
-  applyEmotions: string[]; steps: { step: string; desc: string }[]; durationMin: number
+  id: string
+  code?: string
+  name: string
+  applyEmotions: string[]
+  steps: { step: string; desc: string }[]
+  durationMin: number
 }
 
 /** 低频内容目录全局一份：场景卡 / 练习库（消灭各页重复拉取） */

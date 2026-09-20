@@ -1,7 +1,10 @@
 <script setup lang="ts">
-const props = withDefaults(defineProps<{
-  title?: string
-}>(), {})
+withDefaults(
+  defineProps<{
+    title?: string
+  }>(),
+  { title: '' },
+)
 </script>
 <template>
   <div class="group">
@@ -15,8 +18,10 @@ const props = withDefaults(defineProps<{
 </template>
 <style scoped>
 .sec {
-  font-size: var(--sv-fs-caption1); color: var(--sv-label2);
-  margin: 18px 6px 6px; letter-spacing: 0.5px;
+  font-size: var(--sv-fs-caption1);
+  color: var(--sv-label2);
+  margin: 18px 6px 6px;
+  letter-spacing: 0.5px;
 }
 .sv-list {
   background: var(--sv-card);
@@ -24,5 +29,8 @@ const props = withDefaults(defineProps<{
   overflow: hidden;
   box-shadow: var(--sv-sh-1);
 }
-[data-theme="dark"] .sv-list { border: 1px solid var(--sv-sep); box-shadow: none; }
+[data-theme='dark'] .sv-list {
+  border: 1px solid var(--sv-sep);
+  box-shadow: none;
+}
 </style>

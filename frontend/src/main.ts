@@ -14,6 +14,8 @@ app.use(createPinia()).use(router).mount('#app')
 // PWA：生产环境注册 SW（仅缓存静态资源，不碰 /api）
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js').catch(() => { /* 无 SW 环境降级 */ })
+    navigator.serviceWorker.register('/sw.js').catch(() => {
+      /* 无 SW 环境降级 */
+    })
   })
 }

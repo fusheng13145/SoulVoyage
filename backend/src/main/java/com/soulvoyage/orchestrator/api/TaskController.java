@@ -3,6 +3,8 @@ package com.soulvoyage.orchestrator.api;
 import com.soulvoyage.auth.AuthPrincipal;
 import com.soulvoyage.common.api.ApiResponse;
 import com.soulvoyage.common.api.ErrorCode;
+import com.soulvoyage.common.api.PageReq;
+import com.soulvoyage.common.api.PageResp;
 import com.soulvoyage.common.exception.BizException;
 import com.soulvoyage.domain.diary.DiaryService;
 import com.soulvoyage.domain.task.TaskInstanceEntity;
@@ -43,17 +45,17 @@ public class TaskController {
                 .body(ApiResponse.ok(Map.of("taskNo", t.getTaskNo(), "status", t.getStatus())));
     }
 
-    /** C5 任务历史列表：pipelineCode/status 可选过滤（只回元信息，产物走 /tasks/{taskNo}） */
+    /** C5 任务历史列表：pipelineCode/status 可选过滤（只回元信息，产物走 /tasks/{taskNo}）；O2 收敛 PageResp */
     @GetMapping
-    public ApiResponse<Map<String, Object>> list(
+    public ApiResponse<PageResp<Map<String, Object>>> list(
             @AuthenticationPrincipal AuthPrincipal p,
             @RequestParam(required = false) String pipelineCode,
             @RequestParam(required = false) String status,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
+        PageReq req = PageReq.of(page, size);
         var result = tasks.findUserTasks(p.userId(),
-                blankToNull(pipelineCode), blankToNull(status),
-                org.springframework.data.domain.PageRequest.of(page, Math.min(Math.max(size, 1), 50)));
+                blankToNull(pipelineCode), blankToNull(status), req.toRequest());
         var items = result.getContent().stream().map(t -> {
             Map<String, Object> n = new java.util.LinkedHashMap<String, Object>();
             n.put("taskNo", t.getTaskNo());
@@ -64,8 +66,7 @@ public class TaskController {
             n.put("errorMsg", t.getErrorMsg());
             return n;
         }).toList();
-        return ApiResponse.ok(Map.of("items", items, "page", result.getNumber(),
-                "size", result.getSize(), "total", result.getTotalElements()));
+        return ApiResponse.ok(PageResp.of(items, req, result.getTotalElements()));
     }
 
     private static String blankToNull(String s) {

@@ -51,6 +51,12 @@ public class TaskStepLogEntity {
     @Column(name = "error_msg", length = 512)
     private String errorMsg;
 
-    @Column(name = "created_at", insertable = false, updatable = false)
+    @Column(name = "created_at", updatable = false)
     private Instant createdAt;
+
+    @PrePersist
+    void prePersist() {
+        // H2 create-drop 无 DB 默认值，显式写入保证 MySQL/H2 一致（O3 观测按时间窗聚合依赖此列）
+        if (createdAt == null) createdAt = Instant.now();
+    }
 }

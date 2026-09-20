@@ -1,13 +1,16 @@
 <script setup lang="ts">
-withDefaults(defineProps<{ h?: number; w?: string; round?: boolean }>(), { h: 14, round: false })
+withDefaults(defineProps<{ h?: number; w?: string; round?: boolean }>(), { h: 14, w: '', round: false })
 </script>
 
 <template>
-  <span class="sk" :style="{
-    height: h + 'px',
-    width: w || '100%',
-    borderRadius: round ? '50%' : '14px',
-  }" />
+  <span
+    class="sk"
+    :style="{
+      height: h + 'px',
+      width: w || '100%',
+      borderRadius: round ? '50%' : '14px',
+    }"
+  />
 </template>
 
 <style scoped>
@@ -22,5 +25,9 @@ withDefaults(defineProps<{ h?: number; w?: string; round?: boolean }>(), { h: 14
   background-size: 200%;
   animation: shim 1.3s infinite;
 }
-@keyframes shim { to { background-position: -200%; } }
+@keyframes shim {
+  to {
+    background-position: -200%;
+  }
+}
 </style>

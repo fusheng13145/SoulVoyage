@@ -24,8 +24,8 @@ async function submit() {
     else await auth.register(username.value, password.value, nickname.value)
     toast(mode.value === 'login' ? '欢迎回到心屿' : '登岛成功，从这里开始漫行')
     router.replace('/today')
-  } catch (e: any) {
-    error.value = e.message ?? '操作失败'
+  } catch (e) {
+    error.value = (e as Error).message ?? '操作失败'
   } finally {
     loading.value = false
   }
@@ -42,23 +42,50 @@ async function submit() {
 
     <form class="card sv-surface" @submit.prevent="submit">
       <div class="seg" role="tablist" aria-label="登录或注册">
-        <button type="button" role="tab" :aria-selected="mode === 'login'" :class="{ on: mode === 'login' }" @click="mode = 'login'">登录</button>
-        <button type="button" role="tab" :aria-selected="mode === 'register'" :class="{ on: mode === 'register' }" @click="mode = 'register'">注册</button>
+        <button
+          type="button"
+          role="tab"
+          :aria-selected="mode === 'login'"
+          :class="{ on: mode === 'login' }"
+          @click="mode = 'login'"
+        >
+          登录
+        </button>
+        <button
+          type="button"
+          role="tab"
+          :aria-selected="mode === 'register'"
+          :class="{ on: mode === 'register' }"
+          @click="mode = 'register'"
+        >
+          注册
+        </button>
       </div>
 
-      <label>用户名
+      <label
+        >用户名
         <input v-model="username" autocomplete="username" maxlength="32" required />
       </label>
-      <label>密码
-        <input v-model="password" type="password" autocomplete="current-password" placeholder="≥ 8 位" maxlength="64" required />
+      <label
+        >密码
+        <input
+          v-model="password"
+          type="password"
+          autocomplete="current-password"
+          placeholder="≥ 8 位"
+          maxlength="64"
+          required
+        />
       </label>
-      <label v-if="mode === 'register'">昵称（可选）
+      <label v-if="mode === 'register'"
+        >昵称（可选）
         <input v-model="nickname" maxlength="32" />
       </label>
 
       <p v-if="error" class="err" role="alert">{{ error }}</p>
       <button class="sv-btn" type="submit" :disabled="loading || !username || !password">
-        {{ loading ? '请稍候…' : (mode === 'login' ? '进入心屿' : '注册并进入') }}</button>
+        {{ loading ? '请稍候…' : mode === 'login' ? '进入心屿' : '注册并进入' }}
+      </button>
     </form>
 
     <router-link to="/crisis" class="help">需要支持？查看危机资源</router-link>
@@ -67,23 +94,97 @@ async function submit() {
 </template>
 
 <style scoped>
-.login { display: flex; flex-direction: column; align-items: center; padding: calc(var(--sv-safe-t) + 64px) var(--sv-s5) var(--sv-s6); }
-.brand { text-align: center; margin-bottom: var(--sv-s6); }
-.logo { display: grid; place-items: center; width: 88px; height: 88px; margin: 0 auto var(--sv-s3);
-  border-radius: 28px; background: linear-gradient(160deg, var(--sv-indigo), var(--sv-blue)); color: #fff;
-  box-shadow: var(--sv-sh-2); }
-h1 { font-size: var(--sv-fs-title1); letter-spacing: 2px; }
-.brand .sv-muted { margin-top: 4px; }
-.card { width: 100%; max-width: 380px; padding: var(--sv-s5); display: flex; flex-direction: column; gap: var(--sv-s4); }
-.seg { display: flex; padding: 2px; gap: 2px; background: var(--sv-fill2); border-radius: 10px; }
-.seg button { flex: 1; min-height: 32px; border: none; border-radius: 8px; background: transparent; cursor: pointer;
-  font-size: var(--sv-fs-subhead); color: var(--sv-label); font-family: inherit; }
-.seg button.on { background: var(--sv-card); font-weight: 600; box-shadow: 0 1px 4px rgba(0,0,0,.12); }
-label { display: flex; flex-direction: column; gap: 6px; font-size: var(--sv-fs-footnote); color: var(--sv-label2); }
-input { border: 1px solid var(--sv-sep); background: var(--sv-bg); border-radius: var(--sv-r-ctl);
-  padding: 12px 14px; font-size: var(--sv-fs-subhead); color: var(--sv-label); outline: none; font-family: inherit; }
-input:focus { border-color: var(--sv-indigo); }
-.err { color: var(--sv-red); font-size: var(--sv-fs-footnote); }
-.help { margin-top: var(--sv-s5); font-size: var(--sv-fs-footnote); }
-.policy { text-align: center; margin-top: var(--sv-s2); line-height: 1.6; max-width: 320px; }
+.login {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: calc(var(--sv-safe-t) + 64px) var(--sv-s5) var(--sv-s6);
+}
+.brand {
+  text-align: center;
+  margin-bottom: var(--sv-s6);
+}
+.logo {
+  display: grid;
+  place-items: center;
+  width: 88px;
+  height: 88px;
+  margin: 0 auto var(--sv-s3);
+  border-radius: 28px;
+  background: linear-gradient(160deg, var(--sv-indigo), var(--sv-blue));
+  color: #fff;
+  box-shadow: var(--sv-sh-2);
+}
+h1 {
+  font-size: var(--sv-fs-title1);
+  letter-spacing: 2px;
+}
+.brand .sv-muted {
+  margin-top: 4px;
+}
+.card {
+  width: 100%;
+  max-width: 380px;
+  padding: var(--sv-s5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sv-s4);
+}
+.seg {
+  display: flex;
+  padding: 2px;
+  gap: 2px;
+  background: var(--sv-fill2);
+  border-radius: 10px;
+}
+.seg button {
+  flex: 1;
+  min-height: 32px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+  font-size: var(--sv-fs-subhead);
+  color: var(--sv-label);
+  font-family: inherit;
+}
+.seg button.on {
+  background: var(--sv-card);
+  font-weight: 600;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+}
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: var(--sv-fs-footnote);
+  color: var(--sv-label2);
+}
+input {
+  border: 1px solid var(--sv-sep);
+  background: var(--sv-bg);
+  border-radius: var(--sv-r-ctl);
+  padding: 12px 14px;
+  font-size: var(--sv-fs-subhead);
+  color: var(--sv-label);
+  outline: none;
+  font-family: inherit;
+}
+input:focus {
+  border-color: var(--sv-indigo);
+}
+.err {
+  color: var(--sv-red);
+  font-size: var(--sv-fs-footnote);
+}
+.help {
+  margin-top: var(--sv-s5);
+  font-size: var(--sv-fs-footnote);
+}
+.policy {
+  text-align: center;
+  margin-top: var(--sv-s2);
+  line-height: 1.6;
+  max-width: 320px;
+}
 </style>

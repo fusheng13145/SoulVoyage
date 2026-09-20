@@ -9,7 +9,6 @@ import com.soulvoyage.crypto.CryptoService;
 import com.soulvoyage.domain.plan.PlanService;
 import com.soulvoyage.domain.report.ReportEntity;
 import com.soulvoyage.domain.report.ReportRepository;
-import com.soulvoyage.domain.task.AgentMessageEntity;
 import com.soulvoyage.domain.task.AgentMessageRepository;
 import com.soulvoyage.llm.LlmClient;
 import com.soulvoyage.llm.OutputValidator;
@@ -115,18 +114,19 @@ public class SupportAgent implements Agent {
         return out;
     }
 
-    /** EMOTION 中间结果：从 append-only 密文留痕里取回（与 RISK_ARCHIVE 读库同源思路，避免跨步骤透传膨胀） */
+    /** EMOTION 中间结果：从 append-only 密文留痕里直查取回（与 RISK_ARCHIVE 读库同源思路，避免跨步骤透传膨胀） */
     private JsonNode loadEmotionResult(long taskId, long userId) {
-        for (AgentMessageEntity m : msgRepo.findByTaskIdOrderByStepSeqAscIdAsc(taskId)) {
-            if ("EMOTION".equals(m.getFromAgent()) && "MIDDLE_RESULT".equals(m.getMsgType())) {
-                try {
-                    return mapper.readTree(crypto.decryptUserField(userId, m.getPayloadEnc()));
-                } catch (Exception ignore) {
-                    // 落空则返回空对象，匹配退化为通用 grounding
-                }
-            }
-        }
-        return mapper.createObjectNode();
+        return msgRepo.findFirstByTaskIdAndFromAgentAndMsgTypeOrderByIdAsc(taskId, "EMOTION", "MIDDLE_RESULT")
+                .flatMap(m -> {
+                    try {
+                        return java.util.Optional.of(
+                                mapper.readTree(crypto.decryptUserField(userId, m.getPayloadEnc())));
+                    } catch (Exception ignore) {
+                        // 落空则返回空对象，匹配退化为通用 grounding
+                        return java.util.Optional.empty();
+                    }
+                })
+                .orElseGet(mapper::createObjectNode);
     }
 
     private Set<String> categoriesFor(JsonNode emotion, JsonNode trace) {

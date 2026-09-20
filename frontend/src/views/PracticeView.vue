@@ -9,9 +9,34 @@ import http, { type ApiResp } from '@/api/http'
 import { toast } from '@/stores/ui'
 import { useContentStore, type ExerciseDef } from '@/stores/content'
 
-interface PlanItem { seq: number; exerciseId: string; guidance: string; scheduledDate: string; doneAt: string | null; exerciseName: string; durationMin: number }
-interface PlanView { planId: string; title: string; days: number; daysLeft: number; doneCount: number; totalCount: number; startDate: string; endDate: string; status: string; items: PlanItem[] }
-interface ExRecord { id: number; exerciseName: string; completed: boolean; feedback: string; createdAt: string }
+interface PlanItem {
+  seq: number
+  exerciseId: string
+  guidance: string
+  scheduledDate: string
+  doneAt: string | null
+  exerciseName: string
+  durationMin: number
+}
+interface PlanView {
+  planId: string
+  title: string
+  days: number
+  daysLeft: number
+  doneCount: number
+  totalCount: number
+  startDate: string
+  endDate: string
+  status: string
+  items: PlanItem[]
+}
+interface ExRecord {
+  id: number
+  exerciseName: string
+  completed: boolean
+  feedback: string
+  createdAt: string
+}
 
 const router = useRouter()
 const content = useContentStore()
@@ -43,7 +68,9 @@ async function load() {
 onMounted(() => load().catch(() => toast('加载失败')))
 
 function goFollow(item: PlanItem) {
-  router.push(`/practice/room/${item.exerciseId}?planId=${plan.value?.planId || ''}&seq=${item.seq}&scheduled=${item.scheduledDate}`)
+  router.push(
+    `/practice/room/${item.exerciseId}?planId=${plan.value?.planId || ''}&seq=${item.seq}&scheduled=${item.scheduledDate}`,
+  )
 }
 function goFree(id: string) {
   router.push(`/practice/room/${id}`)
@@ -75,7 +102,9 @@ const fmtTime = (s: string) => (s ? s.slice(0, 16).replace('T', ' ') : '')
       <SvCard v-if="plan">
         <div class="plan-head">
           <h3 class="t">🌿 {{ plan.title }}</h3>
-          <span class="sv-cap prog">{{ plan.doneCount }}/{{ plan.totalCount }} · 剩 {{ plan.daysLeft }} 天</span>
+          <span class="sv-cap prog"
+            >{{ plan.doneCount }}/{{ plan.totalCount }} · 剩 {{ plan.daysLeft }} 天</span
+          >
         </div>
         <div v-for="it in allItems" :key="it.seq" class="pitem" :class="{ on: !!it.doneAt }">
           <div class="pi-left">
@@ -85,15 +114,26 @@ const fmtTime = (s: string) => (s ? s.slice(0, 16).replace('T', ' ') : '')
               <small>{{ it.guidance || `约 ${it.durationMin} 分钟` }}</small>
             </div>
           </div>
-          <button v-if="!it.doneAt" class="sv-btn sm" :disabled="it.scheduledDate > today()" @click="goFollow(it)">
-            {{ it.scheduledDate === today() ? '去跟练' : '提前做' }}</button>
+          <button
+            v-if="!it.doneAt"
+            class="sv-btn sm"
+            :disabled="it.scheduledDate > today()"
+            @click="goFollow(it)"
+          >
+            {{ it.scheduledDate === today() ? '去跟练' : '提前做' }}
+          </button>
           <span v-else class="ok" aria-label="已完成">✓</span>
         </div>
-        <SvDisclaimer class="disc" text="计划由 AI 基于你的疏导结果生成，是自助练习参考；某一天没做到不算失败。" />
+        <SvDisclaimer
+          class="disc"
+          text="计划由 AI 基于你的疏导结果生成，是自助练习参考；某一天没做到不算失败。"
+        />
       </SvCard>
       <SvCard v-else-if="!loading">
         <h3 class="t">还没有进行中的计划</h3>
-        <p class="sv-muted">写一篇情绪日记并允许疏导后，心屿会为你排一个几天的小计划。也可以直接从下面练习库挑一个开始。</p>
+        <p class="sv-muted">
+          写一篇情绪日记并允许疏导后，心屿会为你排一个几天的小计划。也可以直接从下面练习库挑一个开始。
+        </p>
       </SvCard>
 
       <!-- ② 练习库（自由跟练，C4 沉浸模式） -->
@@ -128,36 +168,151 @@ const fmtTime = (s: string) => (s ? s.slice(0, 16).replace('T', ' ') : '')
 </template>
 
 <style scoped>
-.body { padding: 0 var(--sv-s4); }
-.hero { display: flex; align-items: center; gap: var(--sv-s3); width: 100%; padding: var(--sv-s4);
-  border: none; background: transparent; cursor: pointer; text-align: left; color: var(--sv-label); font-family: inherit; }
-.h-ico { display: grid; place-items: center; width: 52px; height: 52px; flex: none; border-radius: 16px;
-  background: linear-gradient(140deg, var(--sv-pink), var(--sv-indigo)); color: #fff; }
-.h-txt { flex: 1; }
-.h-txt b { font-size: var(--sv-fs-callout); display: block; }
-.h-txt small { color: var(--sv-label2); font-size: var(--sv-fs-caption1); line-height: 1.5; display: block; margin-top: 2px; }
-.t { font-size: var(--sv-fs-title3); margin-bottom: var(--sv-s3); }
-.plan-head { display: flex; align-items: baseline; justify-content: space-between; }
-.plan-head .t { margin-bottom: 0; }
-.prog { color: var(--sv-label2); margin-bottom: var(--sv-s3); }
-.pitem { display: flex; align-items: center; justify-content: space-between; gap: 10px;
-  border: 1px solid var(--sv-sep); border-radius: var(--sv-r-ctl); padding: 10px 12px; margin-bottom: var(--sv-s2); }
-.pitem.on { background: color-mix(in srgb, var(--sv-mint) 10%, var(--sv-card)); }
-.pi-left { display: flex; align-items: center; gap: 10px; min-width: 0; }
-.sched { font-style: normal; font-size: var(--sv-fs-caption1); background: var(--sv-indigo-soft); color: var(--sv-indigo);
-  border-radius: var(--sv-r-pill); padding: 1px 8px; flex: none; }
-.pi-txt { min-width: 0; }
-.pi-txt b { display: block; font-size: var(--sv-fs-footnote); }
-.pi-txt small { color: var(--sv-label2); font-size: var(--sv-fs-caption1); display: block; margin-top: 2px; }
-.ok { color: var(--sv-mint); font-weight: 700; font-size: 18px; }
-.disc { margin-top: var(--sv-s3); }
-.lib { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.lib-item { display: flex; justify-content: space-between; align-items: center; gap: 6px;
-  border: 1px solid var(--sv-sep); border-radius: var(--sv-r-ctl); padding: 10px 12px; }
-.lib-item b { display: block; font-size: var(--sv-fs-footnote); font-weight: 600; }
-.lib-item small { color: var(--sv-label2); font-size: var(--sv-fs-caption2); }
-.recs li { padding: 8px 0; border-bottom: 1px dashed var(--sv-sep); font-size: var(--sv-fs-footnote); display: flex; gap: 8px; align-items: baseline; }
-.recs li:last-child { border-bottom: none; }
-.recs small { color: var(--sv-label3); margin-left: auto; font-variant-numeric: tabular-nums; }
-.no { color: var(--sv-label3); }
+.body {
+  padding: 0 var(--sv-s4);
+}
+.hero {
+  display: flex;
+  align-items: center;
+  gap: var(--sv-s3);
+  width: 100%;
+  padding: var(--sv-s4);
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  color: var(--sv-label);
+  font-family: inherit;
+}
+.h-ico {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  flex: none;
+  border-radius: 16px;
+  background: linear-gradient(140deg, var(--sv-pink), var(--sv-indigo));
+  color: #fff;
+}
+.h-txt {
+  flex: 1;
+}
+.h-txt b {
+  font-size: var(--sv-fs-callout);
+  display: block;
+}
+.h-txt small {
+  color: var(--sv-label2);
+  font-size: var(--sv-fs-caption1);
+  line-height: 1.5;
+  display: block;
+  margin-top: 2px;
+}
+.t {
+  font-size: var(--sv-fs-title3);
+  margin-bottom: var(--sv-s3);
+}
+.plan-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+.plan-head .t {
+  margin-bottom: 0;
+}
+.prog {
+  color: var(--sv-label2);
+  margin-bottom: var(--sv-s3);
+}
+.pitem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border: 1px solid var(--sv-sep);
+  border-radius: var(--sv-r-ctl);
+  padding: 10px 12px;
+  margin-bottom: var(--sv-s2);
+}
+.pitem.on {
+  background: color-mix(in srgb, var(--sv-mint) 10%, var(--sv-card));
+}
+.pi-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.sched {
+  font-style: normal;
+  font-size: var(--sv-fs-caption1);
+  background: var(--sv-indigo-soft);
+  color: var(--sv-indigo);
+  border-radius: var(--sv-r-pill);
+  padding: 1px 8px;
+  flex: none;
+}
+.pi-txt {
+  min-width: 0;
+}
+.pi-txt b {
+  display: block;
+  font-size: var(--sv-fs-footnote);
+}
+.pi-txt small {
+  color: var(--sv-label2);
+  font-size: var(--sv-fs-caption1);
+  display: block;
+  margin-top: 2px;
+}
+.ok {
+  color: var(--sv-mint);
+  font-weight: 700;
+  font-size: 18px;
+}
+.disc {
+  margin-top: var(--sv-s3);
+}
+.lib {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.lib-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--sv-sep);
+  border-radius: var(--sv-r-ctl);
+  padding: 10px 12px;
+}
+.lib-item b {
+  display: block;
+  font-size: var(--sv-fs-footnote);
+  font-weight: 600;
+}
+.lib-item small {
+  color: var(--sv-label2);
+  font-size: var(--sv-fs-caption2);
+}
+.recs li {
+  padding: 8px 0;
+  border-bottom: 1px dashed var(--sv-sep);
+  font-size: var(--sv-fs-footnote);
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+}
+.recs li:last-child {
+  border-bottom: none;
+}
+.recs small {
+  color: var(--sv-label3);
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+}
+.no {
+  color: var(--sv-label3);
+}
 </style>

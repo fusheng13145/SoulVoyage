@@ -14,7 +14,10 @@ const tabs = [
 <template>
   <nav class="tabbar" aria-label="主导航">
     <router-link
-      v-for="t in tabs" :key="t.to" :to="t.to" v-haptic
+      v-for="t in tabs"
+      :key="t.to"
+      v-haptic
+      :to="t.to"
       class="tab"
       :class="{ on: $route.path.startsWith(t.to) }"
       :aria-current="$route.path.startsWith(t.to) ? 'page' : undefined"
@@ -29,16 +32,30 @@ const tabs = [
 .tabbar {
   display: flex;
   background: color-mix(in srgb, var(--sv-bg) 78%, transparent);
-  backdrop-filter: var(--sv-blur); -webkit-backdrop-filter: var(--sv-blur);
+  backdrop-filter: var(--sv-blur);
+  -webkit-backdrop-filter: var(--sv-blur);
   border-top: 1px solid var(--sv-sep);
   padding: 6px 8px calc(6px + var(--sv-safe-b));
 }
 .tab {
-  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px;
-  padding: 5px 0; min-height: 44px;
-  font-size: 10.5px; color: var(--sv-label2); text-decoration: none;
-  transition: color 0.2s, transform 0.2s var(--sv-ease);
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 5px 0;
+  min-height: 44px;
+  font-size: 10.5px;
+  color: var(--sv-label2);
+  text-decoration: none;
+  transition:
+    color 0.2s,
+    transform 0.2s var(--sv-ease);
 }
-.tab.on { color: var(--sv-indigo); }
-.tab:active { transform: scale(0.92); }
+.tab.on {
+  color: var(--sv-indigo);
+}
+.tab:active {
+  transform: scale(0.92);
+}
 </style>

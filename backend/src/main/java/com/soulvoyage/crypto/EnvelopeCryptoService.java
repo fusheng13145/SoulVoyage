@@ -98,6 +98,13 @@ public class EnvelopeCryptoService implements CryptoService {
                 .orElseGet(() -> createKey(userId));
     }
 
+    /** 直读 data_key 元数据；无启用密钥（未产生过密文）返回 0，不触发建钥 */
+    @Override
+    public int activeKeyVersion(long userId) {
+        return keyRepo.findFirstByOwnerUserIdAndStatusOrderByVersionDesc(userId, (short) 1)
+                .map(DataKeyEntity::getVersion).orElse(0);
+    }
+
     /**
      * 建钥必须独立提交（REQUIRES_NEW）：外层加密事务（如日记 attachTask）与流水线虚拟线程
      * 可能同时为首条密文建钥——若并入外层事务，synchronized 挡不住"未提交行互不可见"，

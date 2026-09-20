@@ -1,9 +1,12 @@
 <script setup lang="ts">
-const props = withDefaults(defineProps<{
-  name: string
-  size?: number
-  tone?: 'label' | 'label2' | 'inherit'
-}>(), { size: 22, tone: 'label' })
+withDefaults(
+  defineProps<{
+    name: string
+    size?: number
+    tone?: 'label' | 'label2' | 'inherit'
+  }>(),
+  { size: 22, tone: 'label' },
+)
 </script>
 
 <template>

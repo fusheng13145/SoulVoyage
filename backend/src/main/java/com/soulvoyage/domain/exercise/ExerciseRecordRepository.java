@@ -9,6 +9,10 @@ import java.util.Optional;
 public interface ExerciseRecordRepository extends JpaRepository<ExerciseRecordEntity, Long> {
     List<ExerciseRecordEntity> findByUserIdOrderByCreatedAtDescIdDesc(Long userId);
 
+    /** O2：DB 层 limit，杀内存全捞 */
+    List<ExerciseRecordEntity> findByUserIdOrderByCreatedAtDescIdDesc(Long userId,
+            org.springframework.data.domain.Pageable pageable);
+
     /** C4：同日同练习覆盖式打卡（UK(user,exercise,check_date)；M8 起按 code） */
     Optional<ExerciseRecordEntity> findByUserIdAndExerciseCodeAndCheckDate(Long userId, String exerciseCode,
                                                                            LocalDate checkDate);

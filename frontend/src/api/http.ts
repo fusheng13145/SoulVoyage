@@ -8,12 +8,17 @@ export interface ApiResp<T> {
   traceId: string
 }
 
+/** 后端契约载荷（闭集 schema 校验过的 Agent 产出/报告正文）：动态 JSON。
+ *  全工程唯一 any 逃生口——能用 OpenAPI 生成类型或本地接口收窄的，一律收窄后再消费。 */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type Json = Record<string, any>
+
 export const TOKEN_KEY = 'sv_access'
 export const REFRESH_KEY = 'sv_refresh'
 
 const http = axios.create({ baseURL: '/api/v1', timeout: 30000 })
 
-http.interceptors.request.use((cfg) => {
+http.interceptors.request.use(cfg => {
   const t = localStorage.getItem(TOKEN_KEY)
   if (t) cfg.headers.Authorization = `Bearer ${t}`
   return cfg
@@ -35,7 +40,9 @@ async function refreshOnce(): Promise<boolean> {
       } catch {
         return false
       } finally {
-        setTimeout(() => { refreshing = null }, 0)
+        setTimeout(() => {
+          refreshing = null
+        }, 0)
       }
     })()
   }
@@ -43,19 +50,19 @@ async function refreshOnce(): Promise<boolean> {
 }
 
 http.interceptors.response.use(
-  (res) => {
+  res => {
     const body = res.data as ApiResp<unknown>
     if (body && body.code !== 0) {
       return Promise.reject(Object.assign(new Error(body.msg || '请求失败'), { code: body.code }))
     }
     return res
   },
-  async (err) => {
+  async err => {
     const status = err.response?.status
     const original = err.config
     // S3：后端已返回真实 HTTP 状态码；业务错误信息在响应体 code/msg 里，统一转成 Error(msg)
     const body = err.response?.data as ApiResp<unknown> | undefined
-    const isAuthEntry = original?.url?.includes('/auth/')   // 登录/注册/刷新失败不触发全局登出
+    const isAuthEntry = original?.url?.includes('/auth/') // 登录/注册/刷新失败不触发全局登出
     if (status === 401 && !isAuthEntry && !original?._retried && localStorage.getItem(REFRESH_KEY)) {
       if (original) original._retried = true
       if (await refreshOnce()) return http(original)

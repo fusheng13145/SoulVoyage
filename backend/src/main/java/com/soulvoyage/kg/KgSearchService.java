@@ -19,8 +19,6 @@ public interface KgSearchService {
     /** 压力源闭集枚举（注入 Prompt 与 Mock 使用，与 schema enum 同源维护） */
     List<String> stressorOptions();
 
-    /** 误区节点是否存在（用于 Agent 输出的 kgNodeId 反向校验） */
-    boolean distortionExists(String kgNodeId);
 
     /** N2：按压力源/情绪召回心理科普候选（SUPPORT 真 kgSource、每日一读供给共用） */
     List<PsyTopicCard> psyTopicsFor(List<String> stressors, String primaryEmotion, int maxCount);

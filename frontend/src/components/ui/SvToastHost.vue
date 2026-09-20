@@ -14,18 +14,38 @@ import { toastQueue } from '@/stores/ui'
 
 <style scoped>
 .sv-toast-host {
-  position: absolute; top: calc(var(--sv-safe-t) + 60px); left: 0; right: 0;
-  display: flex; flex-direction: column; align-items: center; gap: 8px;
-  z-index: 120; pointer-events: none;
+  position: absolute;
+  top: calc(var(--sv-safe-t) + 60px);
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  z-index: 120;
+  pointer-events: none;
 }
 .bubble {
   background: color-mix(in srgb, var(--sv-card) 90%, transparent);
-  backdrop-filter: var(--sv-blur); -webkit-backdrop-filter: var(--sv-blur);
+  backdrop-filter: var(--sv-blur);
+  -webkit-backdrop-filter: var(--sv-blur);
   border: 1px solid var(--sv-sep);
-  padding: 10px 18px; border-radius: var(--sv-r-pill);
-  font-size: var(--sv-fs-footnote); color: var(--sv-label);
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2); max-width: 86%;
+  padding: 10px 18px;
+  border-radius: var(--sv-r-pill);
+  font-size: var(--sv-fs-footnote);
+  color: var(--sv-label);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
+  max-width: 86%;
 }
-.toast-enter-active, .toast-leave-active { transition: transform 0.4s var(--sv-ease), opacity 0.3s; }
-.toast-enter-from, .toast-leave-to { transform: translateY(-80px); opacity: 0; }
+.toast-enter-active,
+.toast-leave-active {
+  transition:
+    transform 0.4s var(--sv-ease),
+    opacity 0.3s;
+}
+.toast-enter-from,
+.toast-leave-to {
+  transform: translateY(-80px);
+  opacity: 0;
+}
 </style>

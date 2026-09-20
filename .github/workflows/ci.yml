@@ -1,0 +1,75 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    env:
+      # 业务时区钉死 Asia/Shanghai：避免 UTC 午夜边界让"今日"类用例在 CI 上随机翻红
+      TZ: Asia/Shanghai
+    services:
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: maven-${{ hashFiles('backend/pom.xml') }}
+          restore-keys: maven-
+      # 手册 §九 红线：危机句式 100% 召回单独成步——全量挂了也要一眼看到是卡点断了
+      - name: 高危句式回归卡点
+        working-directory: backend
+        run: mvn -B test -Dtest='RiskRulesTest'
+      # 全量 H2 回归（含 OpenAPI 契约快照钉死、危机生命周期、管理端、双轨矩阵）
+      - name: 后端全量测试
+        working-directory: backend
+        run: mvn -B test
+      - name: 打包冒烟（spring-boot repackage）
+        working-directory: backend
+        run: mvn -B package -DskipTests
+      - name: surefire 报告
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: surefire-reports
+          path: backend/target/surefire-reports
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: 安装依赖
+        working-directory: frontend
+        run: npm ci
+      - name: ESLint + Prettier
+        working-directory: frontend
+        run: |
+          npm run lint
+          npm run format:check
+      # vue-tsc 消费 OpenAPI 生成类型：后端契约变了这里必须同步 gen:api
+      - name: 类型检查与构建
+        working-directory: frontend
+        run: npm run build
+      - name: gen:api 与提交的 schema.d.ts 一致
+        working-directory: frontend
+        run: |
+          npm run gen:api
+          git diff --exit-code -- src/api/schema.d.ts

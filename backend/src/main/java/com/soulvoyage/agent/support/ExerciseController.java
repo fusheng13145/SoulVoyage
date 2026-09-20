@@ -145,9 +145,10 @@ public class ExerciseController {
     public ApiResponse<List<Map<String, Object>>> records(
             @AuthenticationPrincipal AuthPrincipal p,
             @RequestParam(defaultValue = "20") int limit) {
+        int n = Math.min(Math.max(limit, 1), 100);   // O2：DB 层 limit
         return ApiResponse.ok(recordRepo
-                .findByUserIdOrderByCreatedAtDescIdDesc(p.userId()).stream()
-                .limit(Math.min(limit, 100))
+                .findByUserIdOrderByCreatedAtDescIdDesc(p.userId(),
+                        org.springframework.data.domain.PageRequest.of(0, n)).stream()
                 .map(r -> {
                     String name = catalog.list().stream()
                             .filter(e -> e.id().equals(r.getExerciseCode()))

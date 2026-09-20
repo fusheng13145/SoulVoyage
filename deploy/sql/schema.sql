@@ -477,6 +477,17 @@ CREATE TABLE data_key (
   UNIQUE KEY uk_owner_ver (owner_user_id, version)
 ) COMMENT='密钥登记（信封加密）';
 
+CREATE TABLE export_record (
+  id         BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  user_id    BIGINT UNSIGNED NOT NULL,
+  kind       VARCHAR(24)     NOT NULL COMMENT 'ARCHIVE(打印页)/PERSONAL_DATA(S2 全量)',
+  status     VARCHAR(16)     NOT NULL DEFAULT 'PENDING' COMMENT 'PENDING/CLAIMED/EXPIRED',
+  file_ref   VARCHAR(26)     NOT NULL COMMENT '一次性快照号（ULID），内容不落库',
+  created_at DATETIME(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  claimed_at DATETIME(3)     NULL,
+  KEY idx_user_kind (user_id, kind, created_at)
+) COMMENT='A5 导出留痕';
+
 -- ---------- 种子数据 ----------
 -- M8 起：exercise_library / scene_card / kg_node 不再写死 SQL 种子，
 -- 应用启动时由 ContentDataSeeder 从 classpath JSON（exercises/scenes/kg）导入空表，
@@ -486,4 +497,4 @@ INSERT INTO role_permission (role, permission_code) VALUES
   ('USER','task:submit'), ('USER','diary:write'), ('USER','simulate:play'),
   ('USER','report:read'), ('USER','archive:export'), ('USER','account:delete'),
   ('ADMIN','task:submit'), ('ADMIN','admin:task'), ('ADMIN','admin:scene'),
-  ('ADMIN','admin:audit'), ('ADMIN','admin:risk:view');
+  ('ADMIN','admin:audit'), ('ADMIN','admin:risk:view'), ('ADMIN','admin:user');

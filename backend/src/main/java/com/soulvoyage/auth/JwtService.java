@@ -125,13 +125,22 @@ public class JwtService {
         return v == null ? 0L : Long.parseLong(v);
     }
 
-    /** 登出：拉黑 access + refresh 直至自然过期 */
-    public void revoke(String token) {
-        try {
-            Claims c = Jwts.parser().verifyWith(key).build().parseSignedClaims(token).getPayload();
-            blacklist(c);
-        } catch (Exception ignored) {
-            // 无效 token 无需拉黑
+    /**
+     * 登出（技术债 7·白名单语义）：不再按 jti 拉黑，而是解析属主后以当前时刻设 epoch——
+     * 该用户此前签发的全部会话即时失效（覆盖客户端未持有的兄弟令牌），
+     * 且登出后误用旧 refresh 会在 parse 的 epoch 检查处干净 401，不会再误触"重用检测"全局吊销。
+     */
+    public void logout(String accessToken, String refreshToken) {
+        long userId = 0;
+        for (String t : new String[]{accessToken, refreshToken}) {
+            if (t == null || t.isBlank()) continue;
+            try {
+                Claims c = Jwts.parser().verifyWith(key).build().parseSignedClaims(t).getPayload();
+                userId = Long.parseLong(c.getSubject());
+            } catch (Exception ignored) {
+                // 无效/过期 token：属主可能来自另一枚，继续尝试
+            }
         }
+        if (userId > 0) revokeAll(userId);
     }
 }

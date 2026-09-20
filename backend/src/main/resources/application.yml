@@ -24,6 +24,7 @@ spring:
     redis:
       host: ${SV_REDIS_HOST:127.0.0.1}   # 本机 Redis（D:\Redis）
       port: ${SV_REDIS_PORT:6379}
+      password: ${SV_REDIS_PASS:}        # 本机无密码留空；docker-compose 走 requirepass
       timeout: 3s
   threads:
     virtual:
@@ -66,4 +67,4 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics
+        include: health,info,metrics,prometheus

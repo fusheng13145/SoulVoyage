@@ -46,13 +46,29 @@ defineExpose({ done })
 </template>
 
 <style scoped>
-.ptr { touch-action: pan-y; }
-.indicator { overflow: hidden; display: grid; place-items: center; transition: height 0.3s var(--sv-ease); }
+.ptr {
+  touch-action: pan-y;
+}
+.indicator {
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  transition: height 0.3s var(--sv-ease);
+}
 .spin {
-  width: 20px; height: 20px; border-radius: 50%;
-  border: 2.5px solid var(--sv-label3); border-top-color: var(--sv-indigo);
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2.5px solid var(--sv-label3);
+  border-top-color: var(--sv-indigo);
   opacity: 0.9;
 }
-.spin.go { animation: rot 0.8s linear infinite; }
-@keyframes rot { to { transform: rotate(360deg); } }
+.spin.go {
+  animation: rot 0.8s linear infinite;
+}
+@keyframes rot {
+  to {
+    transform: rotate(360deg);
+  }
+}
 </style>

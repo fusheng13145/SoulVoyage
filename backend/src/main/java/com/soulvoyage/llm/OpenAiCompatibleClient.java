@@ -43,7 +43,7 @@ public class OpenAiCompatibleClient implements LlmClient {
     }
 
     @Override
-    public LlmResponse chat(LlmRequest req) {
+    public LlmResponse doChat(LlmRequest req) {
         long t0 = System.currentTimeMillis();
         try {
             String body = mapper.writeValueAsString(Map.of(

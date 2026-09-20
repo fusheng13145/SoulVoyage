@@ -14,4 +14,7 @@ public interface CryptoService {
 
     /** 用户注销：销毁其全部数据密钥 */
     void destroyUserKeys(long userId);
+
+    /** 当前启用 DEK 的版本号（技术债 4：读元数据，不做探针重加密）；无密钥返回 0 */
+    int activeKeyVersion(long userId);
 }

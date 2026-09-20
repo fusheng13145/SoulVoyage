@@ -45,6 +45,11 @@ public class TaskInstanceEntity {
     @Column(name = "finished_at")
     private Instant finishedAt;
 
-    @Column(name = "created_at", insertable = false, updatable = false)
+    @Column(name = "created_at", updatable = false)
     private Instant createdAt;
+
+    @PrePersist
+    void stamp() {
+        if (createdAt == null) createdAt = Instant.now();
+    }
 }

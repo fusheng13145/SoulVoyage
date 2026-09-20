@@ -26,6 +26,7 @@ import com.soulvoyage.llm.OutputValidator;
 import com.soulvoyage.orchestrator.agent.Agent;
 import com.soulvoyage.orchestrator.agent.AgentRuntime;
 import com.soulvoyage.orchestrator.protocol.AgentMessage;
+import io.micrometer.core.instrument.MeterRegistry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -67,6 +68,7 @@ public class RiskArchiveAgent implements Agent {
     private final ObjectMapper mapper;
     private final CrisisService crisisService;
     private final BusinessCalendar cal;
+    private final MeterRegistry registry;
 
     @Override
     public String code() { return "RISK_ARCHIVE"; }
@@ -163,6 +165,7 @@ public class RiskArchiveAgent implements Agent {
         e.setTaskId(taskId);
         e.setNeedsReview((short) (needsReview ? 1 : 0));
         e = riskEventRepo.save(e);
+        registry.counter("sv.risk.event", "level", level.name()).increment();
 
         audit.record(userId, level == Level.HIGH ? "RISK_HIGH" : "RISK_MEDIUM",
                 "risk_event:" + e.getId(), null);
@@ -280,12 +283,7 @@ public class RiskArchiveAgent implements Agent {
     }
 
     private String currentKeyVersion(long userId) {
-        try {
-            byte[] probe = crypto.encryptUserField(userId, "k");
-            return "k" + (probe[0] & 0xFF);
-        } catch (Exception e) {
-            return "k0";
-        }
+        return "k" + crypto.activeKeyVersion(userId);
     }
 
     private static Level parseLevel(String s) {

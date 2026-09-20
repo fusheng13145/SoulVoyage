@@ -9,6 +9,8 @@ import com.soulvoyage.crypto.CryptoService;
 import com.soulvoyage.domain.crisis.CrisisState;
 import com.soulvoyage.domain.task.*;
 import com.soulvoyage.domain.user.UserRepository;
+import com.soulvoyage.llm.LlmUsageCollector;
+import io.micrometer.core.instrument.MeterRegistry;
 import com.soulvoyage.orchestrator.agent.AgentRuntime;
 import com.soulvoyage.orchestrator.agent.LlmUnavailableException;
 import com.soulvoyage.orchestrator.agent.OutputInvalidException;
@@ -47,6 +49,7 @@ public class OrchestratorService {
     private final CryptoService crypto;
     private final TaskEventBus bus;
     private final ObjectMapper mapper;
+    private final MeterRegistry registry;
 
     private final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
 
@@ -68,6 +71,7 @@ public class OrchestratorService {
         t.setPipelineCode(pipelineCode);
         t.setClientReqId(blankToNull(clientReqId));
         final TaskInstanceEntity saved = taskRepo.save(t);
+        registry.counter("sv.task.submit", "pipeline", pipelineCode).increment();
 
         bus.publish(saved.getTaskNo(), "task_created", Map.of("taskNo", saved.getTaskNo(), "status", saved.getStatus()));
         JsonNode inputCopy = input == null ? mapper.createObjectNode() : input;
@@ -77,6 +81,29 @@ public class OrchestratorService {
 
     /** 执行循环：在虚拟线程中运行，不持有数据库事务，逐步提交 */
     private void run(long taskId, JsonNode input) {
+        run(taskId, input, 1, null);
+    }
+
+    /** A1 手动重跑：FAILED 任务从首个失败步重跑，此前步骤复用已落库的 MIDDLE_RESULT（append-only 语义不破坏） */
+    public TaskInstanceEntity retry(TaskInstanceEntity t) {
+        if (!"FAILED".equals(t.getStatus())) {
+            throw new BizException(ErrorCode.BAD_PARAMS, "仅失败任务可重跑");
+        }
+        int startSeq = stepRepo.findByTaskIdOrderByStepSeqAscIdAsc(t.getId()).stream()
+                .filter(s -> "FAILED".equals(s.getStatus()))
+                .mapToInt(TaskStepLogEntity::getStepSeq).min().orElse(1);
+        // 原始输入 = 首步 REQUEST 消息（executeStep 在无上游产出时即按原输入落库）
+        JsonNode input = msgRepo.findByTaskIdOrderByStepSeqAscIdAsc(t.getId()).stream()
+                .filter(m -> m.getStepSeq() == 1 && "REQUEST".equals(m.getMsgType()))
+                .findFirst()
+                .map(m -> decrypt(t.getUserId(), m))
+                .orElseThrow(() -> new BizException(ErrorCode.BAD_PARAMS, "任务缺少入参记录，无法重跑"));
+        JsonNode carryPrev = startSeq > 1 ? middleResult(t, startSeq - 1) : null;
+        executor.submit(() -> run(t.getId(), input, startSeq, carryPrev));
+        return t;
+    }
+
+    private void run(long taskId, JsonNode input, int startSeq, JsonNode carryPrev) {
         TaskInstanceEntity t = taskRepo.findById(taskId).orElseThrow();
         try {
             t.setStatus("RUNNING");
@@ -93,21 +120,28 @@ public class OrchestratorService {
             boolean degraded = false;
             int seq = 0;
             JsonNode base = input;
+            if (startSeq > 1) {
+                // 重跑续接：失败步之前的产出直接复用，文本提升按原顺序重放
+                last = carryPrev;
+                for (int s = 1; s < startSeq; s++) {
+                    JsonNode out = middleResult(t, s);
+                    if (out != null) base = promoteDiaryText(base, out);
+                }
+            }
             for (StepSpec spec : steps) {
                 seq++;
                 if (isCancelled(taskId)) return;
+                if (seq < startSeq) continue;
                 try {
                     last = executeStep(t, spec, seq, base, last);
                     // 文本源随上下文穿透：上游步产出 diaryText（如 COMPANION digest）时提升为顶层，
                     // 使 EMOTION/TRACE/RISK_ARCHIVE 按既有契约消费多步流水线（DIARY 等顶层已有则不变）
-                    if (last != null && last.hasNonNull("diaryText") && !base.hasNonNull("diaryText")) {
-                        base = base.deepCopy();
-                        ((com.fasterxml.jackson.databind.node.ObjectNode) base)
-                                .set("diaryText", last.get("diaryText"));
-                    }
+                    base = promoteDiaryText(base, last);
                 } catch (OutputInvalidException e) {
                     // 校验失败不重试：步骤降级，流水线终止为 PARTIAL_SUCCESS（手册 §3.6）
-                    logStep(t.getId(), spec, seq, "DEGRADED", 0, null, e.getMessage());
+                    logStep(t.getId(), spec, seq, "DEGRADED", 0, null, e.getMessage(), null);
+                    registry.counter("sv.agent.step", "agent", spec.agentCode(), "status", "DEGRADED")
+                            .increment();
                     degraded = true;
                     bus.publish(t.getTaskNo(), "step_failed",
                             Map.of("stepSeq", seq, "agent", spec.agentCode(), "reason", e.getMessage()));
@@ -142,27 +176,37 @@ public class OrchestratorService {
         AgentRuntime rt = new AgentRuntime(t.getId(), t.getUserId(), t.getTaskNo(), spec);
         long t0 = System.currentTimeMillis();
         RuntimeException lastErr = null;
-        for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-            try {
-                JsonNode out = agent.run(request, rt);
-                long cost = System.currentTimeMillis() - t0;
-                logStep(t.getId(), spec, seq, "SUCCESS", attempt, cost, null);
-                persistMessage(t, seq, spec.agentCode(), nextConsumer(spec, seq),
-                        AgentMessage.MsgType.MIDDLE_RESULT, out);
-                bus.publish(t.getTaskNo(), "middle_result",
-                        Map.of("stepSeq", seq, "agent", spec.agentCode(), "payload", out));
-                return out;
-            } catch (LlmUnavailableException e) {
-                lastErr = e;
-                logStep(t.getId(), spec, seq, "FAILED", attempt, null, abbreviate(e.getMessage()));
-                if (attempt < MAX_ATTEMPTS) {
-                    sleep(BACKOFF_MS[attempt - 1]);
-                    bus.publish(t.getTaskNo(), "step_retry",
-                            Map.of("stepSeq", seq, "agent", spec.agentCode(), "attempt", attempt + 1));
+        LlmUsageCollector.begin();   // O3：本步所有 LLM 应答用量归集后随步骤日志落库
+        try {
+            for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+                try {
+                    JsonNode out = agent.run(request, rt);
+                    long cost = System.currentTimeMillis() - t0;
+                    logStep(t.getId(), spec, seq, "SUCCESS", attempt, cost, null, LlmUsageCollector.drain());
+                    registry.timer("sv.agent.step", "agent", spec.agentCode(), "status", "SUCCESS")
+                            .record(java.time.Duration.ofMillis(cost));
+                    persistMessage(t, seq, spec.agentCode(), nextConsumer(spec, seq),
+                            AgentMessage.MsgType.MIDDLE_RESULT, out);
+                    bus.publish(t.getTaskNo(), "middle_result",
+                            Map.of("stepSeq", seq, "agent", spec.agentCode(), "payload", out));
+                    return out;
+                } catch (LlmUnavailableException e) {
+                    lastErr = e;
+                    logStep(t.getId(), spec, seq, "FAILED", attempt, null,
+                            abbreviate(e.getMessage()), LlmUsageCollector.drain());
+                    registry.counter("sv.agent.step", "agent", spec.agentCode(), "status", "FAILED")
+                            .increment();
+                    if (attempt < MAX_ATTEMPTS) {
+                        sleep(BACKOFF_MS[attempt - 1]);
+                        bus.publish(t.getTaskNo(), "step_retry",
+                                Map.of("stepSeq", seq, "agent", spec.agentCode(), "attempt", attempt + 1));
+                    }
                 }
             }
+            throw lastErr;
+        } finally {
+            LlmUsageCollector.clear();
         }
-        throw lastErr;
     }
 
     /** 步骤输出流向下一步骤；末步流向归档 Agent（M4 强制追加 RISK_ARCHIVE 步骤时在此扩展） */
@@ -173,6 +217,22 @@ public class OrchestratorService {
         if (merged.isObject()) ((com.fasterxml.jackson.databind.node.ObjectNode) merged)
                 .set("prev", prev);
         return merged;
+    }
+
+    private JsonNode promoteDiaryText(JsonNode base, JsonNode out) {
+        if (out == null || !out.hasNonNull("diaryText") || base.hasNonNull("diaryText")) return base;
+        base = base.deepCopy();
+        ((com.fasterxml.jackson.databind.node.ObjectNode) base).set("diaryText", out.get("diaryText"));
+        return base;
+    }
+
+    /** 某步已落库的 MIDDLE_RESULT（重跑续接用）；无则 null */
+    private JsonNode middleResult(TaskInstanceEntity t, int seq) {
+        return msgRepo.findByTaskIdOrderByStepSeqAscIdAsc(t.getId()).stream()
+                .filter(m -> m.getStepSeq() == seq && "MIDDLE_RESULT".equals(m.getMsgType()))
+                .findFirst()
+                .map(m -> decrypt(t.getUserId(), m))
+                .orElse(null);
     }
 
     private void persistMessage(TaskInstanceEntity t, int seq, String from, String to,
@@ -193,7 +253,7 @@ public class OrchestratorService {
     }
 
     private void logStep(long taskId, StepSpec spec, int seq, String status,
-                         int attempt, Long costMs, String err) {
+                         int attempt, Long costMs, String err, LlmUsageCollector.Accum usage) {
         TaskStepLogEntity l = new TaskStepLogEntity();
         l.setTaskId(taskId);
         l.setStepSeq(seq);
@@ -203,6 +263,12 @@ public class OrchestratorService {
         l.setAttempt((short) attempt);
         l.setCostMs(costMs == null ? null : costMs.intValue());
         l.setErrorMsg(err);
+        if (usage != null && usage.calls() > 0) {   // O3 成本回填：无 LLM 调用的步骤保持 null
+            l.setLlmCalls((short) usage.calls());
+            l.setTokensIn(usage.tokensIn());
+            l.setTokensOut(usage.tokensOut());
+            l.setModel(usage.model());
+        }
         stepRepo.save(l);
     }
 
@@ -245,6 +311,10 @@ public class OrchestratorService {
         t.setErrorMsg(err);
         t.setFinishedAt(Instant.now());
         taskRepo.save(t);
+        if (t.getStartedAt() != null) {
+            registry.timer("sv.task.duration", "pipeline", t.getPipelineCode(), "status", status)
+                    .record(java.time.Duration.between(t.getStartedAt(), t.getFinishedAt()));
+        }
         bus.publish(t.getTaskNo(), "task_status", Map.of("status", status));
     }
 

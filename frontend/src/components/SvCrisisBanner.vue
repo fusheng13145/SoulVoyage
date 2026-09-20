@@ -9,7 +9,11 @@ const crisis = useCrisisStore()
 const route = useRoute()
 const show = computed(() => crisis.crisisMode && route.path !== '/crisis')
 
-onMounted(() => { crisis.refreshProfile().catch(() => { /* 画像失败不阻塞外壳 */ }) })
+onMounted(() => {
+  crisis.refreshProfile().catch(() => {
+    /* 画像失败不阻塞外壳 */
+  })
+})
 </script>
 
 <template>
@@ -22,14 +26,26 @@ onMounted(() => { crisis.refreshProfile().catch(() => { /* 画像失败不阻塞
 
 <style scoped>
 .banner {
-  display: flex; align-items: center; gap: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   background: color-mix(in srgb, var(--sv-red) 92%, #000);
-  color: #fff; padding: 10px 16px;
-  font-size: var(--sv-fs-footnote); flex: none;
+  color: #fff;
+  padding: 10px 16px;
+  font-size: var(--sv-fs-footnote);
+  flex: none;
 }
-[data-theme="dark"] .banner {
+[data-theme='dark'] .banner {
   /* dark 下提高对比（DS2 危机色规则） */
-  background: var(--sv-red); color: #000; font-weight: 700;
+  background: var(--sv-red);
+  color: #000;
+  font-weight: 700;
 }
-.banner b { margin-left: auto; display: inline-flex; align-items: center; gap: 2px; font-weight: 600; }
+.banner b {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-weight: 600;
+}
 </style>

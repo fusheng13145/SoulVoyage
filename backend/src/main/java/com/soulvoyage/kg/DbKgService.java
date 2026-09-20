@@ -94,10 +94,6 @@ public class DbKgService implements KgSearchService {
         return store.stressorMap().values().stream().distinct().sorted().toList();
     }
 
-    @Override
-    public boolean distortionExists(String kgNodeId) {
-        return store.distortions().stream().anyMatch(e -> e.kgNodeId().equals(kgNodeId));
-    }
 
     @Override
     public boolean psyTopicExists(String code) {

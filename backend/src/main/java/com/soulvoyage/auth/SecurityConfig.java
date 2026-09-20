@@ -45,6 +45,8 @@ public class SecurityConfig {
                 .requestMatchers("/api/v1/auth/register", "/api/v1/auth/login",
                         "/api/v1/auth/refresh", "/api/v1/auth/logout",
                         "/api/v1/risk/resources", "/actuator/health", "/error").permitAll()
+                // OpenAPI 契约只含接口结构不含数据，放行供前端 gen:api / 本地 swagger-ui 使用
+                .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                 .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
                 .anyRequest().authenticated())
             .exceptionHandling(e -> e.authenticationEntryPoint((req, res, ex) -> {

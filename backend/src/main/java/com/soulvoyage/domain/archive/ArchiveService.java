@@ -56,6 +56,7 @@ public class ArchiveService {
     private final com.soulvoyage.domain.checkin.MoodCheckInRepository checkInRepo;
     private final com.soulvoyage.domain.letter.GrowthLetterRepository letterRepo;
     private final com.soulvoyage.domain.content.ReadingService reading;
+    private final com.soulvoyage.domain.export.ExportRecordRepository exportRecords;
     private final UserRepository userRepo;
     private final CryptoService crypto;
     private final AuditService audit;
@@ -126,6 +127,7 @@ public class ArchiveService {
 
         String fileId = Ulid.next();
         exports.put(fileId, new Snapshot(userId, snapshot, Instant.now().plus(EXPORT_TTL)));
+        recordExport(userId, "ARCHIVE", fileId);
         audit.record(userId, "EXPORT", "archive_export:" + fileId, ip);
         return fileId;
     }
@@ -140,6 +142,11 @@ public class ArchiveService {
             throw new BizException(ErrorCode.FORBIDDEN);   // 属主断言：链接不可跨账号领取
         }
         exports.remove(fileId);                            // 一次性：领取即焚
+        exportRecords.findByFileRef(fileId).ifPresent(r -> {
+            r.setStatus("CLAIMED");
+            r.setClaimedAt(Instant.now());
+            exportRecords.save(r);
+        });
         audit.record(userId, "EXPORT_DOWNLOAD", "archive_export:" + fileId, ip);
         return s.data();
     }
@@ -164,25 +171,26 @@ public class ArchiveService {
 
         String fileId = Ulid.next();
         exports.put(fileId, new Snapshot(userId, snapshot, Instant.now().plus(EXPORT_TTL)));
+        recordExport(userId, "PERSONAL_DATA", fileId);
         audit.record(userId, "DATA_EXPORT", "personal_data_export:" + fileId, ip);
         return fileId;
     }
 
     // ---------------- internals ----------------
 
+    /** A5 导出留痕：只记元数据，快照内容不落库 */
+    private void recordExport(long userId, String kind, String fileId) {
+        var r = new com.soulvoyage.domain.export.ExportRecordEntity();
+        r.setUserId(userId);
+        r.setKind(kind);
+        r.setFileRef(fileId);
+        exportRecords.save(r);
+    }
+
     private void purgeExpired() {
         Instant now = Instant.now();
         exports.entrySet().removeIf(e -> e.getValue().expiresAt().isBefore(now));
-    }
-
-    private ArrayNode reportMeta(long userId) {
-        var arr = mapper.createArrayNode();
-        reportRepo.findByUserIdAndDeletedAtIsNullOrderByCreatedAtDesc(userId,
-                        org.springframework.data.domain.PageRequest.of(0, 100))
-                .forEach(r -> arr.addObject()
-                        .put("id", r.getId()).put("type", r.getType()).put("title", r.getTitle())
-                        .put("riskLevel", r.getRiskLevel()));
-        return arr;
+        exportRecords.markExpired(now.minus(EXPORT_TTL));
     }
 
     private ArrayNode filterReportsInRange(long userId, LocalDate from, LocalDate to) {

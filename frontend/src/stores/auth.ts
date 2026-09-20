@@ -3,12 +3,20 @@ import { ref } from 'vue'
 import http, { TOKEN_KEY, REFRESH_KEY, type ApiResp } from '@/api/http'
 
 export interface Me {
-  userId: number; username: string; nickname: string; role: string
-  status: number; deletionRequestedAt: string
+  userId: number
+  username: string
+  nickname: string
+  role: string
+  status: number
+  deletionRequestedAt: string
 }
 export interface TokenResp {
-  accessToken: string; refreshToken: string; userId: number
-  nickname: string; role: string; deletionPending: boolean
+  accessToken: string
+  refreshToken: string
+  userId: number
+  nickname: string
+  role: string
+  deletionPending: boolean
 }
 
 /** 会话唯一事实源：token 存取、/auth/me、注销冷静期标记 */
@@ -58,7 +66,11 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function logout() {
-    try { await http.post('/auth/logout', {}) } catch { /* 服务端吊销失败也要本地登出 */ }
+    try {
+      await http.post('/auth/logout', {})
+    } catch {
+      /* 服务端吊销失败也要本地登出 */
+    }
     clear()
   }
 

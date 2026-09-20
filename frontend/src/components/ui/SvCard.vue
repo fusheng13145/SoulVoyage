@@ -17,6 +17,11 @@ withDefaults(defineProps<{ pad?: boolean }>(), { pad: true })
   box-shadow: var(--sv-sh-1);
   margin-bottom: 14px;
 }
-[data-theme="dark"] .sv-card { border: 1px solid var(--sv-sep); box-shadow: none; }
-.sv-card:not(.nopad) { padding: var(--sv-s4); }
+[data-theme='dark'] .sv-card {
+  border: 1px solid var(--sv-sep);
+  box-shadow: none;
+}
+.sv-card:not(.nopad) {
+  padding: var(--sv-s4);
+}
 </style>

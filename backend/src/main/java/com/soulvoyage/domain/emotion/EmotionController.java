@@ -35,15 +35,25 @@ public class EmotionController {
     private final ObjectMapper mapper;
     private final BusinessCalendar cal;
 
+    /** O2：range 14/30/90（默认 30）+ granularity=day|week；显式 from/to 亦钳制跨度 ≤90 天 */
     @GetMapping("/trajectory")
     public ApiResponse<Map<String, Object>> trajectory(
             @AuthenticationPrincipal AuthPrincipal p,
             @RequestParam(required = false) LocalDate from,
-            @RequestParam(required = false) LocalDate to) {
+            @RequestParam(required = false) LocalDate to,
+            @RequestParam(defaultValue = "30") int range,
+            @RequestParam(defaultValue = "day") String granularity) {
         LocalDate end = to == null ? cal.today() : to;
-        LocalDate start = from == null ? end.minusDays(29) : from;
-        List<Map<String, Object>> points = trajRepo
-                .findByUserIdAndRecordDateBetweenOrderByRecordDateAsc(p.userId(), start, end).stream()
+        LocalDate start = from == null ? end.minusDays(Math.min(Math.max(range, 1), 90) - 1L) : from;
+        if (start.plusDays(90).isBefore(end)) start = end.minusDays(90);
+        List<EmotionTrajectoryEntity> rows = trajRepo
+                .findByUserIdAndRecordDateBetweenOrderByRecordDateAsc(p.userId(), start, end);
+        List<Map<String, Object>> points = "week".equals(granularity) ? weekly(rows) : daily(rows);
+        return ApiResponse.ok(Map.of("from", start.toString(), "to", end.toString(), "points", points));
+    }
+
+    private List<Map<String, Object>> daily(List<EmotionTrajectoryEntity> rows) {
+        return rows.stream()
                 .map(t -> Map.<String, Object>of(
                         "date", t.getRecordDate().toString(),
                         "sourceType", t.getSourceType(),
@@ -52,7 +62,38 @@ public class EmotionController {
                         "intensity", t.getIntensity(),
                         "eventTags", parseJson(t.getEventTags())))
                 .toList();
-        return ApiResponse.ok(Map.of("from", start.toString(), "to", end.toString(), "points", points));
+    }
+
+    /** 周聚合：效价/强度取均值，情绪取众数，eventTags 不随周上卷 */
+    private List<Map<String, Object>> weekly(List<EmotionTrajectoryEntity> rows) {
+        var weeks = new java.util.TreeMap<LocalDate, List<EmotionTrajectoryEntity>>();
+        for (EmotionTrajectoryEntity t : rows) {
+            LocalDate ws = t.getRecordDate()
+                    .with(java.time.temporal.WeekFields.ISO.dayOfWeek(), 1);
+            weeks.computeIfAbsent(ws, k -> new java.util.ArrayList<>()).add(t);
+        }
+        return weeks.entrySet().stream().map(e -> {
+            List<EmotionTrajectoryEntity> g = e.getValue();
+            var emotion = g.stream()
+                    .collect(java.util.stream.Collectors.groupingBy(
+                            EmotionTrajectoryEntity::getPrimaryEmotion,
+                            java.util.stream.Collectors.counting()))
+                    .entrySet().stream().max(Map.Entry.comparingByValue())
+                    .map(Map.Entry::getKey).orElse("");
+            return Map.<String, Object>of(
+                    "date", e.getKey().toString(),
+                    "sourceType", "WEEK",
+                    "emotion", emotion,
+                    "valence", avg(g, true),
+                    "intensity", avg(g, false),
+                    "eventTags", List.of());
+        }).toList();
+    }
+
+    private BigDecimal avg(List<EmotionTrajectoryEntity> g, boolean valence) {
+        double m = g.stream().mapToDouble(t -> (valence ? t.getValence() : t.getIntensity())
+                .doubleValue()).average().orElse(0);
+        return BigDecimal.valueOf(m).setScale(3, java.math.RoundingMode.HALF_UP);
     }
 
     /**
@@ -95,9 +136,14 @@ public class EmotionController {
     public record SelfRatingReq(String emotion, BigDecimal valence, BigDecimal intensity,
                                 String note, LocalDate date) {}
 
+    /** O2：近 N 周参数（默认 12，钳制 1..52），DB 层 limit */
     @GetMapping("/profile")
-    public ApiResponse<Map<String, Object>> profile(@AuthenticationPrincipal AuthPrincipal p) {
-        List<Map<String, Object>> weeks = profileRepo.findByUserIdOrderByStatWeekDesc(p.userId()).stream()
+    public ApiResponse<Map<String, Object>> profile(
+            @AuthenticationPrincipal AuthPrincipal p,
+            @RequestParam(defaultValue = "12") int weeks) {
+        List<Map<String, Object>> weekList = profileRepo.findByUserIdOrderByStatWeekDesc(
+                        p.userId(), org.springframework.data.domain.PageRequest.of(
+                                0, Math.min(Math.max(weeks, 1), 52))).stream()
                 .map(w -> Map.<String, Object>of(
                         "statWeek", w.getStatWeek(),
                         "avgValence", w.getAvgValence() == null ? "" : w.getAvgValence(),
@@ -112,7 +158,7 @@ public class EmotionController {
         return ApiResponse.ok(Map.of(
                 "crisisMode", CrisisState.parse(crisisState).active(),
                 "crisisState", crisisState,
-                "weeks", weeks));
+                "weeks", weekList));
     }
 
     private Object parseJson(String s) {

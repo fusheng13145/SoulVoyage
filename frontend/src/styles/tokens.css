@@ -3,21 +3,21 @@
   color-scheme: light;
 
   /* 品牌屿蓝 + iOS 系统语义色 */
-  --sv-indigo: #5B6CFF;
+  --sv-indigo: #5b6cff;
   --sv-indigo-soft: rgba(91, 108, 255, 0.12);
-  --sv-blue: #0A84FF;
-  --sv-mint: #30D158;
-  --sv-amber: #FF9F0A;
-  --sv-red: #FF453A;
-  --sv-pink: #FF375F;
-  --sv-purple: #BF5AF2;
-  --sv-teal: #64D2FF;
+  --sv-blue: #0a84ff;
+  --sv-mint: #30d158;
+  --sv-amber: #ff9f0a;
+  --sv-red: #ff453a;
+  --sv-pink: #ff375f;
+  --sv-purple: #bf5af2;
+  --sv-teal: #64d2ff;
 
   /* 表面 */
-  --sv-bg: #F2F2F7;
-  --sv-card: #FFFFFF;
-  --sv-card2: #FFFFFF;
-  --sv-label: #1C1C1E;
+  --sv-bg: #f2f2f7;
+  --sv-card: #ffffff;
+  --sv-card2: #ffffff;
+  --sv-label: #1c1c1e;
   --sv-label2: rgba(60, 60, 67, 0.6);
   --sv-label3: rgba(60, 60, 67, 0.3);
   --sv-sep: rgba(60, 60, 67, 0.08);
@@ -27,25 +27,25 @@
   --sv-dim: rgba(0, 0, 0, 0.4);
 
   /* 16 情绪专属色谱（打卡盘/日历/曲线共用） */
-  --e-joy: #FFD60A;
-  --e-calm: #30D158;
-  --e-anx: #FF9F0A;
-  --e-anger: #FF453A;
-  --e-sad: #5E5CE6;
-  --e-numb: #8E8E93;
-  --e-shame: #FF375F;
-  --e-fear: #BF5AF2;
-  --e-lonely: #64D2FF;
-  --e-grati: #FFB340;
+  --e-joy: #ffd60a;
+  --e-calm: #30d158;
+  --e-anx: #ff9f0a;
+  --e-anger: #ff453a;
+  --e-sad: #5e5ce6;
+  --e-numb: #8e8e93;
+  --e-shame: #ff375f;
+  --e-fear: #bf5af2;
+  --e-lonely: #64d2ff;
+  --e-grati: #ffb340;
   --e-confuse: #a1a3b8;
   --e-tired: #7a869c;
-  --e-expect: #32ADE6;
-  --e-bored: #98989F;
-  --e-griev: #AC8E68;
-  --e-pressure: #FF6482;
+  --e-expect: #32ade6;
+  --e-bored: #98989f;
+  --e-griev: #ac8e68;
+  --e-pressure: #ff6482;
 
   /* 排印（DS2 九级字阶） */
-  --sv-font: "SF Pro Text", "SF Pro Display", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  --sv-font: 'SF Pro Text', 'SF Pro Display', 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
   --sv-fs-largename: 34px;
   --sv-fs-title1: 28px;
   --sv-fs-title2: 22px;
@@ -59,8 +59,14 @@
   --sv-fs-caption2: 11px;
 
   /* 形态（4pt 栅格 / 圆角 / 阴影 / 曲线） */
-  --sv-s1: 4px; --sv-s2: 8px; --sv-s3: 12px; --sv-s4: 16px;
-  --sv-s5: 20px; --sv-s6: 24px; --sv-s7: 32px; --sv-s8: 44px;
+  --sv-s1: 4px;
+  --sv-s2: 8px;
+  --sv-s3: 12px;
+  --sv-s4: 16px;
+  --sv-s5: 20px;
+  --sv-s6: 24px;
+  --sv-s7: 32px;
+  --sv-s8: 44px;
   --sv-r-card: 20px;
   --sv-r-sheet: 28px;
   --sv-r-ctl: 14px;
@@ -75,19 +81,19 @@
   --sv-safe-b: env(safe-area-inset-bottom, 0px);
 }
 
-[data-theme="dark"] {
+[data-theme='dark'] {
   color-scheme: dark;
-  --sv-indigo: #7A88FF;
+  --sv-indigo: #7a88ff;
   --sv-indigo-soft: rgba(122, 136, 255, 0.16);
-  --sv-blue: #409CFF;
-  --sv-mint: #34C759;
-  --sv-amber: #FFB340;
-  --sv-red: #FF453A;
+  --sv-blue: #409cff;
+  --sv-mint: #34c759;
+  --sv-amber: #ffb340;
+  --sv-red: #ff453a;
 
   --sv-bg: #000000;
-  --sv-card: #1C1C1E;
-  --sv-card2: #2C2C2E;
-  --sv-label: #FFFFFF;
+  --sv-card: #1c1c1e;
+  --sv-card2: #2c2c2e;
+  --sv-label: #ffffff;
   --sv-label2: rgba(235, 235, 245, 0.6);
   --sv-label3: rgba(235, 235, 245, 0.3);
   --sv-sep: rgba(84, 84, 88, 0.36);
@@ -96,22 +102,22 @@
   --sv-chrome: rgba(18, 18, 20, 0.82);
   --sv-dim: rgba(0, 0, 0, 0.6);
 
-  --e-joy: #FFD60A;
-  --e-calm: #34C759;
-  --e-anx: #FFB340;
-  --e-anger: #FF453A;
-  --e-sad: #7A88FF;
-  --e-numb: #98989F;
-  --e-shame: #FF375F;
-  --e-fear: #BF5AF2;
-  --e-lonely: #64D2FF;
-  --e-grati: #FFB340;
-  --e-confuse: #8E8E93;
+  --e-joy: #ffd60a;
+  --e-calm: #34c759;
+  --e-anx: #ffb340;
+  --e-anger: #ff453a;
+  --e-sad: #7a88ff;
+  --e-numb: #98989f;
+  --e-shame: #ff375f;
+  --e-fear: #bf5af2;
+  --e-lonely: #64d2ff;
+  --e-grati: #ffb340;
+  --e-confuse: #8e8e93;
   --e-tired: #777982;
-  --e-expect: #409CFF;
-  --e-bored: #7C7C81;
-  --e-griev: #A2845E;
-  --e-pressure: #FF6482;
+  --e-expect: #409cff;
+  --e-bored: #7c7c81;
+  --e-griev: #a2845e;
+  --e-pressure: #ff6482;
 
   /* dark 下阴影失效：以描边替代（DS2） */
   --sv-sh-1: none;

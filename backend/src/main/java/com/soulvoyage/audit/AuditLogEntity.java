@@ -30,6 +30,12 @@ public class AuditLogEntity {
     @Column(name = "hash_chain", nullable = false, length = 64)
     private String hashChain;
 
-    @Column(name = "created_at", insertable = false, updatable = false)
+    @Column(name = "created_at", updatable = false)
     private Instant createdAt;
+
+    /** H2 测试库无 DB 默认值：应用侧显式写入（同 RiskEvent 语义） */
+    @PrePersist
+    void prePersist() {
+        if (createdAt == null) createdAt = Instant.now();
+    }
 }

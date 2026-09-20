@@ -1,8 +1,8 @@
-import http, { TOKEN_KEY, type ApiResp } from './http'
+import http, { TOKEN_KEY, type ApiResp, type Json } from './http'
 
 export interface SseEvent {
   event: string
-  data: any
+  data: Json
 }
 
 interface ConsumeResult {
@@ -36,7 +36,9 @@ function consume(res: Response, onEvent: (e: SseEvent) => void): Promise<Consume
             const data = JSON.parse(line.slice(5).trim())
             if (TERMINAL_EVENTS.has(current)) terminal = true
             onEvent({ event: current, data })
-          } catch { /* 忽略非 JSON 行（心跳注释帧等） */ }
+          } catch {
+            /* 忽略非 JSON 行（心跳注释帧等） */
+          }
         }
       }
     }
@@ -108,7 +110,9 @@ async function pollFallback(taskNo: string, onEvent: (e: SseEvent) => void): Pro
         onEvent({ event: 'done', data: { status: st, payload: data.data.payload } })
         return
       }
-    } catch { /* 轮询失败继续下一轮 */ }
+    } catch {
+      /* 轮询失败继续下一轮 */
+    }
     await delay(2000)
   }
   onEvent({ event: 'error', data: { message: '任务状态获取超时，请稍后在日记本查看结果' } })

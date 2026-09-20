@@ -6,7 +6,13 @@ import SvDisclaimer from '@/components/ui/SvDisclaimer.vue'
 import http, { type ApiResp } from '@/api/http'
 import { toast } from '@/stores/ui'
 
-interface Badge { code: string; name: string; desc: string; unlocked: boolean; unlockedAt: string }
+interface Badge {
+  code: string
+  name: string
+  desc: string
+  unlocked: boolean
+  unlockedAt: string
+}
 
 const items = ref<Badge[]>([])
 const unlockedCount = ref(0)
@@ -15,12 +21,13 @@ const loading = ref(true)
 
 onMounted(async () => {
   try {
-    const { data } = await http.get<ApiResp<{ items: Badge[]; unlockedCount: number; totalCount: number }>>('/achievements')
+    const { data } =
+      await http.get<ApiResp<{ items: Badge[]; unlockedCount: number; totalCount: number }>>('/achievements')
     items.value = data.data.items
     unlockedCount.value = data.data.unlockedCount
     totalCount.value = data.data.totalCount
-  } catch (e: any) {
-    toast(e.message || '成就墙没打开')
+  } catch (e) {
+    toast((e as Error).message || '成就墙没打开')
   } finally {
     loading.value = false
   }
@@ -29,7 +36,13 @@ onMounted(async () => {
 
 <template>
   <div class="ach">
-    <SvNavBar title="成就墙" :subtitle="`已点亮 ${unlockedCount} / ${totalCount}`" back="我的" back-to="/me" :large="false" />
+    <SvNavBar
+      title="成就墙"
+      :subtitle="`已点亮 ${unlockedCount} / ${totalCount}`"
+      back="我的"
+      back-to="/me"
+      :large="false"
+    />
 
     <div class="body">
       <p v-if="loading" class="sv-muted center">正在点亮…</p>
@@ -48,14 +61,48 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-.body { padding: 0 var(--sv-s4); }
-.center { text-align: center; padding: var(--sv-s4) 0; }
-.wall { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: var(--sv-s3); }
-.badge-card { text-align: center; }
-.badge-card.locked { opacity: .55; }
-.medal { font-size: 30px; display: block; margin-bottom: 6px; }
-.badge-card b { font-size: var(--sv-fs-subhead); display: block; }
-.badge-card small { display: block; margin-top: 4px; line-height: 1.55; font-size: var(--sv-fs-caption1); }
-.at { font-style: normal; display: block; margin-top: 8px; font-size: var(--sv-fs-caption2); color: var(--sv-mint); }
-.at.hint { color: var(--sv-label3); }
+.body {
+  padding: 0 var(--sv-s4);
+}
+.center {
+  text-align: center;
+  padding: var(--sv-s4) 0;
+}
+.wall {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: var(--sv-s3);
+}
+.badge-card {
+  text-align: center;
+}
+.badge-card.locked {
+  opacity: 0.55;
+}
+.medal {
+  font-size: 30px;
+  display: block;
+  margin-bottom: 6px;
+}
+.badge-card b {
+  font-size: var(--sv-fs-subhead);
+  display: block;
+}
+.badge-card small {
+  display: block;
+  margin-top: 4px;
+  line-height: 1.55;
+  font-size: var(--sv-fs-caption1);
+}
+.at {
+  font-style: normal;
+  display: block;
+  margin-top: 8px;
+  font-size: var(--sv-fs-caption2);
+  color: var(--sv-mint);
+}
+.at.hint {
+  color: var(--sv-label3);
+}
 </style>

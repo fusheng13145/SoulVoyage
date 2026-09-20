@@ -14,7 +14,9 @@ export const vHaptic: Directive<HTMLElement, boolean | undefined> = {
       el.style.transform = 'scale(0.97)'
       if (navigator.vibrate) navigator.vibrate(8)
     }
-    const up = () => { el.style.transform = '' }
+    const up = () => {
+      el.style.transform = ''
+    }
     el.addEventListener('pointerdown', down)
     el.addEventListener('pointerup', up)
     el.addEventListener('pointercancel', up)
