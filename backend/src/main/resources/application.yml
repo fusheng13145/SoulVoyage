@@ -38,6 +38,7 @@ spring:
 
 soulvoyage:
   business-zone: ${SV_BUSINESS_ZONE:Asia/Shanghai}   # O1：业务日期归属时区
+  distributed: ${SV_DISTRIBUTED:false}               # M13：true=跨节点状态（LLM 闸门/滑动窗/事件流/导出快照）下 Redis
   crisis:                                            # 下篇·S1 危机生命周期
     cooldown: 7d                                     # CRISIS 强干预窗口
     downgrade-threshold: -0.3                        # 冷却自动解除：周画像 avgValence 阈值

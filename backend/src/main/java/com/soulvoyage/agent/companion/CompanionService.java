@@ -31,10 +31,8 @@ import org.springframework.stereotype.Service;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.util.ArrayDeque;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * 树洞漫聊会话引擎（下篇·C0，手册 §4.6）：复用模拟训练的"逐轮无状态请求 + SSE"形态，
@@ -80,9 +78,7 @@ public class CompanionService {
     private final AuditService audit;
     private final CompanionContextAssembler context;
     private final com.soulvoyage.domain.achievement.AchievementService achievements;
-
-    /** 用户级滑动窗限流（单节点内存版；多节点可行性归 Redis 化技术债） */
-    private final Map<Long, ArrayDeque<Instant>> rateWindow = new ConcurrentHashMap<>();
+    private final com.soulvoyage.common.state.SlidingWindowLimiter windowLimiter;
 
     public record TurnView(long turnId, int turnNo, String userText, String aiText, String moodTag,
                            boolean crisis, boolean noAnalyze, Instant createdAt) {}
@@ -311,14 +307,9 @@ public class CompanionService {
     }
 
     private void rateLimit(long userId) {
-        Instant now = Instant.now();
-        ArrayDeque<Instant> q = rateWindow.computeIfAbsent(userId, k -> new ArrayDeque<>());
-        synchronized (q) {
-            while (!q.isEmpty() && q.peekFirst().isBefore(now.minusSeconds(60))) q.pollFirst();
-            if (q.size() >= RATE_LIMIT_PER_MIN) {
-                throw new BizException(ErrorCode.LLM_RATE_LIMIT, "消息发得太快啦，缓一缓再继续聊");
-            }
-            q.addLast(now);
+        // 用户级滑动窗：进程内版单节点计数，distributed=true 时下 Redis 多节点共享同一窗
+        if (!windowLimiter.tryAcquire("companion:" + userId, RATE_LIMIT_PER_MIN, Duration.ofSeconds(60))) {
+            throw new BizException(ErrorCode.LLM_RATE_LIMIT, "消息发得太快啦，缓一缓再继续聊");
         }
     }
 

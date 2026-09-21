@@ -141,6 +141,8 @@ public class AdminMetricsController {
 
     private Map<String, Object> runtimeSnapshot() {
         return Map.of(
+                // M13：闸门跑在进程内还是跨节点 Redis，运维要能一眼看到（否则多节点限流"看不出来生没生效"）
+                "llmGate", com.soulvoyage.llm.LlmGuard.describe(),
                 "taskSubmitted", sumCounters("sv.task.submit"),
                 "llmCalls", (long) registry.find("sv.llm.call").timers().stream()
                         .mapToDouble(io.micrometer.core.instrument.Timer::count).sum(),

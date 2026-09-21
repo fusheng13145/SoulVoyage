@@ -45,7 +45,13 @@ export interface Overview {
   riskEvents: Record<string, number>
   agents: AgentStat[]
   tokensByDay: TokenDay[]
-  runtime: { taskSubmitted: number; llmCalls: number; tokensIn: number; tokensOut: number }
+  runtime: {
+    llmGate: string
+    taskSubmitted: number
+    llmCalls: number
+    tokensIn: number
+    tokensOut: number
+  }
 }
 export const getOverview = (days = 7) =>
   http.get<ApiResp<Overview>>('/admin/metrics/overview', { params: { days } }).then(r => r.data.data)

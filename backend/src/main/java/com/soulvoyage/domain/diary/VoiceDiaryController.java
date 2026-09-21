@@ -14,12 +14,8 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.Duration;
-import java.time.Instant;
-import java.util.ArrayDeque;
-import java.util.Deque;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * M11 语音日记（手册 §11.3 首项）：录音 → 转写文本 → 交用户校对 → 走既有 DIARY_PIPELINE。
@@ -45,13 +41,15 @@ public class VoiceDiaryController {
 
     private final AsrClient asr;
     private final MeterRegistry reg;
+    private final com.soulvoyage.common.state.SlidingWindowLimiter windowLimiter;
     private final long maxBytes;
-    private final Map<Long, Deque<Instant>> rateWindows = new ConcurrentHashMap<>();
 
     public VoiceDiaryController(AsrClient asr, MeterRegistry reg,
+                                com.soulvoyage.common.state.SlidingWindowLimiter windowLimiter,
                                 @Value("${soulvoyage.asr.max-bytes:5242880}") long maxBytes) {
         this.asr = asr;
         this.reg = reg;
+        this.windowLimiter = windowLimiter;
         this.maxBytes = maxBytes;
     }
 
@@ -92,16 +90,10 @@ public class VoiceDiaryController {
                 "durationMs", durationMs == null ? 0 : durationMs));
     }
 
-    /** 与漫聊同构的用户级滑动窗：换设备/换会话都在同一窗内照限 */
+    /** 与漫聊同构的用户级滑动窗：换设备/换会话都在同一窗内照限；多节点时同一 Redis 窗 */
     private void admitRate(long userId) {
-        Deque<Instant> q = rateWindows.computeIfAbsent(userId, k -> new ArrayDeque<>());
-        synchronized (q) {
-            Instant now = Instant.now();
-            while (!q.isEmpty() && Duration.between(q.peekFirst(), now).toSeconds() >= 60) q.pollFirst();
-            if (q.size() >= RATE_PER_MINUTE) {
-                throw new BizException(ErrorCode.LLM_RATE_LIMIT, "转写得太快啦，稍等一会儿再录");
-            }
-            q.addLast(now);
+        if (!windowLimiter.tryAcquire("voice:" + userId, RATE_PER_MINUTE, Duration.ofSeconds(60))) {
+            throw new BizException(ErrorCode.LLM_RATE_LIMIT, "转写得太快啦，稍等一会儿再录");
         }
     }
 }

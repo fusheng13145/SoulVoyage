@@ -28,13 +28,11 @@ import org.springframework.stereotype.Service;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * 成长档案与限时导出（手册 §4.5 / §6.5 / §7.2）。
- * 导出兜底方案按手册风险预案降级：不落 PDF 库，生成加密报告的明文快照放**内存 TTL**，
+ * 导出兜底方案按手册风险预案降级：不落 PDF 库，生成加密报告的明文快照放**一次性暂存**
+ * （进程内内存 TTL 或 Redis 信封密文，见 {@link com.soulvoyage.domain.export.ExportStore}），
  * 链接限时一次性（下载即焚 + 过期自毁），前端以打印样式页呈现。审计记录 EXPORT/EXPORT_DOWNLOAD。
  */
 @Slf4j
@@ -57,14 +55,11 @@ public class ArchiveService {
     private final com.soulvoyage.domain.letter.GrowthLetterRepository letterRepo;
     private final com.soulvoyage.domain.content.ReadingService reading;
     private final com.soulvoyage.domain.export.ExportRecordRepository exportRecords;
+    private final com.soulvoyage.domain.export.ExportStore exportStore;
     private final UserRepository userRepo;
     private final CryptoService crypto;
     private final AuditService audit;
     private final ObjectMapper mapper;
-
-    private record Snapshot(long userId, ObjectNode data, Instant expiresAt) {}
-
-    private final Map<String, Snapshot> exports = new ConcurrentHashMap<>();
 
     /** 周报（手册 §4.5 成长档案：情绪曲线 + 压力源 Top + 误区趋势 + 训练分趋势） */
     public ObjectNode weeklySummary(long userId, LocalDate date) {
@@ -126,29 +121,27 @@ public class ArchiveService {
         snapshot.set("profiles", allProfiles(userId));
 
         String fileId = Ulid.next();
-        exports.put(fileId, new Snapshot(userId, snapshot, Instant.now().plus(EXPORT_TTL)));
+        exportStore.put(fileId, userId, snapshot);
         recordExport(userId, "ARCHIVE", fileId);
         audit.record(userId, "EXPORT", "archive_export:" + fileId, ip);
         return fileId;
     }
 
     public ObjectNode downloadExport(long userId, String fileId, String ip) {
-        Snapshot s = exports.get(fileId);
-        if (s == null || s.expiresAt().isBefore(Instant.now())) {
-            exports.remove(fileId);
+        com.soulvoyage.domain.export.ExportStore.Taken t = exportStore.take(fileId, userId);
+        if (t.outcome() == com.soulvoyage.domain.export.ExportStore.Outcome.FOREIGN) {
+            throw new BizException(ErrorCode.FORBIDDEN);   // 属主断言：链接不可跨账号领取，也不被消耗
+        }
+        if (t.outcome() == com.soulvoyage.domain.export.ExportStore.Outcome.MISSING) {
             throw new BizException(ErrorCode.NOT_FOUND, "导出链接不存在或已过期（限时 5 分钟）");
         }
-        if (s.userId() != userId) {
-            throw new BizException(ErrorCode.FORBIDDEN);   // 属主断言：链接不可跨账号领取
-        }
-        exports.remove(fileId);                            // 一次性：领取即焚
         exportRecords.findByFileRef(fileId).ifPresent(r -> {
             r.setStatus("CLAIMED");
             r.setClaimedAt(Instant.now());
             exportRecords.save(r);
         });
         audit.record(userId, "EXPORT_DOWNLOAD", "archive_export:" + fileId, ip);
-        return s.data();
+        return t.data();
     }
 
     /** S2 可携带权：全量明文数据导出（报告/曲线/画像/打卡/风险元数据），限时一次性链接同款机制 */
@@ -170,7 +163,7 @@ public class ArchiveService {
         snapshot.set("favorites", mapper.valueToTree(reading.favoritesForExport(userId)));
 
         String fileId = Ulid.next();
-        exports.put(fileId, new Snapshot(userId, snapshot, Instant.now().plus(EXPORT_TTL)));
+        exportStore.put(fileId, userId, snapshot);
         recordExport(userId, "PERSONAL_DATA", fileId);
         audit.record(userId, "DATA_EXPORT", "personal_data_export:" + fileId, ip);
         return fileId;
@@ -188,9 +181,8 @@ public class ArchiveService {
     }
 
     private void purgeExpired() {
-        Instant now = Instant.now();
-        exports.entrySet().removeIf(e -> e.getValue().expiresAt().isBefore(now));
-        exportRecords.markExpired(now.minus(EXPORT_TTL));
+        if (exportStore instanceof com.soulvoyage.domain.export.InMemoryExportStore m) m.purgeExpired();
+        exportRecords.markExpired(Instant.now().minus(EXPORT_TTL));
     }
 
     private ArrayNode filterReportsInRange(long userId, LocalDate from, LocalDate to) {

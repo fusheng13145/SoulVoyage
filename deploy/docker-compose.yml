@@ -55,6 +55,7 @@ services:
       SV_LLM_PROVIDER: ${SV_LLM_PROVIDER:?}   # 生产必须显式选 provider，禁默认 mock
       SV_LLM_API_KEY: ${SV_LLM_API_KEY:?}
       SV_CORS_ORIGINS: ${SV_CORS_ORIGINS:?}
+      SV_DISTRIBUTED: ${SV_DISTRIBUTED:-true}   # M13：多副本部署时限流/事件流/导出快照跨节点共享
       TZ: Asia/Shanghai
 
   web:

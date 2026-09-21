@@ -149,6 +149,7 @@ const fmt = (n: number | null | undefined) => (n == null ? '—' : n.toLocaleStr
           提交 {{ fmt(data.runtime.taskSubmitted) }} · LLM 调用 {{ fmt(data.runtime.llmCalls) }} · Token 入
           {{ fmt(data.runtime.tokensIn) }} / 出 {{ fmt(data.runtime.tokensOut) }}
         </p>
+        <p class="muted">本实例推理闸门：{{ data.runtime.llmGate }}</p>
       </SvCard>
     </template>
   </AdminShell>
