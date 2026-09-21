@@ -48,14 +48,20 @@ public class AuthController {
         if (p == null) throw new com.soulvoyage.common.exception.BizException(
                 com.soulvoyage.common.api.ErrorCode.UNAUTHORIZED, null);
         UserEntity u = userRepo.findByIdAndDeletedAtIsNull(p.userId()).orElseThrow();
-        return ApiResponse.ok(Map.of(
-                "userId", u.getId(), "username", u.getUsername(), "nickname", u.getNickname(),
-                "role", u.getRole(), "crisisState", u.getCrisisState(),
-                "agreedPolicyAt", u.getAgreedPolicyAt() == null ? "" : u.getAgreedPolicyAt().toString(),
-                "policyVersion", u.getPolicyVersion() == null ? "" : u.getPolicyVersion(),
-                "status", u.getStatus().intValue(),
-                "deletionRequestedAt", u.getDeletionRequestedAt() == null ? "" : u.getDeletionRequestedAt().toString(),
-                "createdAt", u.getCreatedAt()));
+        return ApiResponse.ok(Map.ofEntries(
+                Map.entry("userId", u.getId()), Map.entry("username", u.getUsername()),
+                Map.entry("nickname", u.getNickname()), Map.entry("role", u.getRole()),
+                Map.entry("crisisState", u.getCrisisState()),
+                Map.entry("agreedPolicyAt", u.getAgreedPolicyAt() == null ? "" : u.getAgreedPolicyAt().toString()),
+                Map.entry("policyVersion", u.getPolicyVersion() == null ? "" : u.getPolicyVersion()),
+                Map.entry("status", u.getStatus().intValue()),
+                Map.entry("deletionRequestedAt",
+                        u.getDeletionRequestedAt() == null ? "" : u.getDeletionRequestedAt().toString()),
+                // M14：只回"绑没绑"，不回 openid——那是服务端与微信之间的标识，不是给用户看的
+                Map.entry("wechatBound", u.getWxOpenid() != null),
+                // createdAt 由库侧默认值供给（列上 insertable=false），读回来可能是 null：
+                // Map.entry 不接受 null 值，这里不兜住就是整个 /me 报 500
+                Map.entry("createdAt", u.getCreatedAt() == null ? "" : u.getCreatedAt().toString())));
     }
 
     static String clientIp(HttpServletRequest req) {

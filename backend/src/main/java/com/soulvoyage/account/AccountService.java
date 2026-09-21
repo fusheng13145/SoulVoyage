@@ -96,6 +96,7 @@ public class AccountService {
             crypto.destroyUserKeys(u.getId());      // 注销即遗忘：DEK 销毁，密文永久不可解
             u.setNickname("已注销用户");
             u.setPhoneEnc(null);
+            u.setWxOpenid(null);        // M14：第三方身份绑定也随注销释放（该微信此后可重新绑定别的账号）
             u.setDeletedAt(Instant.now());
             userRepo.save(u);
             audit.record(u.getId(), "DELETE_EXECUTED", "user:" + u.getId(), null);

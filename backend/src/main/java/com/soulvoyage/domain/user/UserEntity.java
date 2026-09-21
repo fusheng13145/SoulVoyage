@@ -48,6 +48,14 @@ public class UserEntity {
     @Column(name = "policy_version", length = 16)
     private String policyVersion;
 
+    /**
+     * 微信小程序身份绑定（M14）：openid 是"同一应用内对同一用户的假名"，不是手机号那样的联系方式，
+     * 且必须按等值查得到才能完成登录，所以与 username 同列明文同类、不占 ✦ 加密域。
+     * 唯一约束即"一个微信对一个账号"；注销执行时随其它个人信息一起置空。
+     */
+    @Column(name = "wx_openid", length = 64, unique = true)
+    private String wxOpenid;
+
     @Column(name = "deletion_requested_at")
     private Instant deletionRequestedAt;
 

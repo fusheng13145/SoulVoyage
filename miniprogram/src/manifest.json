@@ -1,0 +1,26 @@
+{
+  "name": "心屿漫行",
+  "appid": "",
+  "description": "心屿漫行小程序端：情绪觉察与陪伴的第二个入口",
+  "versionName": "1.0.0",
+  "versionCode": "100",
+  "transformPx": false,
+  "vueVersion": "3",
+  "mp-weixin": {
+    "appid": "",
+    "setting": {
+      "urlCheck": false,
+      "es6": true,
+      "minified": true
+    },
+    "usingComponents": true,
+    "darkmode": false
+  },
+  "h5": {
+    "title": "心屿漫行",
+    "router": {
+      "mode": "hash",
+      "base": "./"
+    }
+  }
+}

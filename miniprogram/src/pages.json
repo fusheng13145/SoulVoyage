@@ -1,0 +1,79 @@
+{
+  "pages": [
+    {
+      "path": "pages/login/index",
+      "style": {
+        "navigationBarTitleText": "进入心屿"
+      }
+    },
+    {
+      "path": "pages/today/index",
+      "style": {
+        "enablePullDownRefresh": true,
+        "navigationBarTitleText": "今日"
+      }
+    },
+    {
+      "path": "pages/diary/index",
+      "style": {
+        "enablePullDownRefresh": true,
+        "navigationBarTitleText": "日记"
+      }
+    },
+    {
+      "path": "pages/companion/index",
+      "style": {
+        "navigationBarTitleText": "树洞"
+      }
+    },
+    {
+      "path": "pages/me/index",
+      "style": {
+        "navigationBarTitleText": "我的"
+      }
+    },
+    {
+      "path": "pages/diary/write",
+      "style": {
+        "navigationBarTitleText": "写一篇"
+      }
+    },
+    {
+      "path": "pages/diary/detail",
+      "style": {
+        "navigationBarTitleText": "日记"
+      }
+    },
+    {
+      "path": "pages/notifications/index",
+      "style": {
+        "enablePullDownRefresh": true,
+        "navigationBarTitleText": "通知"
+      }
+    },
+    {
+      "path": "pages/resources/index",
+      "style": {
+        "navigationBarTitleText": "求助资源"
+      }
+    }
+  ],
+  "tabBar": {
+    "color": "#8e8e93",
+    "selectedColor": "#5b6cff",
+    "backgroundColor": "#ffffff",
+    "borderStyle": "white",
+    "list": [
+      { "pagePath": "pages/today/index", "text": "今日" },
+      { "pagePath": "pages/diary/index", "text": "日记" },
+      { "pagePath": "pages/companion/index", "text": "树洞" },
+      { "pagePath": "pages/me/index", "text": "我的" }
+    ]
+  },
+  "globalStyle": {
+    "navigationBarTextStyle": "black",
+    "navigationBarTitleText": "心屿漫行",
+    "navigationBarBackgroundColor": "#F2F2F7",
+    "backgroundColor": "#F2F2F7"
+  }
+}

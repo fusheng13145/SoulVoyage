@@ -100,7 +100,7 @@ public class GlobalExceptionHandler {
             case NOT_FOUND, TASK_NOT_FOUND -> HttpStatus.NOT_FOUND;
             case LLM_RATE_LIMIT -> HttpStatus.TOO_MANY_REQUESTS;
             case LLM_TIMEOUT -> HttpStatus.SERVICE_UNAVAILABLE;
-            case ASR_FAILED -> HttpStatus.BAD_GATEWAY;
+            case ASR_FAILED, WX_LOGIN_FAILED -> HttpStatus.BAD_GATEWAY;   // 第三方没答上来，不是客户端的错
             default -> HttpStatus.BAD_REQUEST;   // 20xx/30xx 其余参数与流程类
         };
     }

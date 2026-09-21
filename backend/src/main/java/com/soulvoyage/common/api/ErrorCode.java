@@ -6,6 +6,10 @@ public enum ErrorCode {
     FORBIDDEN(1002, "无权访问该资源"),
     LOGIN_FAILED(1003, "用户名或密码错误"),
     USERNAME_EXISTS(1004, "用户名已存在"),
+    /** M14 小程序端：微信侧换取 openid 失败（上游 errcode / 网络），不降级成 500 */
+    WX_LOGIN_FAILED(1005, "微信登录失败，请稍后再试"),
+    /** M14 小程序端：一次性绑定票过期或已用过，需重新发起微信登录 */
+    WX_BIND_EXPIRED(1006, "绑定已过期，请重新用微信登录一次"),
     BAD_PARAMS(2001, "参数不合法"),
     NOT_FOUND(2002, "资源不存在"),
     TASK_NOT_FOUND(3001, "任务不存在"),

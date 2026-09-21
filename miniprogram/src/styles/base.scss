@@ -1,0 +1,121 @@
+/* 全局基础样式：与 Web 端同一套 DS 口径（按钮/卡片/弱化文本），组件态样式仍各自 scoped。
+ * 这里只放跨页复用的类，页面专属的一律留在页面的 scoped 里。 */
+
+.sv-page {
+  box-sizing: border-box;
+  min-height: 100vh;
+  padding: var(--sv-s4) var(--sv-s4) calc(var(--sv-s6) + env(safe-area-inset-bottom, 0px));
+  background: var(--sv-bg);
+  color: var(--sv-label);
+  font-family: 'SF Pro Text', 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
+  font-size: var(--sv-fs-body);
+  line-height: 1.6;
+}
+.sv-page *,
+.sv-page *::before,
+.sv-page *::after {
+  box-sizing: border-box;
+}
+
+/* 标题区：顶部留出自带导航栏之外的安全区 */
+.sv-h1 {
+  margin: 0 0 var(--sv-s1);
+  font-size: var(--sv-fs-title1);
+  font-weight: 700;
+  letter-spacing: -0.3px;
+}
+.sv-h2 {
+  margin: 0 0 var(--sv-s2);
+  font-size: var(--sv-fs-title3);
+  font-weight: 700;
+}
+.sv-muted {
+  color: var(--sv-label2);
+  font-size: var(--sv-fs-footnote);
+  line-height: 1.6;
+}
+.sv-cap {
+  color: var(--sv-label3);
+  font-size: var(--sv-fs-caption1);
+}
+.sv-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sv-s3);
+}
+.sv-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sv-s2);
+}
+
+.sv-surface {
+  padding: var(--sv-s4);
+  background: var(--sv-card);
+  border-radius: var(--sv-r-card);
+  box-shadow: var(--sv-sh-1);
+}
+.sv-dark .sv-surface {
+  border: 1px solid var(--sv-sep);
+  box-shadow: none;
+}
+
+.sv-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: var(--sv-s8);
+  margin: 0;
+  padding: 14px var(--sv-s5);
+  border: none;
+  border-radius: var(--sv-r-ctl);
+  font-size: var(--sv-fs-headline);
+  font-weight: 600;
+  line-height: 1.2;
+  text-align: center;
+  background: var(--sv-indigo);
+  color: #fff;
+  transition:
+    transform 0.12s var(--sv-ease),
+    opacity 0.15s;
+}
+.sv-btn:active {
+  transform: scale(0.97);
+}
+/* 小程序 button 自带一圈伪元素边框，不抹掉就和自定义圆角打架 */
+.sv-btn::after {
+  border: none;
+}
+.sv-btn.is-disabled {
+  opacity: 0.55;
+}
+.sv-btn.ghost {
+  background: var(--sv-fill2);
+  color: var(--sv-indigo);
+}
+.sv-btn.plain {
+  background: transparent;
+  color: var(--sv-indigo);
+}
+.sv-btn.danger {
+  background: var(--sv-red);
+}
+
+.sv-field {
+  display: block;
+  width: 100%;
+  min-height: var(--sv-s8);
+  padding: 12px var(--sv-s4);
+  border: 1px solid var(--sv-sep);
+  border-radius: var(--sv-r-ctl);
+  background: var(--sv-card);
+  color: var(--sv-label);
+  font-size: var(--sv-fs-body);
+}
+.sv-field-label {
+  display: block;
+  margin: 0 0 var(--sv-s2);
+  color: var(--sv-label2);
+  font-size: var(--sv-fs-footnote);
+}

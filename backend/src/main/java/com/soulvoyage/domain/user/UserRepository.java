@@ -14,6 +14,9 @@ public interface UserRepository extends JpaRepository<UserEntity, Long> {
     Optional<UserEntity> findByUsernameAndDeletedAtIsNull(String username);
     Optional<UserEntity> findByIdAndDeletedAtIsNull(Long id);
 
+    /** M14 微信登录：openid → 已绑定的在册账号 */
+    Optional<UserEntity> findByWxOpenidAndDeletedAtIsNull(String wxOpenid);
+
     List<UserEntity> findByCrisisState(String crisisState);
 
     List<UserEntity> findByCrisisStateAndCrisisEndsAtBefore(String crisisState, Instant cutoff);

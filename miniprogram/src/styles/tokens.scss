@@ -1,0 +1,134 @@
+/* 设计 Token：从 Web 端 tokens.css 移植（手册 DS2 · light/dark 双值）。
+ * 两件事与 Web 不同，都是端侧限制：
+ * ① WXSS 不认 :root，变量要同时挂在 :root（H5）与 page（小程序）上；
+ * ② 小程序不能给 <html> 加 data-theme，深色改由每页根节点挂 .sv-dark 承接
+ *    （页面自身背景由 .sv-page 铺满视口提供，导航栏/标签栏颜色由 useTheme 走 API 设置）。 */
+
+$sv-light: (
+  'sv-indigo': #5b6cff,
+  'sv-indigo-soft': rgba(91, 108, 255, 0.12),
+  'sv-blue': #0a84ff,
+  'sv-mint': #30d158,
+  'sv-amber': #ff9f0a,
+  'sv-red': #ff453a,
+  'sv-pink': #ff375f,
+  'sv-purple': #bf5af2,
+  'sv-teal': #64d2ff,
+  'sv-bg': #f2f2f7,
+  'sv-card': #ffffff,
+  'sv-card2': #ffffff,
+  'sv-label': #1c1c1e,
+  'sv-label2': rgba(60, 60, 67, 0.6),
+  'sv-label3': rgba(60, 60, 67, 0.3),
+  'sv-sep': rgba(60, 60, 67, 0.08),
+  'sv-fill2': rgba(120, 120, 128, 0.12),
+  'sv-fill3': rgba(120, 120, 128, 0.08),
+  'sv-dim': rgba(0, 0, 0, 0.4),
+  'e-joy': #ffd60a,
+  'e-calm': #30d158,
+  'e-anx': #ff9f0a,
+  'e-anger': #ff453a,
+  'e-sad': #5e5ce6,
+  'e-numb': #8e8e93,
+  'e-shame': #ff375f,
+  'e-fear': #bf5af2,
+  'e-lonely': #64d2ff,
+  'e-grati': #ffb340,
+  'e-confuse': #a1a3b8,
+  'e-tired': #7a869c,
+  'e-expect': #32ade6,
+  'e-bored': #98989f,
+  'e-griev': #ac8e68,
+  'e-pressure': #ff6482,
+  'sv-sh-1': 0 2px 10px rgba(80, 90, 160, 0.08),
+  'sv-sh-2': 0 8px 30px rgba(80, 90, 160, 0.16),
+);
+
+$sv-dark: (
+  'sv-indigo': #7a88ff,
+  'sv-indigo-soft': rgba(122, 136, 255, 0.16),
+  'sv-blue': #409cff,
+  'sv-mint': #34c759,
+  'sv-amber': #ffb340,
+  'sv-red': #ff453a,
+  'sv-bg': #000000,
+  'sv-card': #1c1c1e,
+  'sv-card2': #2c2c2e,
+  'sv-label': #ffffff,
+  'sv-label2': rgba(235, 235, 245, 0.6),
+  'sv-label3': rgba(235, 235, 245, 0.3),
+  'sv-sep': rgba(84, 84, 88, 0.36),
+  'sv-fill2': rgba(110, 110, 115, 0.28),
+  'sv-fill3': rgba(110, 110, 115, 0.18),
+  'sv-dim': rgba(0, 0, 0, 0.6),
+  'e-joy': #ffd60a,
+  'e-calm': #34c759,
+  'e-anx': #ffb340,
+  'e-anger': #ff453a,
+  'e-sad': #7a88ff,
+  'e-numb': #98989f,
+  'e-shame': #ff375f,
+  'e-fear': #bf5af2,
+  'e-lonely': #64d2ff,
+  'e-grati': #ffb340,
+  'e-confuse': #8e8e93,
+  'e-tired': #777982,
+  'e-expect': #409cff,
+  'e-bored': #7c7c81,
+  'e-griev': #a2845e,
+  'e-pressure': #ff6482,
+  // dark 下阴影失效：以描边替代（DS2）
+  'sv-sh-1': none,
+  'sv-sh-2': none,
+);
+
+// 与端无关的形态/排印值只声明一次
+$sv-static: (
+  'sv-font': 'SF Pro Text' 'SF Pro Display' 'PingFang SC' 'Microsoft YaHei' system-ui sans-serif,
+  'sv-fs-largename': 34px,
+  'sv-fs-title1': 28px,
+  'sv-fs-title2': 22px,
+  'sv-fs-title3': 20px,
+  'sv-fs-headline': 17px,
+  'sv-fs-body': 17px,
+  'sv-fs-callout': 16px,
+  'sv-fs-subhead': 15px,
+  'sv-fs-footnote': 13px,
+  'sv-fs-caption1': 12px,
+  'sv-fs-caption2': 11px,
+  'sv-s1': 4px,
+  'sv-s2': 8px,
+  'sv-s3': 12px,
+  'sv-s4': 16px,
+  'sv-s5': 20px,
+  'sv-s6': 24px,
+  'sv-s7': 32px,
+  'sv-s8': 44px,
+  'sv-r-card': 20px,
+  'sv-r-sheet': 28px,
+  'sv-r-ctl': 14px,
+  'sv-r-pill': 999px,
+  'sv-ease': cubic-bezier(0.32, 0.72, 0, 1),
+  'sv-safe-t': env(safe-area-inset-top, 0px),
+  'sv-safe-b': env(safe-area-inset-bottom, 0px),
+);
+
+@mixin sv-tokens($map) {
+  @each $k, $v in $map {
+    --#{$k}: #{$v};
+  }
+}
+
+:root {
+  @include sv-tokens($sv-light);
+  @include sv-tokens($sv-static);
+}
+
+page {
+  @include sv-tokens($sv-light);
+  @include sv-tokens($sv-static);
+}
+
+.sv-dark {
+  @include sv-tokens($sv-dark);
+}

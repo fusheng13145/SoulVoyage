@@ -32,12 +32,14 @@ CREATE TABLE `user` (
   crisis_started_at DATETIME(3) NULL COMMENT '本轮危机链首次 HIGH 判定时间',
   crisis_ends_at    DATETIME(3) NULL COMMENT 'CRISIS=强干预到期时间; COOLING=进入冷却时间(新风险事件水位)',
   policy_version VARCHAR(16)  NULL COMMENT '最近一次同意的协议版本',
+  wx_openid      VARCHAR(64)  NULL COMMENT 'M14 小程序端身份绑定：应用内假名标识，需等值查询故与 username 同类明文（非 ✦ 域），注销执行时置空',
   deletion_requested_at DATETIME(3) NULL COMMENT '注销申请时间(7天冷静期起点)',
   agreed_policy_at DATETIME(3) NULL COMMENT '用户协议/免责声明同意时间',
   created_at    DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   updated_at    DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
   deleted_at    DATETIME(3)  NULL,
-  UNIQUE KEY uk_username (username)
+  UNIQUE KEY uk_username (username),
+  UNIQUE KEY uk_wx_openid (wx_openid)
 ) COMMENT='用户';
 
 CREATE TABLE role_permission (

@@ -1,0 +1,3 @@
+/* uni-app 约定的全局 SCSS 变量入口：内置组件（easycom）编译时会 @import 本文件。
+ * 设计变量走 CSS 自定义属性（styles/tokens.scss），这里只留框架要求存在的钩子。 */
+$uni-color-primary: var(--sv-indigo);

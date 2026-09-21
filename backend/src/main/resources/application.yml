@@ -53,7 +53,7 @@ soulvoyage:
     login-lock:                                      # S3 登录失败锁定
       max-fail: 5
       window: 15m
-    cors-allowed-origins: ${SV_CORS_ORIGINS:http://localhost:5173}
+    cors-allowed-origins: ${SV_CORS_ORIGINS:http://localhost:5173,http://localhost:5174}   # 5173=Web 端，5174=小程序 H5 目标（M14）
     master-key: ${SV_MASTER_KEY:}          # Base64 32字节主密钥 MK；为空则启动时生成临时密钥并告警（仅限开发）
   llm:
     provider: ${SV_LLM_PROVIDER:mock}      # mock | openai（DashScope compatible-mode 等）
@@ -72,6 +72,12 @@ soulvoyage:
     model: ${SV_ASR_MODEL:whisper-1}
     timeout: 30s
     max-bytes: 5242880                        # 单段录音上限 5MB（约 90 秒 opus）
+  wechat:                                     # M14 小程序端登录：mock=本机/回归无需 AppID，http=真 jscode2session
+    provider: ${SV_WX_PROVIDER:mock}
+    app-id: ${SV_WX_APPID:}
+    app-secret: ${SV_WX_SECRET:}
+    code2session-url: ${SV_WX_CODE2SESSION_URL:https://api.weixin.qq.com/sns/jscode2session}
+    timeout: 5s
   neo4j:
     enabled: ${SV_NEO4J_ENABLED:false}     # 本机暂未安装，M2 接入时置 true
 

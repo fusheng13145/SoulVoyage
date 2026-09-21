@@ -37,6 +37,12 @@ public class AuthService {
 
     @Transactional
     public TokenResp register(RegisterReq req, String ip) {
+        return tokenResp(registerUser(req, ip));
+    }
+
+    /** 建号本体（M14 拆出）：小程序端"用微信绑定票注册新账号"要的是同一个校验与留痕，不另立一套 */
+    @Transactional
+    public UserEntity registerUser(RegisterReq req, String ip) {
         userRepo.findByUsernameAndDeletedAtIsNull(req.username()).ifPresent(u -> {
             throw new BizException(ErrorCode.USERNAME_EXISTS);
         });
@@ -47,11 +53,15 @@ public class AuthService {
         u.setAgreedPolicyAt(Instant.now());
         u = userRepo.save(u);
         audit.record(u.getId(), "REGISTER", "user:" + u.getId(), ip);
-        return tokenResp(u);
+        return u;
+    }
+
+    public TokenResp login(LoginReq req, String ip) {
+        return tokenResp(authenticate(req, ip));
     }
 
     /** S3：失败计数达阈值即锁定（窗口内连正确密码也拒）；S2：status=3 冷静期允许登录以撤回注销 */
-    public TokenResp login(LoginReq req, String ip) {
+    public UserEntity authenticate(LoginReq req, String ip) {
         String failKey = FAIL_PREFIX + req.username();
         String cnt = redis.opsForValue().get(failKey);
         if (cnt != null && Integer.parseInt(cnt) >= maxFail) {
@@ -69,7 +79,7 @@ public class AuthService {
         }
         redis.delete(failKey);
         audit.record(u.getId(), "LOGIN", "user:" + u.getId(), ip);
-        return tokenResp(u);
+        return u;
     }
 
     /** S3：refresh 轮换（旧令牌用后即废）+ 重用检测（旧令牌再现判失窃，epoch 吊销全部会话） */
@@ -91,7 +101,7 @@ public class AuthService {
         jwt.logout(accessToken, refreshToken);
     }
 
-    private TokenResp tokenResp(UserEntity u) {
+    public TokenResp tokenResp(UserEntity u) {
         return new TokenResp(jwt.issueAccessToken(u.getId(), u.getRole()),
                 jwt.issueRefreshToken(u.getId(), u.getRole()),
                 jwt.accessTtl().toSeconds(),

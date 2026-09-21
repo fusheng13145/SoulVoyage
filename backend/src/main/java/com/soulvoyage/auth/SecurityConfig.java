@@ -44,6 +44,9 @@ public class SecurityConfig {
                 .dispatcherTypeMatchers(DispatcherType.ASYNC, DispatcherType.ERROR).permitAll()
                 .requestMatchers("/api/v1/auth/register", "/api/v1/auth/login",
                         "/api/v1/auth/refresh", "/api/v1/auth/logout",
+                        // M14 小程序端：微信登录/绑定/注册都在无令牌状态下发生（票本身即凭证）
+                        "/api/v1/auth/wechat/login", "/api/v1/auth/wechat/bind",
+                        "/api/v1/auth/wechat/register",
                         "/api/v1/risk/resources", "/actuator/health", "/error").permitAll()
                 // OpenAPI 契约只含接口结构不含数据，放行供前端 gen:api / 本地 swagger-ui 使用
                 .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()

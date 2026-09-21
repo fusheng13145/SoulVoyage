@@ -1289,10 +1289,94 @@
         }
       }
     },
+    "/api/v1/auth/wechat/register" : {
+      "post" : {
+        "tags" : [ "wechat-auth-controller" ],
+        "operationId" : "register",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/WxRegisterReq"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseTokenResp"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/wechat/login" : {
+      "post" : {
+        "tags" : [ "wechat-auth-controller" ],
+        "operationId" : "login",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/WxLoginReq"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseWxLoginResp"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/wechat/bind" : {
+      "post" : {
+        "tags" : [ "wechat-auth-controller" ],
+        "operationId" : "bind",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/WxBindReq"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseTokenResp"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/auth/register" : {
       "post" : {
         "tags" : [ "auth-controller" ],
-        "operationId" : "register",
+        "operationId" : "register_1",
         "requestBody" : {
           "content" : {
             "application/json" : {
@@ -1383,7 +1467,7 @@
     "/api/v1/auth/login" : {
       "post" : {
         "tags" : [ "auth-controller" ],
-        "operationId" : "login",
+        "operationId" : "login_1",
         "requestBody" : {
           "content" : {
             "application/json" : {
@@ -2889,6 +2973,24 @@
         }
       }
     },
+    "/api/v1/auth/wechat/binding" : {
+      "delete" : {
+        "tags" : [ "wechat-auth-controller" ],
+        "operationId" : "unbind",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseVoid"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/admin/board/groups/{id}/members/{userId}" : {
       "delete" : {
         "tags" : [ "admin-board-controller" ],
@@ -3430,10 +3532,13 @@
           }
         }
       },
-      "RegisterReq" : {
-        "required" : [ "password", "username" ],
+      "WxRegisterReq" : {
+        "required" : [ "bindTicket", "password", "username" ],
         "type" : "object",
         "properties" : {
+          "bindTicket" : {
+            "type" : "string"
+          },
           "username" : {
             "maxLength" : 32,
             "minLength" : 3,
@@ -3495,6 +3600,88 @@
           },
           "deletionPending" : {
             "type" : "boolean"
+          }
+        }
+      },
+      "WxLoginReq" : {
+        "required" : [ "code" ],
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "string"
+          }
+        }
+      },
+      "ApiResponseWxLoginResp" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "msg" : {
+            "type" : "string"
+          },
+          "data" : {
+            "$ref" : "#/components/schemas/WxLoginResp"
+          },
+          "traceId" : {
+            "type" : "string"
+          }
+        }
+      },
+      "WxLoginResp" : {
+        "type" : "object",
+        "properties" : {
+          "bound" : {
+            "type" : "boolean"
+          },
+          "bindTicket" : {
+            "type" : "string"
+          },
+          "ticketExpiresInSeconds" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "token" : {
+            "$ref" : "#/components/schemas/TokenResp"
+          }
+        }
+      },
+      "WxBindReq" : {
+        "required" : [ "bindTicket", "password", "username" ],
+        "type" : "object",
+        "properties" : {
+          "bindTicket" : {
+            "type" : "string"
+          },
+          "username" : {
+            "type" : "string"
+          },
+          "password" : {
+            "type" : "string"
+          }
+        }
+      },
+      "RegisterReq" : {
+        "required" : [ "password", "username" ],
+        "type" : "object",
+        "properties" : {
+          "username" : {
+            "maxLength" : 32,
+            "minLength" : 3,
+            "pattern" : "^[a-zA-Z0-9_]+$",
+            "type" : "string"
+          },
+          "password" : {
+            "maxLength" : 64,
+            "minLength" : 8,
+            "type" : "string"
+          },
+          "nickname" : {
+            "maxLength" : 32,
+            "minLength" : 0,
+            "type" : "string"
           }
         }
       },
