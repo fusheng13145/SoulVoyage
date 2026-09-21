@@ -12,6 +12,7 @@ interface DiaryItem {
   recordDate: string
   moodSelfRating: number
   taskId: number
+  source: string
   preview: string
 }
 
@@ -114,9 +115,17 @@ onMounted(() => load(true))
           <article class="entry sv-surface" @click="router.push(`/diaries/${it.id}`)">
             <div class="entry-head">
               <time class="date">{{ it.recordDate.slice(5).replace('-', '/') }}</time>
-              <span v-if="it.moodSelfRating" class="mood" :aria-label="`当日心情 ${it.moodSelfRating} 分`">{{
-                MOOD_FACE[it.moodSelfRating]
-              }}</span>
+              <span class="flags">
+                <span
+                  v-if="it.moodSelfRating"
+                  class="mood"
+                  :aria-label="`当日心情 ${it.moodSelfRating} 分`"
+                  >{{ MOOD_FACE[it.moodSelfRating] }}</span
+                >
+                <span v-if="it.source === 'VOICE'" class="src" title="语音转写" aria-label="语音转写的日记">
+                  <SvIcon name="i-mic" :size="14" tone="label2" />
+                </span>
+              </span>
             </div>
             <p class="preview">{{ it.preview }}</p>
             <span class="stripe" :style="{ background: 'var(--sv-indigo-soft)' }" aria-hidden="true" />
@@ -196,6 +205,15 @@ onMounted(() => load(true))
 }
 .mood {
   font-size: 18px;
+}
+.flags {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.src {
+  display: inline-flex;
+  color: var(--sv-label2);
 }
 .preview {
   margin: 6px 0 0;

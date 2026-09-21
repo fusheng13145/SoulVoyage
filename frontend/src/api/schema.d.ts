@@ -452,6 +452,22 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/v1/diaries/voice-transcriptions': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post: operations['transcribe']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/v1/companion/turns/{turnId}/no-analyze': {
     parameters: {
       query?: never
@@ -2583,6 +2599,35 @@ export interface operations {
         }
         content: {
           '*/*': components['schemas']['ApiResponseMapStringString']
+        }
+      }
+    }
+  }
+  transcribe: {
+    parameters: {
+      query?: {
+        durationMs?: number
+      }
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: {
+      content: {
+        'multipart/form-data': {
+          /** Format: binary */
+          file?: string
+        }
+      }
+    }
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          '*/*': components['schemas']['ApiResponseMapStringObject']
         }
       }
     }

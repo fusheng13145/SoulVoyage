@@ -1103,6 +1103,48 @@
         }
       }
     },
+    "/api/v1/diaries/voice-transcriptions" : {
+      "post" : {
+        "tags" : [ "voice-diary-controller" ],
+        "operationId" : "transcribe",
+        "parameters" : [ {
+          "name" : "durationMs",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "multipart/form-data" : {
+              "schema" : {
+                "type" : "object",
+                "properties" : {
+                  "file" : {
+                    "type" : "string",
+                    "format" : "binary"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseMapStringObject"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/companion/turns/{turnId}/no-analyze" : {
       "post" : {
         "tags" : [ "companion-controller" ],

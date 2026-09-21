@@ -16,6 +16,10 @@ import java.time.LocalDate;
 @Entity
 @Table(name = "diary")
 public class DiaryEntity {
+
+    public static final String SOURCE_TEXT = "TEXT";
+    public static final String SOURCE_VOICE = "VOICE";
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -38,6 +42,14 @@ public class DiaryEntity {
     @Column(name = "task_id")
     private Long taskId;
 
+    /** M11 输入源：TEXT=手写、VOICE=语音转写后校对。只是溯源标记，链路差异为零（Agent 只看正文） */
+    @Column(name = "source", nullable = false, length = 8)
+    private String source = SOURCE_TEXT;
+
+    /** 语音日记的录音时长（毫秒）；手写作留空。原文与时长同源，音频本身不留存 */
+    @Column(name = "voice_duration_ms")
+    private Integer voiceDurationMs;
+
     /** 应用显式写入（H2/MySQL 语义一致，列表排序可用） */
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
@@ -48,5 +60,6 @@ public class DiaryEntity {
     @PrePersist
     void prePersist() {
         if (createdAt == null) createdAt = Instant.now();
+        if (source == null || source.isBlank()) source = SOURCE_TEXT;
     }
 }

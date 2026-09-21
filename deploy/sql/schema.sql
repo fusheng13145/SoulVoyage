@@ -147,6 +147,8 @@ CREATE TABLE diary (
   mood_self_rating TINYINT         NULL COMMENT '用户自评心情 1-5',
   record_date      DATE            NOT NULL,
   task_id          BIGINT UNSIGNED NULL COMMENT '关联 DIARY_PIPELINE 任务',
+  source           VARCHAR(8)      NOT NULL DEFAULT 'TEXT' COMMENT 'M11 输入源：TEXT 手写 / VOICE 语音转写（音频本身不留存）',
+  voice_duration_ms INT            NULL COMMENT '语音录音时长（毫秒），手写为 NULL',
   created_at       DATETIME(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   deleted_at       DATETIME(3)     NULL,
   KEY idx_user_date (user_id, record_date),

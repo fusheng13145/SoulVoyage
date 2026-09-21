@@ -14,6 +14,7 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 import java.io.IOException;
 
@@ -80,6 +81,13 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.fail(ErrorCode.BAD_PARAMS, "服务内部错误"));
     }
 
+    /** 上传体积超过容器上限时 Spring 先于业务抛：换成 2001 的业务话术，别把 500 甩给录音的用户 */
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiResponse<Void>> tooLarge(MaxUploadSizeExceededException e) {
+        return json(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.fail(ErrorCode.BAD_PARAMS, "这段录音太大了，换一个短一点的吧"));
+    }
+
     private static BodyBuilder json(HttpStatus status) {
         return ResponseEntity.status(status).contentType(MediaType.APPLICATION_JSON);
     }
@@ -92,6 +100,7 @@ public class GlobalExceptionHandler {
             case NOT_FOUND, TASK_NOT_FOUND -> HttpStatus.NOT_FOUND;
             case LLM_RATE_LIMIT -> HttpStatus.TOO_MANY_REQUESTS;
             case LLM_TIMEOUT -> HttpStatus.SERVICE_UNAVAILABLE;
+            case ASR_FAILED -> HttpStatus.BAD_GATEWAY;
             default -> HttpStatus.BAD_REQUEST;   // 20xx/30xx 其余参数与流程类
         };
     }

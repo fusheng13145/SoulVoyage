@@ -29,6 +29,12 @@ spring:
   threads:
     virtual:
       enabled: true    # Java 21 虚拟线程：LLM 调用为 I/O 密集
+  servlet:
+    multipart:
+      # 上限刻意高于业务侧 5MB：让"录音太大"由业务给出中文话术，而不是容器甩 413
+      max-file-size: ${SV_UPLOAD_MAX_FILE:6MB}
+      max-request-size: ${SV_UPLOAD_MAX_REQUEST:6MB}
+      file-size-threshold: ${SV_UPLOAD_MEM_THRESHOLD:6MB}   # 阈值刻意高于上限：被接受的录音全程留在内存，不产生临时文件
 
 soulvoyage:
   business-zone: ${SV_BUSINESS_ZONE:Asia/Shanghai}   # O1：业务日期归属时区
@@ -58,6 +64,13 @@ soulvoyage:
     rate-per-minute: ${SV_LLM_RATE_PER_MIN:600}
     max-in-flight: ${SV_LLM_MAX_IN_FLIGHT:32}
     queue-wait: ${SV_LLM_QUEUE_WAIT:1500ms}
+  asr:                                        # M11 语音日记：与 llm 同构的供应商抽象（mock | openai）
+    provider: ${SV_ASR_PROVIDER:mock}
+    base-url: ${SV_ASR_BASE_URL:${SV_LLM_BASE_URL:}}     # 缺省沿用 LLM 那对凭据：同一家供应商通常一起开
+    api-key: ${SV_ASR_API_KEY:${SV_LLM_API_KEY:}}
+    model: ${SV_ASR_MODEL:whisper-1}
+    timeout: 30s
+    max-bytes: 5242880                        # 单段录音上限 5MB（约 90 秒 opus）
   neo4j:
     enabled: ${SV_NEO4J_ENABLED:false}     # 本机暂未安装，M2 接入时置 true
 

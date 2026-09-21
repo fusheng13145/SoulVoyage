@@ -32,6 +32,8 @@ interface DiaryDetail {
   moodSelfRating: number
   content: string
   taskId: number
+  source: string
+  voiceDurationMs: number
   reports: ReportMeta[]
   emotions: EmotionPoint[]
 }
@@ -174,6 +176,17 @@ const riskTone = (r: string) => ({ HIGH: 'var(--sv-red)', MEDIUM: 'var(--sv-ambe
         <div class="head">
           <time>{{ detail.recordDate }}</time>
           <span v-if="detail.moodSelfRating" class="mood">{{ MOOD_FACE[detail.moodSelfRating] }}</span>
+          <span
+            v-if="detail.source === 'VOICE'"
+            class="src"
+            title="语音转写后校对成稿"
+            aria-label="这是一篇语音转写的日记"
+          >
+            <SvIcon name="i-mic" :size="14" tone="label2" />
+            <span v-if="detail.voiceDurationMs" class="src-dur"
+              >{{ Math.round(detail.voiceDurationMs / 1000) }}″</span
+            >
+          </span>
           <span class="ops">
             <button class="op" :disabled="!!busy" @click="toggleEdit">
               {{ editing ? '取消' : '编辑' }}
@@ -267,6 +280,14 @@ const riskTone = (r: string) => ({ HIGH: 'var(--sv-red)', MEDIUM: 'var(--sv-ambe
 }
 .mood {
   font-size: 18px;
+}
+.src {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--sv-label2);
+  font-size: var(--sv-fs-footnote);
+  font-variant-numeric: tabular-nums;
 }
 .ops {
   margin-left: auto;

@@ -13,6 +13,8 @@ spring:
 soulvoyage:
   llm:
     provider: mock
+  asr:
+    provider: mock   # M11：转写用 MockAsrClient 的确定性样例，语音路径断言才能逐字钉住
 
 logging:
   level:

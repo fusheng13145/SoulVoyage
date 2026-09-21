@@ -1,6 +1,6 @@
 package com.soulvoyage.common.api;
 
-/** 错误码分段：10xx 认证 / 20xx 参数 / 30xx 任务 / 40xx LLM / 50xx 风控 */
+/** 错误码分段：10xx 认证 / 20xx 参数 / 30xx 任务 / 40xx 模型网关（推理与转写）/ 50xx 风控 */
 public enum ErrorCode {
     UNAUTHORIZED(1001, "未登录或凭证失效"),
     FORBIDDEN(1002, "无权访问该资源"),
@@ -14,6 +14,7 @@ public enum ErrorCode {
     LLM_TIMEOUT(4001, "模型服务超时，请稍后再试"),
     LLM_RATE_LIMIT(4002, "请求过于频繁"),
     LLM_OUTPUT_INVALID(4003, "模型输出校验失败"),
+    ASR_FAILED(4004, "语音转写失败，请稍后再试"),
     CRISIS_MODE_RESTRICTED(5001, "当前处于关怀模式，功能受限");
 
     private final int code;

@@ -33,9 +33,10 @@ public class GrowthPlanEntity {
     @Column(nullable = false, length = 16)
     private String status = "ACTION";
 
-    /** 生成时快照（权威逐日数据在 plan_item） */
-    @Lob
-    @Column(name = "items_json")
+    /** 生成时快照（权威逐日数据在 plan_item）
+     *  不用 @Lob：MySQL 侧该列是 JSON，Clob 绑定会被驱动送成 CHARACTER SET 'binary'
+     *  而报 "Cannot create a JSON value from a string"；纯 String 绑定才收（H2 掩盖了这条差异）。*/
+    @Column(name = "items_json", length = 65535)
     private String itemsJson;
 
     @Column(name = "start_date", nullable = false)

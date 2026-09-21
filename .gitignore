@@ -1,5 +1,7 @@
 # --- Java / Maven ---
 backend/target/
+# 本机直跑用的临时类路径（mvn dependency:build-classpath 生成），不入库
+backend/cp.txt
 *.class
 *.jar
 !.mvn/wrapper/maven-wrapper.jar

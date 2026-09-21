@@ -61,6 +61,7 @@ public class DiaryService {
                 payload.path("diaryDate").asText(LocalDate.now(zone()).toString()))));
         Short mood = readMood(payload.path("moodSelfRating"));
         d.setMoodSelfRating(mood);
+        applySource(d, payload);
         d.setTaskId(task.getId());
         diaryRepo.save(d);
         try {
@@ -93,6 +94,7 @@ public class DiaryService {
                     "recordDate", d.getRecordDate().toString(),
                     "moodSelfRating", d.getMoodSelfRating() == null ? 0 : d.getMoodSelfRating().intValue(),
                     "taskId", d.getTaskId() == null ? 0 : d.getTaskId(),
+                    "source", d.getSource() == null ? DiaryEntity.SOURCE_TEXT : d.getSource(),
                     "preview", content.length() > 80 ? content.substring(0, 80) + "…" : content));
         }
         int p = Math.max(0, page);
@@ -125,6 +127,8 @@ public class DiaryService {
         out.put("recordDate", d.getRecordDate().toString());
         out.put("moodSelfRating", d.getMoodSelfRating() == null ? 0 : d.getMoodSelfRating().intValue());
         out.put("content", decrypt(userId, d));
+        out.put("source", d.getSource() == null ? DiaryEntity.SOURCE_TEXT : d.getSource());
+        out.put("voiceDurationMs", d.getVoiceDurationMs() == null ? 0 : d.getVoiceDurationMs());
         out.put("taskId", d.getTaskId() == null ? 0 : d.getTaskId());
         out.put("reports", reports);
         out.put("emotions", emotions);
@@ -235,6 +239,15 @@ public class DiaryService {
         if (n == null || !n.isNumber()) return null;
         int v = n.asInt();
         return v >= 1 && v <= 5 ? (short) v : null;
+    }
+
+    /** M11 输入源：仅 TEXT/VOICE 两值，其余（缺省/乱填）一律按 TEXT 落——链路绝不因输入源分叉 */
+    private void applySource(DiaryEntity d, JsonNode payload) {
+        boolean voice = DiaryEntity.SOURCE_VOICE.equalsIgnoreCase(
+                payload.path("diarySource").asText("").trim());
+        int dur = payload.path("voiceDurationMs").asInt(0);
+        d.setSource(voice ? DiaryEntity.SOURCE_VOICE : DiaryEntity.SOURCE_TEXT);
+        d.setVoiceDurationMs(voice && dur > 0 && dur <= 90_000 ? dur : null);
     }
 
     private LocalDate parseDate(String s) {

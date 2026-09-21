@@ -2,6 +2,8 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import SvNavBar from '@/components/ui/SvNavBar.vue'
+import SvIcon from '@/components/ui/SvIcon.vue'
+import { MAX_VOICE_MS, useVoiceNote } from '@/composables/voiceNote'
 import http, { type ApiResp } from '@/api/http'
 
 const router = useRouter()
@@ -55,6 +57,25 @@ async function clearDrafts() {
   }
 }
 
+/* ---- M11 语音日记：录完先转成文字交回来校对，成稿仍走同一条 DIARY_PIPELINE ---- */
+const voiceSource = ref<{ durationMs: number } | null>(null)
+const {
+  supported: voiceSupported,
+  recording: voiceRecording,
+  starting: voiceStarting,
+  transcribing: voiceTranscribing,
+  elapsedMs: voiceElapsed,
+  error: voiceError,
+  start: voiceStart,
+  stop: voiceStop,
+  cancel: voiceCancel,
+} = useVoiceNote((transcript, durationMs) => {
+  // 追加而非覆盖：用户可能已经手写了几句，转写不该把他的话吞掉
+  text.value = text.value.trim() ? `${text.value.replace(/\s+$/, '')}\n${transcript}` : transcript
+  voiceSource.value = { durationMs }
+})
+const voiceSeconds = computed(() => Math.round(voiceElapsed.value / 1000))
+
 const MOODS = [
   { v: 1, e: '😖', t: '很低落' },
   { v: 2, e: '😞', t: '不太好' },
@@ -76,6 +97,8 @@ async function save() {
         // 本地日期（en-CA 恒为 YYYY-MM-DD）：O1 业务时区语义，避免 UTC 跨日错标
         recordDate: new Date().toLocaleDateString('en-CA'),
         moodSelfRating: mood.value || undefined,
+        // M11：语音只多带一个溯源标记与时长，正文与手写完全同路（后端对未知值一律按 TEXT 落）
+        ...(voiceSource.value ? { diarySource: 'VOICE', voiceDurationMs: voiceSource.value.durationMs } : {}),
       },
       clientReqId: `web-${Date.now()}`,
     })
@@ -83,6 +106,7 @@ async function save() {
     clearDrafts()
     text.value = ''
     mood.value = 0
+    voiceSource.value = null
     router.push({ path: '/diaries/analysis', query: { task: data.data.taskNo } })
   } catch (e) {
     error.value = (e as Error).message || '提交失败'
@@ -120,6 +144,40 @@ async function save() {
         </div>
         <span class="counter sv-cap" :class="{ short: len > 0 && len < 10 }">{{ len }}/5000</span>
       </div>
+
+      <div v-if="voiceSupported" class="voice">
+        <button
+          v-if="!voiceRecording"
+          class="mic"
+          :disabled="voiceTranscribing || voiceStarting"
+          :aria-busy="voiceStarting"
+          @click="voiceStart"
+        >
+          <SvIcon name="i-mic" :size="19" />
+          <span>{{ voiceStarting ? '正在开麦…' : voiceTranscribing ? '正在转写…' : '说给心屿听' }}</span>
+        </button>
+        <template v-else>
+          <button class="mic on" :aria-label="`正在录音 ${voiceSeconds} 秒，点击结束`" @click="voiceStop">
+            <span class="dot" aria-hidden="true"></span>
+            <span>{{ voiceSeconds }}″ / {{ MAX_VOICE_MS / 1000 }}″</span>
+          </button>
+          <button class="mic ghost" @click="voiceCancel">不要这段</button>
+        </template>
+        <p class="sv-cap voice-hint" aria-live="polite">
+          {{
+            voiceRecording
+              ? '正在录，说完点一下就停；一段最多 90 秒'
+              : voiceStarting
+                ? '正在开麦，浏览器问权限时点允许就行'
+                : '说完转成文字，你先看一眼再交给心屿'
+          }}
+        </p>
+      </div>
+
+      <p v-if="voiceError" class="err" role="alert">{{ voiceError }}</p>
+      <p v-else-if="voiceSource" class="sv-cap proofread" role="status">
+        这段里有语音转写（{{ Math.round(voiceSource.durationMs / 1000) }}″），机器可能听错字——先校对一下再交。
+      </p>
 
       <p v-if="error" class="err" role="alert">{{ error }}</p>
       <button class="sv-btn" :disabled="!canSubmit" @click="save">
@@ -185,6 +243,68 @@ textarea:focus {
   color: var(--sv-red);
   font-size: var(--sv-fs-footnote);
   margin-bottom: var(--sv-s2);
+}
+/* M11 语音日记：录音胶囊与校对提示（复用既有 token，不新增色值） */
+.voice {
+  margin-bottom: var(--sv-s3);
+}
+.mic {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: 999px;
+  border: 1.5px solid var(--sv-indigo);
+  background: var(--sv-indigo-soft);
+  color: var(--sv-indigo);
+  font-size: var(--sv-fs-footnote);
+  font-weight: 600;
+  cursor: pointer;
+}
+.mic:disabled {
+  opacity: 0.55;
+}
+.mic.on {
+  border-color: var(--sv-red);
+  background: var(--sv-fill3);
+  color: var(--sv-red);
+  font-variant-numeric: tabular-nums;
+}
+.mic.ghost {
+  border-color: transparent;
+  background: var(--sv-fill3);
+  color: var(--sv-label2);
+  margin-left: 8px;
+}
+.dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--sv-red);
+  animation: voice-pulse 1.1s ease-in-out infinite;
+}
+@keyframes voice-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dot {
+    animation: none;
+  }
+}
+.voice-hint {
+  margin: 8px 0 0;
+}
+.proofread {
+  display: block;
+  margin-bottom: var(--sv-s3);
+  color: var(--sv-amber);
 }
 .hint {
   text-align: center;
