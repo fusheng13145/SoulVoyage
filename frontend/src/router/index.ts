@@ -151,6 +151,12 @@ const router = createRouter({
       component: () => import('@/views/admin/AdminOpsView.vue'),
       meta: { auth: true, admin: true, depth: 1 },
     },
+    {
+      path: '/admin/board',
+      name: 'admin-board',
+      component: () => import('@/views/admin/AdminBoardView.vue'),
+      meta: { auth: true, admin: true, depth: 1 },
+    },
 
     // —— 公开危机页（无需登录可达） ——
     {

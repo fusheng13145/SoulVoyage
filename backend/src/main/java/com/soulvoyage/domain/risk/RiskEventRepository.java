@@ -33,4 +33,8 @@ public interface RiskEventRepository extends JpaRepository<RiskEventEntity, Long
     /** O3 指标：时间窗内按级别分组计数 [level, count] */
     @Query("select r.level, count(r) from RiskEventEntity r where r.createdAt >= :from group by r.level")
     List<Object[]> countByLevelSince(@Param("from") Instant from);
+
+    /** M12 群体聚合：限定授权成员集、按级别分组计数 [level, count]（个体只进计数不进结果） */
+    @Query("select r.level, count(r) from RiskEventEntity r where r.userId in :ids and r.createdAt >= :from group by r.level")
+    List<Object[]> countByLevelSinceForUsers(@Param("ids") List<Long> ids, @Param("from") Instant from);
 }

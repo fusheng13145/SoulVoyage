@@ -43,6 +43,10 @@ public class UserPreferencesEntity {
     @Column(name = "companion_analysis_on", nullable = false)
     private Short companionAnalysisOn = 1;
 
+    /** M12 辅导员群体看板参与授权（默认关，开启仅进匿名聚合统计） */
+    @Column(name = "counselor_board_on", nullable = false)
+    private Short counselorBoardOn = 0;
+
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 

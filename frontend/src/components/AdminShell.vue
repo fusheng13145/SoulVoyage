@@ -16,6 +16,7 @@ const NAV = [
   { to: '/admin/content', label: '内容管理', icon: 'i-doc' },
   { to: '/admin/users', label: '用户支持', icon: 'i-me' },
   { to: '/admin/ops', label: '审计密钥', icon: 'i-folder' },
+  { to: '/admin/board', label: '群体看板', icon: 'i-grid' },
 ]
 
 async function quit() {

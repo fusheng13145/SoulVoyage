@@ -20,7 +20,7 @@ public class PreferencesService {
 
     private static final Set<String> THEMES = Set.of("system", "light", "dark");
     private static final Set<String> KEYS = Set.of("theme", "checkinReminderOn", "reminderTime",
-            "planReminderOn", "letterOn", "hapticOn", "companionAnalysisOn");
+            "planReminderOn", "letterOn", "hapticOn", "companionAnalysisOn", "counselorBoardOn");
 
     private final UserPreferencesRepository repo;
 
@@ -58,6 +58,7 @@ public class PreferencesService {
                         case "letterOn" -> p.setLetterOn(flag);
                         case "hapticOn" -> p.setHapticOn(flag);
                         case "companionAnalysisOn" -> p.setCompanionAnalysisOn(flag);
+                        case "counselorBoardOn" -> p.setCounselorBoardOn(flag);
                         default -> { }
                     }
                 }
@@ -83,6 +84,7 @@ public class PreferencesService {
         m.put("letterOn", p.getLetterOn() == 1);
         m.put("hapticOn", p.getHapticOn() == 1);
         m.put("companionAnalysisOn", p.getCompanionAnalysisOn() == 1);
+        m.put("counselorBoardOn", p.getCounselorBoardOn() == 1);
         m.put("updatedAt", p.getUpdatedAt() == null ? "" : p.getUpdatedAt().toString());
         return m;
     }

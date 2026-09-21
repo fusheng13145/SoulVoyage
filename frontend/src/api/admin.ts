@@ -260,3 +260,65 @@ export const verifyAudit = () =>
 export const listKeys = () => http.get<ApiResp<KeyStat[]>>('/admin/ops/keys').then(r => r.data.data)
 export const listExportRecords = (params: { page?: number; size?: number }) =>
   http.get<ApiResp<PageResp<ExportRow>>>('/admin/ops/export-records', { params }).then(r => r.data.data)
+
+// —— M12 群体看板 ——
+export interface GroupRow {
+  id: number
+  name: string
+  status: number
+  memberCount: number
+  consentedCount: number
+  suppressed: boolean
+}
+export interface GroupMember {
+  userId: number
+  username: string
+  consented: boolean
+}
+export interface GroupDetail extends GroupRow {
+  members: GroupMember[]
+}
+export interface GroupStats {
+  groupId: number
+  groupName: string
+  windowDays: number
+  memberCount: number
+  consentedCount: number
+  threshold: number
+  suppressed: boolean
+  reason?: string
+  checkIns?: {
+    contributors: number
+    personDays: number
+    avgRating: number | null
+    avgEnergy: number | null
+    emotions: { code: string; count: number }[]
+  }
+  valenceByDay?: { date: string; avgValence: number }[]
+  hiddenDays?: number
+  riskEvents?: Record<string, number>
+}
+export const listGroups = () => http.get<ApiResp<GroupRow[]>>('/admin/board/groups').then(r => r.data.data)
+export const createGroup = (name: string) =>
+  http
+    .post<ApiResp<GroupDetail>>('/admin/board/groups', { name } satisfies Body<{ name: string }, 'GroupBody'>)
+    .then(r => r.data.data)
+export const getGroup = (id: number) =>
+  http.get<ApiResp<GroupDetail>>(`/admin/board/groups/${id}`).then(r => r.data.data)
+export const addGroupMembers = (id: number, userIds: number[]) =>
+  http
+    .post<ApiResp<GroupDetail>>(`/admin/board/groups/${id}/members`, { userIds } satisfies Body<
+      { userIds: number[] },
+      'MembersBody'
+    >)
+    .then(r => r.data.data)
+export const removeGroupMember = (id: number, userId: number) =>
+  http
+    .delete<ApiResp<{ groupId: number; userId: number; removed: boolean }>>(
+      `/admin/board/groups/${id}/members/${userId}`,
+    )
+    .then(r => r.data.data)
+export const groupStats = (id: number, days = 7) =>
+  http
+    .get<ApiResp<GroupStats>>(`/admin/board/groups/${id}/stats`, { params: { days } })
+    .then(r => r.data.data)

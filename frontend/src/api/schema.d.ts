@@ -740,6 +740,38 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/v1/admin/board/groups': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get: operations['groups']
+    put?: never
+    post: operations['create']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/admin/board/groups/{id}/members': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post: operations['addMembers']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/v1/users/me/data-export': {
     parameters: {
       query?: never
@@ -1332,6 +1364,38 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/v1/admin/board/groups/{id}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get: operations['detail_4']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/admin/board/groups/{id}/stats': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get: operations['stats_1']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/v1/achievements': {
     parameters: {
       query?: never
@@ -1343,6 +1407,22 @@ export interface paths {
     put?: never
     post?: never
     delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/admin/board/groups/{id}/members/{userId}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post?: never
+    delete: operations['removeMember']
     options?: never
     head?: never
     patch?: never
@@ -1578,6 +1658,12 @@ export interface components {
       vars?: {
         [key: string]: string
       }
+    }
+    GroupBody: {
+      name?: string
+    }
+    MembersBody: {
+      userIds?: number[]
     }
     ApiResponsePageRespMapStringObject: {
       /** Format: int32 */
@@ -3045,6 +3131,76 @@ export interface operations {
       }
     }
   }
+  groups: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          '*/*': components['schemas']['ApiResponseListMapStringObject']
+        }
+      }
+    }
+  }
+  create: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['GroupBody']
+      }
+    }
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          '*/*': components['schemas']['ApiResponseMapStringObject']
+        }
+      }
+    }
+  }
+  addMembers: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: number
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['MembersBody']
+      }
+    }
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          '*/*': components['schemas']['ApiResponseMapStringObject']
+        }
+      }
+    }
+  }
   createDataExport: {
     parameters: {
       query?: never
@@ -3856,11 +4012,80 @@ export interface operations {
       }
     }
   }
+  detail_4: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: number
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          '*/*': components['schemas']['ApiResponseMapStringObject']
+        }
+      }
+    }
+  }
+  stats_1: {
+    parameters: {
+      query?: {
+        days?: number
+      }
+      header?: never
+      path: {
+        id: number
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          '*/*': components['schemas']['ApiResponseMapStringObject']
+        }
+      }
+    }
+  }
   wall: {
     parameters: {
       query?: never
       header?: never
       path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          '*/*': components['schemas']['ApiResponseMapStringObject']
+        }
+      }
+    }
+  }
+  removeMember: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: number
+        userId: number
+      }
       cookie?: never
     }
     requestBody?: never

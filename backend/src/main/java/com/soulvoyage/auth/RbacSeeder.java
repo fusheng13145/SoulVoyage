@@ -20,6 +20,7 @@ public class RbacSeeder implements ApplicationRunner {
             {"USER", "report:read"}, {"USER", "archive:export"}, {"USER", "account:delete"},
             {"ADMIN", "task:submit"}, {"ADMIN", "admin:task"}, {"ADMIN", "admin:scene"},
             {"ADMIN", "admin:audit"}, {"ADMIN", "admin:risk:view"}, {"ADMIN", "admin:user"},
+            {"ADMIN", "admin:board"},
     };
 
     private final RolePermissionRepository repo;

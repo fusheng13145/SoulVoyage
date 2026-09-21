@@ -44,7 +44,7 @@ class OpenApiContractTest {
         for (String prefix : List.of("/api/v1/auth", "/api/v1/tasks", "/api/v1/diaries",
                 "/api/v1/companion", "/api/v1/readings", "/api/v1/admin/tasks",
                 "/api/v1/admin/risk", "/api/v1/admin/ops", "/api/v1/admin/content",
-                "/api/v1/admin/users", "/api/v1/admin/metrics")) {
+                "/api/v1/admin/users", "/api/v1/admin/metrics", "/api/v1/admin/board")) {
             boolean hit = false;
             var it = paths.fieldNames();
             while (it.hasNext()) if (it.next().startsWith(prefix)) { hit = true; break; }

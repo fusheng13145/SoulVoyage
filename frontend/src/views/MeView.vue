@@ -21,6 +21,7 @@ interface Prefs {
   letterOn: boolean
   hapticOn: boolean
   companionAnalysisOn: boolean
+  counselorBoardOn: boolean
 }
 
 const router = useRouter()
@@ -236,6 +237,21 @@ async function logout() {
               label="漫聊分析"
               :disabled="!prefs"
               @update:model-value="toggle('companionAnalysisOn', $event)"
+          /></template>
+        </SvCell>
+        <SvCell
+          label="群体统计参与"
+          hint="开启后你的打卡只以匿名聚合出现在辅导员群体看板，永远看不到你的原文；不足 10 人授权时看板整体不显示"
+          icon="i-shield"
+          tone="color-mix(in srgb, var(--sv-mint) 18%, transparent)"
+          :chevron="false"
+        >
+          <template #extra
+            ><SvSwitch
+              :model-value="prefs?.counselorBoardOn ?? false"
+              label="群体统计参与"
+              :disabled="!prefs"
+              @update:model-value="toggle('counselorBoardOn', $event)"
           /></template>
         </SvCell>
       </SvList>

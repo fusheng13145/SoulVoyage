@@ -395,6 +395,7 @@ CREATE TABLE user_preferences (
   letter_on              TINYINT         NOT NULL DEFAULT 1,
   haptic_on              TINYINT         NOT NULL DEFAULT 1,
   companion_analysis_on  TINYINT         NOT NULL DEFAULT 1 COMMENT 'C0 漫聊参与情绪分析总开关',
+  counselor_board_on     TINYINT         NOT NULL DEFAULT 0 COMMENT 'M12 群体看板授权（显式默认关，开启仅进匿名聚合）',
   updated_at             DATETIME(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
   UNIQUE KEY uk_user (user_id)
 ) COMMENT='G5 用户偏好（服务端真源，前端 localStorage 降级为缓存）';
@@ -457,6 +458,26 @@ CREATE TABLE user_favorite (
   UNIQUE KEY uk_user_type_ref (user_id, type, ref_code)
 ) COMMENT='N3 收藏入档案';
 
+-- ---------- M12 · 辅导员群体看板 ----------
+
+CREATE TABLE support_group (
+  id         BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  name       VARCHAR(48)  NOT NULL COMMENT '群体名（如班级/年级小组）',
+  status     TINYINT      NOT NULL DEFAULT 1 COMMENT '1启用 2停用（停用后看板抑制，不毁成员关系）',
+  created_at DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  updated_at DATETIME(3)  NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  UNIQUE KEY uk_name (name)
+) COMMENT='M12 群体（成员由管理端维护，聚合只计入已授权成员）';
+
+CREATE TABLE support_group_member (
+  id         BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  group_id   BIGINT UNSIGNED NOT NULL,
+  user_id    BIGINT UNSIGNED NOT NULL,
+  created_at DATETIME(3)     NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  UNIQUE KEY uk_group_user (group_id, user_id),
+  KEY idx_user (user_id)
+) COMMENT='M12 群体成员关系（成员身份≠被看：进聚合还需本人 counselor_board_on 授权）';
+
 -- ---------- 系统与审计 ----------
 
 CREATE TABLE audit_log (
@@ -503,4 +524,5 @@ INSERT INTO role_permission (role, permission_code) VALUES
   ('USER','task:submit'), ('USER','diary:write'), ('USER','simulate:play'),
   ('USER','report:read'), ('USER','archive:export'), ('USER','account:delete'),
   ('ADMIN','task:submit'), ('ADMIN','admin:task'), ('ADMIN','admin:scene'),
-  ('ADMIN','admin:audit'), ('ADMIN','admin:risk:view'), ('ADMIN','admin:user');
+  ('ADMIN','admin:audit'), ('ADMIN','admin:risk:view'), ('ADMIN','admin:user'),
+  ('ADMIN','admin:board');
