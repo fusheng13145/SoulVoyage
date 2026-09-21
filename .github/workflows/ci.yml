@@ -73,3 +73,36 @@ jobs:
         run: |
           npm run gen:api
           git diff --exit-code -- src/api/schema.d.ts
+
+  # 小程序端与 Web 端吃同一份契约、同一套闸门，所以卡点也一份不缺：
+  # 只有 H5 能跑真接口，但真正要交付的产物是 mp-weixin，两个目标都得在 CI 上绿过。
+  miniprogram:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: miniprogram/package-lock.json
+      - name: 安装依赖
+        working-directory: miniprogram
+        run: npm ci
+      - name: ESLint + Prettier
+        working-directory: miniprogram
+        run: |
+          npm run lint
+          npm run format:check
+      - name: 类型检查（vue-tsc）
+        working-directory: miniprogram
+        run: npm run typecheck
+      - name: 构建 mp-weixin 与 H5
+        working-directory: miniprogram
+        run: |
+          npm run build:mp-weixin
+          npm run build:h5
+      - name: gen:api 与提交的 schema.d.ts 一致
+        working-directory: miniprogram
+        run: |
+          npm run gen:api
+          git diff --exit-code -- src/api/schema.d.ts
