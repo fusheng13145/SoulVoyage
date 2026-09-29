@@ -18,6 +18,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 /**
  * KG 的 Neo4j 实现（M16）：{@link KgSearchService} 的图版本，由 soulvoyage.neo4j.enabled 切换。
@@ -258,6 +259,17 @@ public class Neo4jKgService implements KgSearchService {
     private static final String Q_CASE_EXISTS =
             "MATCH (c:CommCase {kgNodeId: $code}) RETURN count(c) > 0 AS ex";
 
+    // ── G9 对账查询（只读；由管理端主动触发，不进任何在线链路）──
+
+    /** 闭集节点：不打 :SvManaged，由 seed 定义、只做 MERGE 补缺 */
+    private static final List<String> CLOSED_LABELS = List.of("Emotion", "EventTag", "Stressor");
+
+    private static final String Q_AUDIT_MANAGED =
+            "MATCH (n:" + MANAGED + ") WHERE n.kgNodeId IS NOT NULL RETURN labels(n) AS lbls, n.kgNodeId AS id";
+
+    private static final String Q_AUDIT_REL_TYPES =
+            "MATCH ()-[r]->() RETURN type(r) AS t, count(r) AS c";
+
     @Override
     public List<DistortionCard> distortionsFor(String primaryEmotion, List<String> eventTags, int maxCount) {
         List<String> tags = eventTags == null ? List.of() : eventTags;
@@ -445,6 +457,18 @@ public class Neo4jKgService implements KgSearchService {
         return syncedVersion;
     }
 
+    /**
+     * 现值快照（G8）：管理端看板读它，确认 KG 到底跑在图侧还是回落 DB、熔断有没有开、同步到哪一版。
+     *
+     * <p>与 {@code LlmGuard.describe()} 同构，且刻意<b>只看进程内状态、不触网</b>——该端点在高频轮询
+     * 与压测画像里都会被读到，若在这里查图，观测动作本身就会变成对图库的压力。
+     * 需要"图里到底有多少节点"的实然数据时走 {@link #audit()}（管理端主动对账，不是每次轮询都跑）。
+     */
+    public String describe() {
+        return "kg=neo4j, circuit=" + (System.currentTimeMillis() < circuitOpenUntil ? "open" : "closed")
+                + ", syncedVersion=" + (syncedVersion == Long.MIN_VALUE ? "none" : syncedVersion);
+    }
+
     /** 显式触发一次同步（不改变懒同步语义；管理端排查与测试用） */
     public void forceSync() {
         synchronized (this) {
@@ -456,11 +480,168 @@ public class Neo4jKgService implements KgSearchService {
     /**
      * 受管节点总数（运维与测试观测用）：只计 :SvManaged 圈定的四类内容节点，
      * 不含 Emotion / EventTag / Stressor 三类闭集节点（它们由 seed 定义、不参与重建）。
+     *
+     * <p>图不可达时返回 <b>-1</b> 而非抛异常或返回 0：调用方是运维与测试，二者都能区分
+     * "图里真的一个节点都没有（0）"和"根本没读到图（-1）"，抛异常则会让观测动作本身成为故障源。
      */
     public int managedNodeCount() {
         try (Session s = session()) {
             return s.executeRead(tx ->
                     tx.run("MATCH (n:" + MANAGED + ") RETURN count(n) AS c").single().get("c").asInt());
+        } catch (Exception e) {
+            log.warn("kg graph: managedNodeCount failed, graph unreachable", e);
+            return -1;
         }
+    }
+
+    /**
+     * G9 对账：DB 应然（ContentStore，即 kg_node 上架内容这一唯一写入口的产物）vs 图实然（Neo4j）。
+     *
+     * <p>图是只读派生视图，理论上"重建即一致"；对账的价值在于把"理论"变成"可核验"——改完内容、
+     * 导完 seed 或做完故障恢复后，能一句话问出"图里缺没缺、多没多"，而不必靠"重建一次应该就好了"。
+     *
+     * <p>维度：七类节点（四类受管内容 + 三类闭集）+ 五类关系。受管四类与五类关系做<b>严格全等</b>
+     * （期望值由 ContentStore 去重推导，与同步 Cypher 的 MERGE 语义同源，含重复引用只算一次）；
+     * 闭集三类只做<b>单向包含</b>——其权威词表在部署侧 seed.cypher，应用侧不可知，图侧多出的词
+     * 记为 reserved 而不判错：否则正常态就会被误报成漂移（G9 首跑即暴露此口径缺陷，见比差段注释）。
+     * 图不可达时如实返回"不可对账"，不编造一致结论——这正是设计内的降级态。
+     */
+    public Map<String, Object> audit() {
+        if (!ensureSynced()) return unavailableAudit();
+
+        var distortions = store.distortions();
+        var techniques = store.techniques();
+        var psyTopics = store.psyTopics();
+        var commCases = store.commCases();
+        var stressorMap = store.stressorMap();
+
+        // ── 应然：四类受管内容 + 三类闭集（闭集应然由内容反推，与 synchronize() 的建图逻辑同源）──
+        Map<String, Set<String>> expectNodes = new LinkedHashMap<>();
+        expectNodes.put("CognitiveDistortion", distortions.stream().map(ContentStore.DistortionEntry::kgNodeId)
+                .collect(Collectors.toCollection(LinkedHashSet::new)));
+        expectNodes.put("StrengthTechnique", techniques.stream().map(ContentStore.TechEntry::kgNodeId)
+                .collect(Collectors.toCollection(LinkedHashSet::new)));
+        expectNodes.put("PsyTopic", psyTopics.stream().map(ContentStore.PsyEntry::kgNodeId)
+                .collect(Collectors.toCollection(LinkedHashSet::new)));
+        expectNodes.put("CommCase", commCases.stream().map(ContentStore.CaseEntry::kgNodeId)
+                .collect(Collectors.toCollection(LinkedHashSet::new)));
+        Set<String> expectEmotions = new LinkedHashSet<>();
+        distortions.forEach(d -> expectEmotions.addAll(d.emotions()));
+        techniques.forEach(t -> expectEmotions.addAll(t.emotions()));
+        expectNodes.put("Emotion", expectEmotions);
+        expectNodes.put("EventTag", new LinkedHashSet<>(stressorMap.keySet()));
+        expectNodes.put("Stressor", new LinkedHashSet<>(stressorMap.values()));
+
+        Map<String, Long> expectRels = new LinkedHashMap<>();
+        expectRels.put("TRIGGERS", distortions.stream()
+                .flatMap(d -> d.emotions().stream().map(e -> e + "|" + d.kgNodeId())).distinct().count());
+        expectRels.put("EASED_BY", techniques.stream()
+                .flatMap(t -> t.emotions().stream().map(e -> e + "|" + t.kgNodeId())).distinct().count());
+        expectRels.put("SHOWS_DISTORTION", commCases.stream()
+                .flatMap(c -> c.distortionRefs().stream().map(r -> c.kgNodeId() + "|" + r)).distinct().count());
+        expectRels.put("USES_TECHNIQUE", commCases.stream()
+                .flatMap(c -> c.techniqueRefs().stream().map(r -> c.kgNodeId() + "|" + r)).distinct().count());
+        expectRels.put("MAPS_TO", (long) stressorMap.size());
+
+        // ── 实然：图侧一次往返取回，避免逐标签多次建连 ──
+        Map<String, Set<String>> actualNodes = new LinkedHashMap<>();
+        expectNodes.keySet().forEach(k -> actualNodes.put(k, new LinkedHashSet<>()));
+        Map<String, Long> actualRels = new LinkedHashMap<>();
+        expectRels.keySet().forEach(k -> actualRels.put(k, 0L));
+        try (Session s = session()) {
+            // 每个 executeRead 都返回具体集合类型（lambda 返回 void 会让泛型 T 推断失败）
+            List<Map.Entry<String, List<String>>> managedRows = s.executeRead(tx -> tx.run(Q_AUDIT_MANAGED)
+                    .list(r -> Map.entry(r.get("id").asString(), r.get("lbls").asList(v -> v.asString()))));
+            managedRows.forEach(e -> {
+                for (String label : e.getValue()) {
+                    Set<String> bucket = actualNodes.get(label);
+                    if (bucket != null) bucket.add(e.getKey());
+                }
+            });
+            for (String closed : CLOSED_LABELS) {
+                Set<String> bucket = actualNodes.get(closed);
+                s.executeRead(tx -> tx.run("MATCH (n:" + closed + ") RETURN n.name AS name")
+                                .list(r -> r.get("name").asString(null)))
+                        .stream().filter(Objects::nonNull).forEach(bucket::add);
+            }
+            s.executeRead(tx -> tx.run(Q_AUDIT_REL_TYPES)
+                            .list(r -> Map.entry(r.get("t").asString(), r.get("c").asLong())))
+                    .forEach(e -> actualRels.computeIfPresent(e.getKey(), (k, ignored) -> e.getValue()));
+        } catch (Exception e) {
+            // 关键：ensureSynced() 返回 true 只代表"版本号已同步过"，不代表"图此刻可达"——
+            // 内容版本未变时它会直接短路返回，压根不碰图。因此图侧访问必须自带兜底，
+            // 否则图掉线时对账接口会以 500 收场，而不是设计内的 available=false。
+            // （2026-09-29 G8/G9 真机三态验证实测：停图库后本接口确曾 500/code 2001。）
+            log.warn("kg graph: audit query failed, report as unavailable", e);
+            return unavailableAudit();
+        }
+
+        // ── 比差 ──
+        // 两类节点用两套口径：
+        //  · 受管四类（:SvManaged）是 kg_node 上架内容的全量派生视图，多一个少一个都算漂移；
+        //  · 闭集三类（Emotion / EventTag / Stressor）的权威词表在部署侧 seed.cypher，应用侧不可知，
+        //    只能做"内容引用 ⊆ 图存在"的单向校验：missing 仍算漂移（内容引用了却没建图），
+        //    图侧多出的词是 seed 预留或后续扩展，记为 reserved 如实呈现但不判错。
+        //    （G9 首跑实证：初版对闭集也做全等，Emotion 恒报 extra=[喜悦,惊讶,厌恶,期待,其他]——
+        //     那 5 个恰是 seed 的 16 情绪闭集中当前内容未引用的部分，属正常态而非漂移。）
+        boolean consistent = syncedVersion == store.version();
+        List<Map<String, Object>> nodeRows = new ArrayList<>();
+        for (var e : expectNodes.entrySet()) {
+            String label = e.getKey();
+            boolean closed = CLOSED_LABELS.contains(label);
+            Set<String> exp = e.getValue();
+            Set<String> act = actualNodes.get(label);
+            Set<String> missing = new LinkedHashSet<>(exp);
+            missing.removeAll(act);
+            Set<String> extra = new LinkedHashSet<>(act);
+            extra.removeAll(exp);
+            if (!missing.isEmpty() || (!closed && !extra.isEmpty())) consistent = false;
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("label", label);
+            row.put("kind", closed ? "closed-set" : "managed");
+            row.put("expect", exp.size());
+            row.put("actual", act.size());
+            row.put("missing", List.copyOf(missing));
+            row.put("extra", closed ? List.of() : List.copyOf(extra));
+            row.put("reserved", closed ? List.copyOf(extra) : List.of());
+            nodeRows.add(row);
+        }
+        List<Map<String, Object>> relRows = new ArrayList<>();
+        for (var e : expectRels.entrySet()) {
+            long exp = e.getValue();
+            long act = actualRels.getOrDefault(e.getKey(), 0L);
+            if (exp != act) consistent = false;
+            relRows.add(Map.of("type", e.getKey(), "expect", exp, "actual", act));
+        }
+
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("available", true);
+        out.put("contentVersion", store.version());
+        out.put("syncedVersion", syncedVersion);
+        out.put("consistent", consistent);
+        out.put("nodes", nodeRows);
+        out.put("relations", relRows);
+        out.put("note", consistent
+                ? "图与 kg_node 上架内容一致（闭集行的 reserved 是 seed 侧预留词，非异常）"
+                : "存在漂移：见各行 missing/extra 与期望/实际计数；触发一次重同步即可收敛（图侧无独立写入口）");
+        return out;
+    }
+
+    /**
+     * 图不可达时的对账结论：如实报"不可对账"，绝不编造一致结论——这正是设计内的降级态。
+     *
+     * <p>两条路径共用：{@code ensureSynced()} 失败，以及同步虽已就绪但图侧查询抛错
+     * （后者是 2026-09-29 真机三态验证抓到的：`ensureSynced()` 在版本号未变时短路返回 true，
+     * 并不代表图此刻可达，故图访问必须自带兜底）。响应形状与非降级态保持同构，
+     * 便于调用方一套解析逻辑吃两种结果。
+     */
+    private Map<String, Object> unavailableAudit() {
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("available", false);
+        out.put("reason", "图不可达或同步失败：KG 当前回落 kg_node 表（设计内的降级态），对账需图可用");
+        out.put("contentVersion", store.version());
+        out.put("syncedVersion", syncedVersion == Long.MIN_VALUE ? "none" : syncedVersion);
+        out.put("note", "未对账：图不可达时不产出 missing/extra 结论，避免把未知误报为漂移");
+        return out;
     }
 }

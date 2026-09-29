@@ -6,9 +6,11 @@ import com.soulvoyage.domain.risk.RiskEventRepository;
 import com.soulvoyage.domain.report.ReportRepository;
 import com.soulvoyage.domain.task.TaskInstanceRepository;
 import com.soulvoyage.domain.task.TaskStepLogRepository;
+import com.soulvoyage.kg.Neo4jKgService;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -41,6 +43,8 @@ public class AdminMetricsController {
     private final ReportRepository reportRepo;
     private final MeterRegistry registry;
     private final BusinessCalendar cal;
+    /** G8：图实现只在 soulvoyage.neo4j.enabled=true 时装配，故用 ObjectProvider 取（DB 模式取到空） */
+    private final ObjectProvider<Neo4jKgService> neo4jKg;
 
     @GetMapping("/overview")
     public ApiResponse<Map<String, Object>> overview(@RequestParam(defaultValue = "7") int days) {
@@ -140,9 +144,12 @@ public class AdminMetricsController {
     // ---------------- registry 现值（进程内，重启清零） ----------------
 
     private Map<String, Object> runtimeSnapshot() {
+        Neo4jKgService graph = neo4jKg.getIfAvailable();
         return Map.of(
                 // M13：闸门跑在进程内还是跨节点 Redis，运维要能一眼看到（否则多节点限流"看不出来生没生效"）
                 "llmGate", com.soulvoyage.llm.LlmGuard.describe(),
+                // G8：KG 跑在图侧还是回落 kg_node 表，同样要能一眼看到（含熔断开关与已同步版本）
+                "kg", graph == null ? "kg=db(kg_node)" : graph.describe(),
                 "taskSubmitted", sumCounters("sv.task.submit"),
                 "llmCalls", (long) registry.find("sv.llm.call").timers().stream()
                         .mapToDouble(io.micrometer.core.instrument.Timer::count).sum(),

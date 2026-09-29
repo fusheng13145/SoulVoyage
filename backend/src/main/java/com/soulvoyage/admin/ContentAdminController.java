@@ -15,9 +15,11 @@ import com.soulvoyage.domain.content.KgNodeEntity;
 import com.soulvoyage.domain.content.KgNodeRepository;
 import com.soulvoyage.domain.content.SceneCardEntity;
 import com.soulvoyage.domain.content.SceneCardRepository;
+import com.soulvoyage.kg.Neo4jKgService;
 import com.soulvoyage.llm.LlmClient;
 import com.soulvoyage.llm.PromptTemplates;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -46,6 +48,8 @@ public class ContentAdminController {
     private final ObjectMapper mapper;
     private final PromptTemplates prompts;
     private final LlmClient llm;
+    /** G9：图实现只在 soulvoyage.neo4j.enabled=true 时装配，用 ObjectProvider 取（DB 模式取到空） */
+    private final ObjectProvider<Neo4jKgService> neo4jKg;
 
     public record KgBody(String type, String name, JsonNode payload, Short status) {}
 
@@ -63,6 +67,22 @@ public class ContentAdminController {
     public ApiResponse<List<KgNodeEntity>> listKg(@RequestParam(required = false) String type) {
         return ApiResponse.ok(type == null || type.isBlank()
                 ? kgRepo.findAll() : kgRepo.findByTypeAndStatus(type, (short) 1));
+    }
+
+    /**
+     * G9 对账：kg_node（上架内容这一唯一写入口的产物）与 Neo4j 图逐项比对——七类节点比集合差、
+     * 五类关系比计数，输出 missing/extra 明细。图未启用时如实回"未启用"，不假装一致。
+     * 本端点是运维主动动作（不进任何在线链路），也是内容批量改动或故障恢复后的验收手段。
+     */
+    @GetMapping("/kg/graph-audit")
+    public ApiResponse<Map<String, Object>> kgGraphAudit() {
+        Neo4jKgService graph = neo4jKg.getIfAvailable();
+        if (graph == null) {
+            return ApiResponse.ok(Map.of(
+                    "available", false,
+                    "reason", "图未启用（soulvoyage.neo4j.enabled=false）：KG 直接走 kg_node 表，不存在派生视图"));
+        }
+        return ApiResponse.ok(graph.audit());
     }
 
     @GetMapping("/scenes")

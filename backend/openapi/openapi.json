@@ -2874,6 +2874,24 @@
         }
       }
     },
+    "/api/v1/admin/content/kg/graph-audit" : {
+      "get" : {
+        "tags" : [ "content-admin-controller" ],
+        "operationId" : "kgGraphAudit",
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseMapStringObject"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/admin/content/exercises" : {
       "get" : {
         "tags" : [ "content-admin-controller" ],

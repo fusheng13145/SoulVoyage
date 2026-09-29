@@ -98,3 +98,9 @@ management:
     web:
       exposure:
         include: health,info,metrics,prometheus
+  health:
+    neo4j:
+      enabled: false      # G8：关掉 Spring 自带的 neo4j 健康项。它在 Driver 不可达时返回 DOWN，
+                          # 会把"图库抖动"升级成"实例不健康"（容器/负载均衡据此摘除或重启），而根因不在应用侧，
+                          # 与 M16 立场「图不可用不是单点故障、KG 自动回落 kg_node」直接冲突。
+                          # 图侧状态改由 /admin/metrics/overview 的 runtime.kg 暴露（与 llmGate 同一处）。

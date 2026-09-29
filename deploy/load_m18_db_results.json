@@ -1,0 +1,153 @@
+{
+  "when": "2026-09-29T09:50:16.692Z",
+  "base": "http://localhost:8080/api/v1",
+  "users": 80,
+  "thinkMs": 36000,
+  "seconds": 314.7,
+  "requests": 803,
+  "rps": 2.55,
+  "overallErrPct": 0,
+  "p50": 6,
+  "p95": 246,
+  "p99": 273.7,
+  "max": 301.8,
+  "llm": "openai-compat stub @127.0.0.1:8787（首包120ms + 15ms/6码点）；M18/G7 基准轮：同一 jar 同参数（80 虚拟用户 / think 36s / 5 分钟），LLM 走真 HTTP/SSE 桩，KG 走 kg_node 表（neo4j.enabled=false）",
+  "model": "1k DAU ≈ 2.2 req/s（活跃小时均值）；本轮按参数折算1.16x 目标流量",
+  "perEndpoint": [
+    {
+      "endpoint": "GET /diaries",
+      "n": 133,
+      "errRate": 0,
+      "p50": 4.5,
+      "p95": 7,
+      "p99": 9.6,
+      "max": 11.7
+    },
+    {
+      "endpoint": "GET /readings/today",
+      "n": 103,
+      "errRate": 0,
+      "p50": 9.3,
+      "p95": 17.4,
+      "p99": 19.4,
+      "max": 19.8
+    },
+    {
+      "endpoint": "GET /tasks",
+      "n": 95,
+      "errRate": 0,
+      "p50": 4.6,
+      "p95": 6.5,
+      "p99": 30.7,
+      "max": 30.7
+    },
+    {
+      "endpoint": "GET /exercises",
+      "n": 68,
+      "errRate": 0,
+      "p50": 3.4,
+      "p95": 11.7,
+      "p99": 16.2,
+      "max": 16.2
+    },
+    {
+      "endpoint": "PUT /diaries/draft",
+      "n": 61,
+      "errRate": 0,
+      "p50": 11.1,
+      "p95": 20.5,
+      "p99": 105.9,
+      "max": 105.9
+    },
+    {
+      "endpoint": "GET /scenes",
+      "n": 58,
+      "errRate": 0,
+      "p50": 3.5,
+      "p95": 15,
+      "p99": 21,
+      "max": 21
+    },
+    {
+      "endpoint": "POST /companion turn",
+      "n": 44,
+      "errRate": 0,
+      "p50": 261.1,
+      "p95": 284.6,
+      "p99": 301.8,
+      "max": 301.8
+    },
+    {
+      "endpoint": "POST /mood-check-ins",
+      "n": 44,
+      "errRate": 0,
+      "p50": 20.2,
+      "p95": 30.2,
+      "p99": 38.5,
+      "max": 38.5
+    },
+    {
+      "endpoint": "GET /mood-check-ins?month",
+      "n": 40,
+      "errRate": 0,
+      "p50": 5,
+      "p95": 8.5,
+      "p99": 8.5,
+      "max": 8.5
+    },
+    {
+      "endpoint": "POST /simulations+interrupt",
+      "n": 37,
+      "errRate": 0,
+      "p50": 18.6,
+      "p95": 32.8,
+      "p99": 35.1,
+      "max": 35.1
+    },
+    {
+      "endpoint": "GET /archive/summary",
+      "n": 34,
+      "errRate": 0,
+      "p50": 6.4,
+      "p95": 10,
+      "p99": 10.3,
+      "max": 10.3
+    },
+    {
+      "endpoint": "GET /plans",
+      "n": 31,
+      "errRate": 0,
+      "p50": 4.1,
+      "p95": 5.5,
+      "p99": 5.8,
+      "max": 5.8
+    },
+    {
+      "endpoint": "POST /auth/login",
+      "n": 29,
+      "errRate": 0,
+      "p50": 70.6,
+      "p95": 77.3,
+      "p99": 79.4,
+      "max": 79.4
+    },
+    {
+      "endpoint": "POST /readings/favorites",
+      "n": 17,
+      "errRate": 0,
+      "p50": 13.5,
+      "p95": 25.7,
+      "p99": 25.7,
+      "max": 25.7
+    },
+    {
+      "endpoint": "GET /admin/metrics/overview",
+      "n": 9,
+      "errRate": 0,
+      "p50": 8.3,
+      "p95": 10,
+      "p99": 10,
+      "max": 10
+    }
+  ]
+}

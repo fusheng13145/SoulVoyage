@@ -58,7 +58,7 @@ npm install && npm run dev:h5                # 构建产物 build:mp-weixin（�
 
 ## 里程碑
 
-**M0–M14 全部完成 ✅ · M16 Neo4j 实装完成 ✅（M15 上线收口待办）**（各里程碑范围与验收明细以[项目手册 §10.2 / §11.3](docs/项目手册.md)为准）：
+**M0–M14 全部完成 ✅ · M16 Neo4j 实装完成 ✅ · M18 图模式收口完成 ✅（M15 上线收口待办）**（各里程碑范围与验收明细以[项目手册 §10.2 / §11.3](docs/项目手册.md)为准）：
 
 - **M0–M4 基础盘**：骨架+建库+登录 → 调度中心+LLM 网关(Mock)+情绪感知 Agent+AgentFlow 可视化 → 溯源推理+KG 约束+复盘报告 → 人际模拟训练（场景卡+NPC 导演+复盘评分）→ 疏导干预+风险双轨研判归档+成长档案导出
 - **V2 深化（2026-09-20 完成）**：
@@ -79,5 +79,10 @@ npm install && npm run dev:h5                # 构建产物 build:mp-weixin（�
   - `ContentStore.version()` 暴露版本号；`Neo4jKgContractTest` 7 例契约对拍（有真图实例时执行）+ `Neo4jKgCircuitBreakerTest` 2 例熔断单测（零依赖恒跑）
   - 真机验证：`smoke_m8.mjs` 九项全绿（含 N4 热更新 `contentVersion` 46→48、C3 复盘引用 `cc_apology_repair`）；图库计数与 `kg_node` 上架内容精确对齐（`:SvManaged` 77 + 闭集 Emotion/EventTag/Stressor 39 = 116，与 seed 同源）
   - 故障注入暴露并修复**可用性缺陷**：driver 默认 `maxTransactionRetryTime=30s`，图拒连时把复盘链路从 0s 拖到 32s；改为驱动超时 2s + 30s 短路熔断后实测降至 **3s**，Neo4j 恢复即自动半开探测并补同步（`kg graph synced at content version N`）
+- **M18 图模式收口（2026-09-29 完成 ✅）**：清偿缺口 G7（图模式压测）/ G8（运行时可观测）/ G9（DB↔图对账）
+  - **G8 可观测**：`Neo4jKgService.describe()` 现值快照挂 `GET /admin/metrics/overview` 的 `runtime.kg`（与 `runtime.llmGate` 同处），三态可辨——未启用 `kg=db(kg_node)` / 图可用 `kg=neo4j, circuit=closed, syncedVersion=N` / 图故障 `circuit=open`；该接口刻意不触网，观测动作不产生图库压力（冷态首次读为 `syncedVersion=none`）。另设 `management.health.neo4j.enabled=false`：关掉 Spring 自带的 neo4j 健康项，避免图抖动把实例打成 DOWN（容器会被摘除或重启，与"图不可用不是单点故障"的立场冲突）
+  - **G9 对账**：`GET /admin/content/kg/graph-audit` 逐项比对七类节点 + 五类关系（四类受管严格全等；三类闭集只做单向包含——闭集词表权威在 `seed.cypher`，图侧多出的词记 `reserved` 不判错）；图不可达时如实返回 `available=false`，不编造一致结论
+  - **G7 压测**：同参数（80 虚拟用户 / think 36s / 5 分钟，LLM 走真 HTTP/SSE 桩）DB 轮 803 请求 · 2.55 rps · p95 246ms，图轮 837 请求 · 2.65 rps · p95 258.9ms，错误率均 0%
+  - 真机三态验证抓出并修复一处缺陷（图不可达时对账接口 500/code 2001 → 现返回同构的 `available=false` 降级响应），并**证伪一处误判**：复盘 `PARTIAL_SUCCESS` 源于 LLM 输出校验而非 KG 降级（对照实验：图可用与图不可用在 openai 桩下步骤明细完全相同，mock 口径下为 SUCCESS）
 
-测试基线：H2 回归 **147/147**（31 个测试类；其中 `Neo4jKgContractTest` 7 例需真图实例，无实例时按设计跳过），四条输入路径危机一票拦截各有集成测试；压测 816 请求 0% 错误率，明细 `deploy/load_m10_results.json`。技术债 8 条全部清偿（手册下篇九）。
+测试基线：H2 回归 **151 例 · 0 失败 · 9 跳过**（32 个测试类；跳过的 9 例均为 `Neo4jKgContractTest`，需真图实例，无实例时按设计跳过，即 142 例实际执行全绿），四条输入路径危机一票拦截各有集成测试；压测 803（DB）/ 837（图）请求均 0% 错误率，明细 `deploy/load_m18_db_results.json`、`deploy/load_m18_graph_results.json`（M10 基线见 `deploy/load_m10_results.json`）。技术债 8 条全部清偿（手册下篇九）。
