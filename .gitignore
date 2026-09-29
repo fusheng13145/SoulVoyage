@@ -9,6 +9,8 @@ backend/cp.txt
 # --- Node / Vue ---
 frontend/node_modules/
 frontend/dist/
+# vitest 覆盖率报告（构建产物）
+frontend/coverage/
 deploy/tools/node_modules/
 *.local
 

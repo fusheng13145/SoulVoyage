@@ -6,7 +6,12 @@ spring:
     driver-class-name: org.h2.Driver
   jpa:
     hibernate:
-      ddl-auto: create-drop
+      # 用 update 而非 create-drop：全部测试 context 共享同一个 mem:svtest 库（DB_CLOSE_DELAY=-1），
+      # 而 create-drop 会让每个新建 context 在启动时 drop+create 全表，清空其他 context 已 seed 的数据。
+      # 若某 context 的 ContentStore（5s TTL 快照）恰在该窗口内重载，即缓存空内容且 5s 内不再刷新，
+      # 使随后的 SimulatePipelineIntegrationTest 读到空场景列表而报「未知场景」（仅在 JVM 被拖慢时暴露）。
+      # update 只建表不删表，数据全程驻留，消除该时序窗口；种子逻辑幂等（表空才灌），不会重复插入。
+      ddl-auto: update
     properties:
       hibernate.globally_quoted_identifiers: true
 

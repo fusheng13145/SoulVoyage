@@ -134,6 +134,73 @@
           </excludes>
         </configuration>
       </plugin>
+      <!--
+        覆盖率度量（JaCoCo）：prepare-agent 给测试 JVM 挂 agent，report 在 test 阶段产出
+        target/site/jacoco/{index.html,jacoco.csv}。门禁（check）绑在 verify 阶段，
+        因此 `mvn test` 只出报告不卡门禁，`mvn verify` 才是"覆盖率准入"命令。
+        版本选 0.8.12：0.8.11 起支持 Java 21 字节码，0.8.12 为同系稳定版。
+      -->
+      <plugin>
+        <groupId>org.jacoco</groupId>
+        <artifactId>jacoco-maven-plugin</artifactId>
+        <version>0.8.12</version>
+        <configuration>
+          <!--
+            覆盖数据落点必须避开含中文的工程路径：surefire 在 Windows 上经 cmd.exe 中转 fork 命令行，
+            未加引号的 destfile 一旦含中文，agent 会静默不落盘，jacoco:report 只报
+            "Skipping JaCoCo execution due to missing execution data file"。
+            ${java.io.tmpdir} 为纯 ASCII，agent 与 report 两侧读同一路径。
+          -->
+          <destFile>${java.io.tmpdir}/sv-jacoco/jacoco.exec</destFile>
+          <dataFile>${java.io.tmpdir}/sv-jacoco/jacoco.exec</dataFile>
+          <!--
+            门禁阈值放在 plugin 级：直接调 `mvn jacoco:check` 走的是 default-cli execution，
+            只认 plugin 级 configuration。阈值为实测基线下调取整后的防回退水位
+            （基线 INSTRUCTION 79.4% / BRANCH 62.8%），门禁职责是"不许比现状更差"，
+            而非一次拉到目标线，故留约 4 个百分点容忍合法重构。
+          -->
+          <rules>
+            <rule>
+              <element>BUNDLE</element>
+              <limits>
+                <limit>
+                  <counter>INSTRUCTION</counter>
+                  <value>COVEREDRATIO</value>
+                      <minimum>0.75</minimum>
+                    </limit>
+                    <limit>
+                      <counter>BRANCH</counter>
+                      <value>COVEREDRATIO</value>
+                      <minimum>0.58</minimum>
+                </limit>
+              </limits>
+            </rule>
+          </rules>
+        </configuration>
+        <executions>
+          <execution>
+            <id>prepare-agent</id>
+            <goals>
+              <goal>prepare-agent</goal>
+            </goals>
+          </execution>
+          <execution>
+            <id>report</id>
+            <phase>test</phase>
+            <goals>
+              <goal>report</goal>
+            </goals>
+          </execution>
+          <!-- 门禁绑 verify：mvn test 只出报告不卡人，mvn verify 才是覆盖率准入命令 -->
+          <execution>
+            <id>check</id>
+            <phase>verify</phase>
+            <goals>
+              <goal>check</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
     </plugins>
   </build>
 </project>

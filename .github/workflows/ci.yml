@@ -37,6 +37,16 @@ jobs:
       - name: 后端全量测试
         working-directory: backend
         run: mvn -B test
+      # 覆盖率门禁：阈值见 backend/pom.xml（防回退水位，非目标线）
+      - name: 覆盖率门禁
+        working-directory: backend
+        run: mvn -B jacoco:check
+      - name: 覆盖率报告
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jacoco-report
+          path: backend/target/site/jacoco
       - name: 打包冒烟（spring-boot repackage）
         working-directory: backend
         run: mvn -B package -DskipTests
@@ -64,6 +74,16 @@ jobs:
         run: |
           npm run lint
           npm run format:check
+      # 单元测试与覆盖率（口径：逻辑层；展示层由无头浏览器走查覆盖）
+      - name: 单元测试与覆盖率
+        working-directory: frontend
+        run: npm run coverage
+      - name: 覆盖率报告
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vitest-coverage
+          path: frontend/coverage
       # vue-tsc 消费 OpenAPI 生成类型：后端契约变了这里必须同步 gen:api
       - name: 类型检查与构建
         working-directory: frontend
