@@ -35,8 +35,9 @@ services:
       timeout: 3s
       retries: 6
 
-  # Neo4j 暂不编排：应用侧尚无 driver，KG 真源是 MySQL kg_node 表（手册 §5.3）。
-  # 待 KG 接入 Neo4j 时再补回该服务与 SV_NEO4J_* 环境变量。
+  # Neo4j 暂不编排（M16 已在应用侧接入 driver，这里只差服务定义本身）：
+  # KG 真源仍是 MySQL kg_node 表，图侧是 content:version 驱动的只读派生视图（手册 §5.3）；
+  # 补编排时加本服务 + app 的 SV_NEO4J_URI 指向容器名 + depends_on（图不可用时应用会自动回落 kg_node，不阻塞启动）。
 
   app:
     build: ../backend
