@@ -15,8 +15,11 @@ class FakeRecorder {
   mimeType = 'audio/webm'
   ondataavailable: ((e: { data: Blob }) => void) | null = null
   onstop: (() => void) | null = null
+  /** 显式字段而非参数属性：tsconfig 开了 erasableSyntaxOnly，参数属性属不可擦除语法 */
+  stream: unknown
 
-  constructor(public stream: unknown) {
+  constructor(stream: unknown) {
+    this.stream = stream
     FakeRecorder.last = this
   }
 

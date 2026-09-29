@@ -8,6 +8,10 @@ dist
 unpackage
 *.local
 
+# vite 加载 TS 配置文件时生成的临时产物：uni build 每次都会重新产出，
+# 留在工作区既污染 git status，也会被 eslint 当成源码扫出 no-undef 误报
+vite.config.ts.timestamp-*.mjs
+
 # Editor directories and files
 .vscode/*
 .idea
