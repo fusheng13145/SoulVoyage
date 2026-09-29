@@ -155,9 +155,10 @@
           <dataFile>${java.io.tmpdir}/sv-jacoco/jacoco.exec</dataFile>
           <!--
             门禁阈值放在 plugin 级：直接调 `mvn jacoco:check` 走的是 default-cli execution，
-            只认 plugin 级 configuration。阈值为实测基线下调取整后的防回退水位
-            （基线 INSTRUCTION 79.4% / BRANCH 62.8%），门禁职责是"不许比现状更差"，
-            而非一次拉到目标线，故留约 4 个百分点容忍合法重构。
+            只认 plugin 级 configuration。
+            阈值一次设足到目标线、不做逐级抬升：INSTRUCTION 85%（对齐本项目一贯的覆盖率标准）、
+            BRANCH 75%。当前实测基线为 79.4% / 62.8%，尚未达标——门禁会如实拦下，
+            缺口必须靠补测用例清偿，而不是靠下调阈值抹平。
           -->
           <rules>
             <rule>
@@ -166,12 +167,12 @@
                 <limit>
                   <counter>INSTRUCTION</counter>
                   <value>COVEREDRATIO</value>
-                      <minimum>0.75</minimum>
-                    </limit>
-                    <limit>
-                      <counter>BRANCH</counter>
-                      <value>COVEREDRATIO</value>
-                      <minimum>0.58</minimum>
+                  <minimum>0.85</minimum>
+                </limit>
+                <limit>
+                  <counter>BRANCH</counter>
+                  <value>COVEREDRATIO</value>
+                  <minimum>0.75</minimum>
                 </limit>
               </limits>
             </rule>

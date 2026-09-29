@@ -4,7 +4,7 @@ import http, { type ApiResp } from '@/api/http'
 /** 与后端 VoiceDiaryController.MAX_DURATION_MS 同一口径：一段最多 90 秒 */
 export const MAX_VOICE_MS = 90_000
 /** 短于这个时长不发起转写：半秒的呼吸声只会换来一句"没听清"，白花一次上行 */
-const MIN_VOICE_MS = 700
+export const MIN_VOICE_MS = 700
 
 /**
  * M11 语音日记：录音 → 上传转写 → 把文本交回页面校对。

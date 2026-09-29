@@ -27,6 +27,16 @@ export default defineConfig({
       include: ['src/utils/**/*.ts', 'src/stores/**/*.ts', 'src/composables/**/*.ts', 'src/api/**/*.ts'],
       // schema.d.ts 是 openapi-typescript 生成的纯类型，无可执行语句
       exclude: ['src/**/*.spec.ts', 'src/api/schema.d.ts'],
+      /*
+       * 阈值一次设足到目标线、不做逐级抬升。当前实测（Stmts 13.35%）远未达标，
+       * 覆盖缺口要靠补测用例清偿，而不是靠下调阈值抹平——阈值的职责是拦住未达标状态。
+       */
+      thresholds: {
+        statements: 80,
+        lines: 80,
+        functions: 80,
+        branches: 70,
+      },
     },
   },
 })

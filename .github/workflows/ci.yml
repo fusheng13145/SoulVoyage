@@ -37,7 +37,9 @@ jobs:
       - name: 后端全量测试
         working-directory: backend
         run: mvn -B test
-      # 覆盖率门禁：阈值见 backend/pom.xml（防回退水位，非目标线）
+      # 覆盖率门禁：阈值见 backend/pom.xml，是**一次设足的目标线 0.85 / 0.75，不是防回退水位**。
+      # 当前基线 0.79 / 0.62 未达标，本步会如实失败——这是刻意保留的欠账信号，
+      # 须靠补测用例清偿，不得靠下调阈值抹平。
       - name: 覆盖率门禁
         working-directory: backend
         run: mvn -B jacoco:check
