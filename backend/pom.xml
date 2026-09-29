@@ -58,6 +58,12 @@
       <artifactId>mysql-connector-j</artifactId>
       <scope>runtime</scope>
     </dependency>
+    <!-- M16：Neo4j 知识图谱——KgSearchService 的图实现；soulvoyage.neo4j.enabled=false 时不装配 -->
+    <dependency>
+      <groupId>org.neo4j.driver</groupId>
+      <artifactId>neo4j-java-driver</artifactId>
+      <version>5.26.0</version>
+    </dependency>
 
     <!-- JWT -->
     <dependency>

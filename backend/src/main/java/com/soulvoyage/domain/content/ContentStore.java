@@ -75,6 +75,9 @@ public class ContentStore {
 
     public List<Exercise> exercises() { return current().exercises(); }
 
+    /** M16：当前内容版本号（content:version），供 Neo4jKgService 判定是否需要重新同步 */
+    public long version() { return current().version(); }
+
     /** 管理端写入口调用：抬版本 + 本 JVM 立即重载 */
     public synchronized long bump() {
         long next = versionOf(metaRepo.findByMetaKey("content:version")
