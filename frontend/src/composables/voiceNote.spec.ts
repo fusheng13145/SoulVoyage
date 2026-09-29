@@ -9,12 +9,16 @@ const post = vi.mocked(http.post)
 
 /** 最小可用的 MediaRecorder 替身：记录实例、可手动触发数据与停止 */
 class FakeRecorder {
+  /** 最近一次 new 出来的实例，供用例直接驱动 ondataavailable */
+  static last: FakeRecorder | null = null
   state = 'inactive'
   mimeType = 'audio/webm'
   ondataavailable: ((e: { data: Blob }) => void) | null = null
   onstop: (() => void) | null = null
 
-  constructor(public stream: unknown) {}
+  constructor(public stream: unknown) {
+    FakeRecorder.last = this
+  }
 
   start() {
     this.state = 'recording'
@@ -25,6 +29,11 @@ class FakeRecorder {
     this.state = 'inactive'
     if (emit) this.ondataavailable?.({ data: new Blob(['voice-bytes'], { type: 'audio/webm' }) })
     this.onstop?.()
+  }
+
+  /** 模拟 size=0 的空数据块（部分浏览器在极短录音时会派发空块） */
+  emitEmptyChunk() {
+    this.ondataavailable?.({ data: new Blob([]) })
   }
 }
 
@@ -37,6 +46,7 @@ const TICK = 200
 describe('composables/voiceNote 语音日记录制与转写', () => {
   beforeEach(() => {
     vi.useFakeTimers()
+    FakeRecorder.last = null
     stopTrack.mockClear()
     getUserMedia.mockReset()
     getUserMedia.mockResolvedValue({ getTracks: () => [{ stop: stopTrack }] })
@@ -200,5 +210,44 @@ describe('composables/voiceNote 语音日记录制与转写', () => {
     expect(form).toBeInstanceOf(FormData)
     expect(form.get('durationMs')).toBe('1600')
     expect(form.get('file')).toBeInstanceOf(Blob)
+  })
+
+  it('recorder 尚未建出时 cancel 走 release 分支不抛错，也不改动状态', () => {
+    const v = useVoiceNote(() => {})
+
+    expect(() => v.cancel()).not.toThrow()
+    expect(v.recording.value).toBe(false)
+    expect(v.error.value).toBe('')
+    expect(getUserMedia).not.toHaveBeenCalled()
+  })
+
+  it('size 为 0 的空数据块不进入分片（不产出无意义的空块）', async () => {
+    post.mockResolvedValueOnce({ data: { data: { text: 't', durationMs: 1200 } } } as never)
+
+    const v = useVoiceNote(() => {})
+    await v.start()
+    vi.advanceTimersByTime(10 * TICK)
+
+    FakeRecorder.last?.emitEmptyChunk() // size=0：应被忽略，不 push 进 chunks
+    v.stop()
+    await vi.runAllTimersAsync()
+
+    const [, form] = post.mock.calls[0] as [string, FormData]
+    expect(form).toBeInstanceOf(FormData)
+    expect(post).toHaveBeenCalledTimes(1)
+  })
+
+  it('recorder 未上报 mimeType 时用 audio/webm 兜底（不能交出不带类型的 Blob）', async () => {
+    post.mockResolvedValueOnce({ data: { data: { text: 't', durationMs: 1200 } } } as never)
+
+    const v = useVoiceNote(() => {})
+    await v.start()
+    if (FakeRecorder.last) FakeRecorder.last.mimeType = ''
+    vi.advanceTimersByTime(10 * TICK)
+    v.stop()
+    await vi.runAllTimersAsync()
+
+    const [, form] = post.mock.calls[0] as [string, FormData]
+    expect((form.get('file') as Blob).type).toBe('audio/webm')
   })
 })

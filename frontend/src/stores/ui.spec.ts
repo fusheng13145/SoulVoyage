@@ -77,4 +77,15 @@ describe('stores/ui 全局 Toast 与确认弹窗', () => {
     expect(hapticOn.value).toBe(true)
     expect(localStorage.getItem('sv_haptic')).toBe('on')
   })
+
+  it('toast 项在到期前已被外部清空时，回调不重复删除、不抛错', () => {
+    toast('会被提前清掉')
+    expect(toastQueue).toHaveLength(1)
+
+    // 模拟登出/全局重置在 2.6s 窗口内清空了队列：到期回调必须容忍 findIndex 未命中
+    toastQueue.splice(0, toastQueue.length)
+
+    expect(() => vi.advanceTimersByTime(2600)).not.toThrow()
+    expect(toastQueue).toHaveLength(0)
+  })
 })

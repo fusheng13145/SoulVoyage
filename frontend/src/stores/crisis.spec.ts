@@ -102,4 +102,29 @@ describe('stores/crisis 危机资源与画像', () => {
     expect(store.crisisMode).toBe(false)
     expect(store.weeks).toEqual([])
   })
+
+  it('resources 在 referral 已就绪时直接返回，不再重复拉取', async () => {
+    get.mockResolvedValueOnce(
+      resp({ boundary: 'b', resources: [{ name: 'A', value: '1', type: 'PHONE', note: 'n' }] }),
+    )
+
+    const store = useCrisisStore()
+    await store.ensure()
+    const list = await store.resources()
+
+    expect(get).toHaveBeenCalledTimes(1)
+    expect(list).toHaveLength(1)
+    expect(list[0]?.value).toBe('1')
+  })
+
+  it('服务端未给出 referral 时 resources 回退内置兜底（危机功能不允许空白）', async () => {
+    get.mockResolvedValueOnce(resp(null))
+
+    const store = useCrisisStore()
+    const list = await store.resources()
+
+    expect(store.referral).toBeNull()
+    expect(list.map(r => r.value)).toContain('12356')
+    expect(list.map(r => r.value)).toContain('400-161-9995')
+  })
 })

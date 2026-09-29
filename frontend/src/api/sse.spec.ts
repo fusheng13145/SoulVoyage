@@ -134,4 +134,42 @@ describe('api/sse SSE 流解析与可靠重连', () => {
 
     await expect(streamTask('T-4', () => {}, controller.signal)).rejects.toThrow('aborted')
   })
+
+  it('记录流中的事件 id，重连时带 Last-Event-ID 请求补发，拿到终态即停止', async () => {
+    vi.useFakeTimers()
+    const seen: Record<string, string>[] = []
+    const fetchMock = vi.fn((_url: string, init: { headers: Record<string, string> }) => {
+      seen.push(init.headers)
+      return Promise.resolve(
+        seen.length === 1
+          ? sseResponse(['id: 7\n', 'event: delta\ndata: {"n":1}\n\n'])
+          : sseResponse(['event: done\ndata: {"status":"SUCCESS"}\n\n']),
+      )
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const events: SseEvent[] = []
+    const done = streamTask('T-5', e => events.push(e))
+    await vi.runAllTimersAsync()
+    await done
+
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(seen[1]?.['Last-Event-ID']).toBe('7')
+    expect(events.at(-1)?.event).toBe('done')
+    expect(get).not.toHaveBeenCalled()
+  })
+
+  it('空 id 行不覆盖已记录的 lastId（保持上一有效值）', async () => {
+    const frames = [
+      'id: 9\nevent: delta\ndata: {"n":1}\n\n',
+      'id:\n',
+      'event: done\ndata: {"status":"SUCCESS"}\n\n',
+    ]
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(sseResponse(frames)))
+
+    const received: SseEvent[] = []
+    await postSse('/x', {}, e => received.push(e))
+
+    expect(received.map(e => e.event)).toEqual(['delta', 'done'])
+  })
 })

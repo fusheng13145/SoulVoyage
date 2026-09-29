@@ -138,4 +138,75 @@ describe('api/http 请求与响应拦截器', () => {
     const err = new Error('Network Error')
     await expect(H.handlers.resErr!(err)).rejects.toBe(err)
   })
+
+  it('并发 401 共享同一次刷新（旧 refresh 用两次会被后端判失窃）', async () => {
+    localStorage.setItem(REFRESH_KEY, 'rt-1')
+    H.refreshPost.mockResolvedValue({
+      data: { data: { accessToken: 'at-9', refreshToken: 'rt-9' } },
+    })
+
+    await Promise.all([
+      H.handlers.resErr!({ response: { status: 401 }, config: { url: '/a' } }),
+      H.handlers.resErr!({ response: { status: 401 }, config: { url: '/b' } }),
+    ])
+
+    expect(H.refreshPost).toHaveBeenCalledTimes(1)
+    await flushMacrotask()
+  })
+
+  it('401 但本地无 refreshToken 时不尝试刷新，直接清会话并跳登录', async () => {
+    localStorage.setItem(TOKEN_KEY, 'at-1')
+
+    await expect(
+      H.handlers.resErr!({ response: { status: 401 }, config: { url: '/diaries' } }),
+    ).rejects.toBeTruthy()
+
+    expect(H.refreshPost).not.toHaveBeenCalled()
+    expect(localStorage.getItem(TOKEN_KEY)).toBeNull()
+    expect(H.routerPush).toHaveBeenCalledWith('/login')
+  })
+
+  it('401 响应缺少 config 时仍能刷新并重放（不因取不到原请求而崩）', async () => {
+    localStorage.setItem(REFRESH_KEY, 'rt-1')
+    H.refreshPost.mockResolvedValue({
+      data: { data: { accessToken: 'at-3', refreshToken: 'rt-3' } },
+    })
+
+    const result = await H.handlers.resErr!({ response: { status: 401 } })
+
+    expect(H.refreshPost).toHaveBeenCalledTimes(1)
+    expect(result).toBeUndefined() // mock 实例把 http(undefined) 原样 resolve
+    await flushMacrotask()
+  })
+
+  it('成功响应业务 code 非 0 且无 msg 时，回落默认话术', async () => {
+    await expect(H.handlers.resOk!({ data: { code: 2001 } })).rejects.toMatchObject({
+      message: '请求失败',
+      code: 2001,
+    })
+  })
+
+  it('错误响应体无 msg 时同样回落默认话术', async () => {
+    await expect(
+      H.handlers.resErr!({ response: { status: 400, data: { code: 4001 } }, config: { url: '/x' } }),
+    ).rejects.toMatchObject({ message: '请求失败', code: 4001 })
+  })
+
+  it('成功响应无响应体时原样放行（不做 code 判定）', () => {
+    const res = { data: undefined }
+    expect(H.handlers.resOk!(res)).toBe(res)
+  })
+
+  it('错误响应体 code 为 0 时原样抛出原错误（不当业务错误改写）', async () => {
+    const err = { response: { status: 500, data: { code: 0, msg: 'ok' } }, config: { url: '/x' } }
+    await expect(H.handlers.resErr!(err)).rejects.toBe(err)
+  })
+
+  it('错误响应体 code 非数字时原样抛出原错误', async () => {
+    const err = {
+      response: { status: 500, data: { code: 'E500', msg: 'boom' } },
+      config: { url: '/x' },
+    }
+    await expect(H.handlers.resErr!(err)).rejects.toBe(err)
+  })
 })
