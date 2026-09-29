@@ -38,8 +38,8 @@ jobs:
         working-directory: backend
         run: mvn -B test
       # 覆盖率门禁：阈值见 backend/pom.xml，是**一次设足的目标线 0.85 / 0.75，不是防回退水位**。
-      # 当前基线 0.79 / 0.62 未达标，本步会如实失败——这是刻意保留的欠账信号，
-      # 须靠补测用例清偿，不得靠下调阈值抹平。
+      # 2026-09-29 已由补测清偿达标：INSTRUCTION 90.54% / BRANCH 77.19%，本步放行。
+      # 清偿走的是逐包补测（151 → 401 例），不是下调阈值；阈值本身未动。
       - name: 覆盖率门禁
         working-directory: backend
         run: mvn -B jacoco:check
