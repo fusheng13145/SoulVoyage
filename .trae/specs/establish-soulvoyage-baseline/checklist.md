@@ -78,8 +78,8 @@
 - [x] G6 Batch 3 契约收敛完成且 OpenAPI/生成类型 diff 审阅通过
 - [x] G7 Batch 4 核心编排完成且 5 条流水线/SSE 序列一致（4A/4B/4C/4D 全部完成并通过全门禁）
 - [x] G8 Batch 5 安全与基础设施完成且多节点/故障注入通过（5A/5B 全部完成；锁切面、Redis 降级、prod 主密钥守卫均通过测试与演练）
-- [ ] G9 Batch 6 扩展逐项验收通过
-- [ ] G10 最终回归：后端/前端/小程序全绿；12 个 golden 场景无未批准 diff；C 类零改动
+- [ ] G9 Batch 6 扩展逐项验收通过（H-01–H-07 工程侧 7/7 交付；H-07 真实密钥/域名/证书/AppID 待注入，check_release PASS 后勾选）
+- [x] G10 最终回归：后端/前端/小程序全绿；15 个 golden 场景无未批准 diff；C 类零改动（详见 `batch6-final-acceptance/checklist.md`）
 
 ## H. 最终验收判定
 
