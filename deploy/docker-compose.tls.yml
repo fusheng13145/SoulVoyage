@@ -1,0 +1,9 @@
+# H-07 TLS 覆盖：仅在启用 HTTPS 时叠加
+# docker compose -f docker-compose.yml -f docker-compose.tls.yml --env-file local.env up -d --build
+services:
+  web:
+    ports: ["80:80", "443:443"]
+    volumes:
+      - ./nginx.https.conf:/etc/nginx/conf.d/default.conf:ro
+      - ${SV_TLS_DIR:-./certs}:/etc/nginx/certs:ro
+      - ../frontend/dist:/usr/share/nginx/html:ro

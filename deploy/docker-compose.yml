@@ -35,9 +35,24 @@ services:
       timeout: 3s
       retries: 6
 
-  # Neo4j 暂不编排（M16 已在应用侧接入 driver，这里只差服务定义本身）：
-  # KG 真源仍是 MySQL kg_node 表，图侧是 content:version 驱动的只读派生视图（手册 §5.3）；
-  # 补编排时加本服务 + app 的 SV_NEO4J_URI 指向容器名 + depends_on（图不可用时应用会自动回落 kg_node，不阻塞启动）。
+  # Neo4j：KG 只读派生视图（真源仍是 MySQL kg_node）。图不可用时应用自动回落，不阻塞启动。
+  neo4j:
+    image: neo4j:5.26-community
+    ports: ["127.0.0.1:7474:7474", "127.0.0.1:7687:7687"]
+    environment:
+      NEO4J_AUTH: ${SV_NEO4J_USER:-neo4j}/${SV_NEO4J_PASS:?}
+      NEO4J_USER: ${SV_NEO4J_USER:-neo4j}
+      NEO4J_PASS: ${SV_NEO4J_PASS:?}
+      NEO4J_server_memory_heap_max__size: 512m
+      NEO4J_server_memory_pagecache_size: 256m
+    volumes:
+      - ./neo4j-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "cypher-shell -u $$NEO4J_USER -p $$NEO4J_PASS 'RETURN 1' || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 12
+    restart: unless-stopped
 
   app:
     build: ../backend
@@ -45,6 +60,7 @@ services:
     depends_on:
       mysql: { condition: service_healthy }
       redis: { condition: service_healthy }
+      neo4j: { condition: service_started }
     restart: unless-stopped
     environment:
       SV_MYSQL_HOST: mysql
@@ -54,10 +70,31 @@ services:
       SV_MASTER_KEY: ${SV_MASTER_KEY:?}
       SV_JWT_SECRET: ${SV_JWT_SECRET:?}
       SV_LLM_PROVIDER: ${SV_LLM_PROVIDER:?}   # 生产必须显式选 provider，禁默认 mock
+      SV_LLM_BASE_URL: ${SV_LLM_BASE_URL:-}
+      SV_LLM_MODEL: ${SV_LLM_MODEL:-}
       SV_LLM_API_KEY: ${SV_LLM_API_KEY:?}
+      SV_ASR_PROVIDER: ${SV_ASR_PROVIDER:-}
+      SV_ASR_BASE_URL: ${SV_ASR_BASE_URL:-}
+      SV_ASR_MODEL: ${SV_ASR_MODEL:-}
+      SV_ASR_API_KEY: ${SV_ASR_API_KEY:-}
+      SV_WX_PROVIDER: ${SV_WX_PROVIDER:-}
+      SV_WX_APPID: ${SV_WX_APPID:-}
+      SV_WX_SECRET: ${SV_WX_SECRET:-}
+      SV_NEO4J_ENABLED: ${SV_NEO4J_ENABLED:-false}
+      SV_NEO4J_URI: ${SV_NEO4J_URI:-bolt://neo4j:7687}
+      SV_NEO4J_USER: ${SV_NEO4J_USER:-neo4j}
+      SV_NEO4J_PASS: ${SV_NEO4J_PASS:-}
       SV_CORS_ORIGINS: ${SV_CORS_ORIGINS:?}
       SV_DISTRIBUTED: ${SV_DISTRIBUTED:-true}   # M13：多副本部署时限流/事件流/导出快照跨节点共享
-      TZ: Asia/Shanghai
+      SV_BUSINESS_ZONE: ${SV_BUSINESS_ZONE:-Asia/Shanghai}
+      SV_LLM_DAILY_TOKENS: ${SV_LLM_DAILY_TOKENS:-2000000}
+      SV_LLM_PRICE_IN: ${SV_LLM_PRICE_IN:-0.001}
+      SV_LLM_PRICE_OUT: ${SV_LLM_PRICE_OUT:-0.002}
+      SV_LLM_DAILY_COST: ${SV_LLM_DAILY_COST:-10.0}
+      SV_LLM_BUDGET_CURRENCY: ${SV_LLM_BUDGET_CURRENCY:-CNY}
+      SV_LLM_BUDGET_ALERT_PERCENT: ${SV_LLM_BUDGET_ALERT_PERCENT:-80}
+      SV_SLOW_REQUEST_MS: ${SV_SLOW_REQUEST_MS:-500}
+      TZ: ${SV_BUSINESS_ZONE:-Asia/Shanghai}
 
   web:
     image: nginx:alpine

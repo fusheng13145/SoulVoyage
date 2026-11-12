@@ -7,11 +7,14 @@ COPY src src
 RUN mvn -B -q package -DskipTests
 
 FROM eclipse-temurin:21-jre
-RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y --no-install-recommends curl \
+    && groupadd --system app && useradd --system --gid app app \
+    && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
-COPY --from=build /m/target/soulvoyage-backend-*.jar app.jar
+COPY --from=build --chown=app:app /m/target/soulvoyage-backend-*.jar app.jar
 ENV TZ=Asia/Shanghai \
     JAVA_OPTS="-XX:MaxRAMPercentage=75"
+USER app
 EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=3s --retries=5 \
   CMD curl -fsS http://127.0.0.1:8080/actuator/health | grep -q UP || exit 1

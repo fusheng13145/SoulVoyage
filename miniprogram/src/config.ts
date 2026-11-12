@@ -5,8 +5,10 @@
  * 开发期没有备案域名，链路只能在 :5174 的 H5 目标上真跑。所以下面按端分流：
  * H5 用相对路径走 vite 代理，非 H5（真机小程序）用线上域名占位，上线前替换。 */
 
-/** 线上接口域名：必须是 HTTPS + 已备案域名，并在小程序后台加入合法域名白名单 */
-export const ONLINE_ORIGIN = 'https://REPLACE-WITH-BEIAN-DOMAIN'
+/** 线上接口域名：必须是 HTTPS + 已备案域名，并在小程序后台加入合法域名白名单。
+ *  发布时由 `VITE_ONLINE_ORIGIN` 注入；仓库只保留占位，check_release 会拦截未替换的占位。 */
+const envOrigin = (import.meta.env.VITE_ONLINE_ORIGIN as string | undefined)?.trim()
+export const ONLINE_ORIGIN = (envOrigin || 'https://REPLACE-WITH-BEIAN-DOMAIN').replace(/\/$/, '')
 
 /** 端判定走运行时而不是 `#ifdef` 编译宏：宏删行后 vue-tsc 看到的仍是两份声明，类型检查会整体失效，
  *  而这个常量决定所有请求发往哪里——宁可运行时问一句，也不要一个没人检查的分支。 */
