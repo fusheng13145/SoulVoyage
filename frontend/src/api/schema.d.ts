@@ -116,6 +116,22 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/v1/admin/content/drafts/{type}/{code}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get: operations['draft']
+    put: operations['saveDraft_1']
+    post?: never
+    delete: operations['deleteDraft']
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/v1/users/me/delete': {
     parameters: {
       query?: never
@@ -804,6 +820,22 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/v1/admin/content/revisions/{type}/{code}/{revisionId}/rollback': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post: operations['rollback']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/v1/admin/content/refresh': {
     parameters: {
       query?: never
@@ -830,6 +862,38 @@ export interface paths {
     get?: never
     put?: never
     post: operations['preview']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/admin/content/drafts/{type}/{code}/publish': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post: operations['publishDraft']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/admin/content/drafts/{type}/{code}/preview': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post: operations['previewDraft']
     delete?: never
     options?: never
     head?: never
@@ -1444,6 +1508,22 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/v1/admin/content/snapshot/{type}/{code}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get: operations['snapshot']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/v1/admin/content/scenes': {
     parameters: {
       query?: never
@@ -1452,6 +1532,22 @@ export interface paths {
       cookie?: never
     }
     get: operations['listScenes_1']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/admin/content/revisions/{type}/{code}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get: operations['revisions']
     put?: never
     post?: never
     delete?: never
@@ -1500,6 +1596,22 @@ export interface paths {
       cookie?: never
     }
     get: operations['listExercises']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/admin/content/drafts': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get: operations['drafts']
     put?: never
     post?: never
     delete?: never
@@ -1680,6 +1792,8 @@ export interface components {
       /** Format: int64 */
       contentVersion?: number
       effective?: boolean
+      /** Format: int32 */
+      revisionNo?: number
     }
     KgBody: {
       type?: string
@@ -1696,6 +1810,33 @@ export interface components {
       durationMin?: number
       /** Format: int32 */
       status?: number
+    }
+    DraftBody: {
+      payload?: components['schemas']['JsonNode']
+      /** Format: int64 */
+      baseRevisionId?: number
+      note?: string
+    }
+    ApiResponseDraftView: {
+      /** Format: int32 */
+      code?: number
+      msg?: string
+      data?: components['schemas']['DraftView']
+      traceId?: string
+    }
+    DraftView: {
+      contentType?: string
+      code?: string
+      payload?: components['schemas']['JsonNode']
+      /** Format: int64 */
+      baseRevisionId?: number
+      note?: string
+      /** Format: int64 */
+      updatedBy?: number
+      updatedAt?: string
+      valid?: boolean
+      errors?: string[]
+      warnings?: string[]
     }
     DeleteReq: {
       password: string
@@ -2159,6 +2300,23 @@ export interface components {
       /** Format: int64 */
       brokenAtId?: number
     }
+    ApiResponsePublishView: {
+      /** Format: int32 */
+      code?: number
+      msg?: string
+      data?: components['schemas']['PublishView']
+      traceId?: string
+    }
+    PublishView: {
+      contentType?: string
+      code?: string
+      /** Format: int32 */
+      revisionNo?: number
+      /** Format: int64 */
+      contentVersion?: number
+      effective?: boolean
+      warnings?: string[]
+    }
     ApiResponseContentVersionResp: {
       /** Format: int32 */
       code?: number
@@ -2195,6 +2353,27 @@ export interface components {
       tokensOut?: number
       /** Format: int64 */
       costMs?: number
+    }
+    ApiResponsePreviewView: {
+      /** Format: int32 */
+      code?: number
+      msg?: string
+      data?: components['schemas']['PreviewView']
+      traceId?: string
+    }
+    PreviewView: {
+      contentType?: string
+      code?: string
+      valid?: boolean
+      errors?: string[]
+      warnings?: string[]
+      normalizedPayload?: components['schemas']['JsonNode']
+      summary?: string
+      /** Format: int64 */
+      baseRevisionId?: number
+      /** Format: int64 */
+      latestRevisionId?: number
+      conflict?: boolean
     }
     GroupBody: {
       name?: string
@@ -2842,6 +3021,26 @@ export interface components {
       /** Format: date-time */
       updatedAt?: string
     }
+    ApiResponseListRevisionView: {
+      /** Format: int32 */
+      code?: number
+      msg?: string
+      data?: components['schemas']['RevisionView'][]
+      traceId?: string
+    }
+    RevisionView: {
+      /** Format: int64 */
+      id?: number
+      /** Format: int32 */
+      revisionNo?: number
+      action?: string
+      /** Format: int64 */
+      sourceRevisionId?: number
+      /** Format: int64 */
+      publishedBy?: number
+      publishedAt?: string
+      summary?: string
+    }
     ApiResponseListKgNodeEntity: {
       /** Format: int32 */
       code?: number
@@ -2916,6 +3115,13 @@ export interface components {
       durationMin?: number
       /** Format: int32 */
       status?: number
+    }
+    ApiResponseListDraftView: {
+      /** Format: int32 */
+      code?: number
+      msg?: string
+      data?: components['schemas']['DraftView'][]
+      traceId?: string
     }
     ApiResponseBoardStatsResp: {
       /** Format: int32 */
@@ -3287,6 +3493,79 @@ export interface operations {
         }
         content: {
           '*/*': components['schemas']['ApiResponseContentWriteResp']
+        }
+      }
+    }
+  }
+  draft: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        type: string
+        code: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          '*/*': components['schemas']['ApiResponseDraftView']
+        }
+      }
+    }
+  }
+  saveDraft_1: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        type: string
+        code: string
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['DraftBody']
+      }
+    }
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          '*/*': components['schemas']['ApiResponseDraftView']
+        }
+      }
+    }
+  }
+  deleteDraft: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        type: string
+        code: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          '*/*': components['schemas']['ApiResponseVoid']
         }
       }
     }
@@ -4436,6 +4715,30 @@ export interface operations {
       }
     }
   }
+  rollback: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        type: string
+        code: string
+        revisionId: number
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          '*/*': components['schemas']['ApiResponsePublishView']
+        }
+      }
+    }
+  }
   refresh_1: {
     parameters: {
       query?: never
@@ -4476,6 +4779,52 @@ export interface operations {
         }
         content: {
           '*/*': components['schemas']['ApiResponsePreviewResp']
+        }
+      }
+    }
+  }
+  publishDraft: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        type: string
+        code: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          '*/*': components['schemas']['ApiResponsePublishView']
+        }
+      }
+    }
+  }
+  previewDraft: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        type: string
+        code: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          '*/*': components['schemas']['ApiResponsePreviewView']
         }
       }
     }
@@ -5343,6 +5692,29 @@ export interface operations {
       }
     }
   }
+  snapshot: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        type: string
+        code: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          '*/*': components['schemas']['ApiResponseJsonNode']
+        }
+      }
+    }
+  }
   listScenes_1: {
     parameters: {
       query?: never
@@ -5359,6 +5731,29 @@ export interface operations {
         }
         content: {
           '*/*': components['schemas']['ApiResponseListSceneCardEntity']
+        }
+      }
+    }
+  }
+  revisions: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        type: string
+        code: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          '*/*': components['schemas']['ApiResponseListRevisionView']
         }
       }
     }
@@ -5421,6 +5816,28 @@ export interface operations {
         }
         content: {
           '*/*': components['schemas']['ApiResponseListExerciseLibraryEntity']
+        }
+      }
+    }
+  }
+  drafts: {
+    parameters: {
+      query?: {
+        type?: string
+      }
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          '*/*': components['schemas']['ApiResponseListDraftView']
         }
       }
     }

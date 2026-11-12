@@ -1,0 +1,22 @@
+# H-04 Checklist
+
+- [x] A1 `content_draft`/`content_revision` 迁移可执行，不改既有表
+- [x] A2 草稿保存/读取/列表/删除可用，live 内容与版本号不变
+- [x] A3 KG 四类内容合法样例通过校验
+- [x] A4 场景卡合法样例通过；difficulties/goalDimensions/openingLines/压力源闭集越界被阻断
+- [x] A5 练习合法样例通过；steps/applyEmotions/duration 越界被阻断
+- [x] A6 code 前缀/格式、字段超长、status 非法被阻断；status 0/2 归一化为下架
+- [x] A7 预览返回 errors/warnings/normalizedPayload，不写 live
+- [x] B1 发布仅接受合法草稿；revisionNo 递增；live 与快照一致；版本 bump
+- [x] B2 baseRevisionId 落后时发布返回 CONFLICT(2003)
+- [x] B3 回滚恢复历史内容并生成 ROLLBACK revision；非法旧快照拒绝且 live 不变
+- [x] B4 既有三类 PUT 仍可用，且生成 revision/校验/审计
+- [x] B5 草稿保存/删除/发布/回滚均落审计
+- [x] C1 管理端可载入快照、保存草稿、预览、发布、丢弃
+- [x] C2 管理端可查看历史版本并回滚
+- [x] C3 列表显示草稿标记；上下架仍可用
+- [x] D1 OpenAPI 新增端点与 revisionNo 字段，无其他漂移
+- [x] D2 前端/小程序生成类型同步
+- [x] D3 后端 461 例 0 失败；前端 112 例 + typecheck/build；小程序 20 例 + typecheck/lint
+- [x] D4 golden 15 场景字段路径一致
+- [x] D5 C guard PASS（C 类零改动；仅新增 V3 迁移）

@@ -339,6 +339,111 @@
         }
       }
     },
+    "/api/v1/admin/content/drafts/{type}/{code}" : {
+      "get" : {
+        "tags" : [ "content-admin-controller" ],
+        "operationId" : "draft",
+        "parameters" : [ {
+          "name" : "type",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "code",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseDraftView"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put" : {
+        "tags" : [ "content-admin-controller" ],
+        "operationId" : "saveDraft_1",
+        "parameters" : [ {
+          "name" : "type",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "code",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/DraftBody"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseDraftView"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete" : {
+        "tags" : [ "content-admin-controller" ],
+        "operationId" : "deleteDraft",
+        "parameters" : [ {
+          "name" : "type",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "code",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseVoid"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/users/me/delete" : {
       "post" : {
         "tags" : [ "account-controller" ],
@@ -1769,6 +1874,47 @@
         }
       }
     },
+    "/api/v1/admin/content/revisions/{type}/{code}/{revisionId}/rollback" : {
+      "post" : {
+        "tags" : [ "content-admin-controller" ],
+        "operationId" : "rollback",
+        "parameters" : [ {
+          "name" : "type",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "code",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "revisionId",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponsePublishView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/admin/content/refresh" : {
       "post" : {
         "tags" : [ "content-admin-controller" ],
@@ -1808,6 +1954,72 @@
               "*/*" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/ApiResponsePreviewResp"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/content/drafts/{type}/{code}/publish" : {
+      "post" : {
+        "tags" : [ "content-admin-controller" ],
+        "operationId" : "publishDraft",
+        "parameters" : [ {
+          "name" : "type",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "code",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponsePublishView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/content/drafts/{type}/{code}/preview" : {
+      "post" : {
+        "tags" : [ "content-admin-controller" ],
+        "operationId" : "previewDraft",
+        "parameters" : [ {
+          "name" : "type",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "code",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponsePreviewView"
                 }
               }
             }
@@ -2971,6 +3183,39 @@
         }
       }
     },
+    "/api/v1/admin/content/snapshot/{type}/{code}" : {
+      "get" : {
+        "tags" : [ "content-admin-controller" ],
+        "operationId" : "snapshot",
+        "parameters" : [ {
+          "name" : "type",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "code",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseJsonNode"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/admin/content/scenes" : {
       "get" : {
         "tags" : [ "content-admin-controller" ],
@@ -2982,6 +3227,39 @@
               "*/*" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/ApiResponseListSceneCardEntity"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/content/revisions/{type}/{code}" : {
+      "get" : {
+        "tags" : [ "content-admin-controller" ],
+        "operationId" : "revisions",
+        "parameters" : [ {
+          "name" : "type",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "name" : "code",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListRevisionView"
                 }
               }
             }
@@ -3044,6 +3322,32 @@
               "*/*" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/ApiResponseListExerciseLibraryEntity"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/admin/content/drafts" : {
+      "get" : {
+        "tags" : [ "content-admin-controller" ],
+        "operationId" : "drafts",
+        "parameters" : [ {
+          "name" : "type",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseListDraftView"
                 }
               }
             }
@@ -3443,6 +3747,10 @@
           },
           "effective" : {
             "type" : "boolean"
+          },
+          "revisionNo" : {
+            "type" : "integer",
+            "format" : "int32"
           }
         }
       },
@@ -3486,6 +3794,82 @@
           "status" : {
             "type" : "integer",
             "format" : "int32"
+          }
+        }
+      },
+      "DraftBody" : {
+        "type" : "object",
+        "properties" : {
+          "payload" : {
+            "$ref" : "#/components/schemas/JsonNode"
+          },
+          "baseRevisionId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "note" : {
+            "type" : "string"
+          }
+        }
+      },
+      "ApiResponseDraftView" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "msg" : {
+            "type" : "string"
+          },
+          "data" : {
+            "$ref" : "#/components/schemas/DraftView"
+          },
+          "traceId" : {
+            "type" : "string"
+          }
+        }
+      },
+      "DraftView" : {
+        "type" : "object",
+        "properties" : {
+          "contentType" : {
+            "type" : "string"
+          },
+          "code" : {
+            "type" : "string"
+          },
+          "payload" : {
+            "$ref" : "#/components/schemas/JsonNode"
+          },
+          "baseRevisionId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "note" : {
+            "type" : "string"
+          },
+          "updatedBy" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "updatedAt" : {
+            "type" : "string"
+          },
+          "valid" : {
+            "type" : "boolean"
+          },
+          "errors" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "warnings" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
           }
         }
       },
@@ -4706,6 +5090,52 @@
           }
         }
       },
+      "ApiResponsePublishView" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "msg" : {
+            "type" : "string"
+          },
+          "data" : {
+            "$ref" : "#/components/schemas/PublishView"
+          },
+          "traceId" : {
+            "type" : "string"
+          }
+        }
+      },
+      "PublishView" : {
+        "type" : "object",
+        "properties" : {
+          "contentType" : {
+            "type" : "string"
+          },
+          "code" : {
+            "type" : "string"
+          },
+          "revisionNo" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "contentVersion" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "effective" : {
+            "type" : "boolean"
+          },
+          "warnings" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          }
+        }
+      },
       "ApiResponseContentVersionResp" : {
         "type" : "object",
         "properties" : {
@@ -4794,6 +5224,67 @@
           "costMs" : {
             "type" : "integer",
             "format" : "int64"
+          }
+        }
+      },
+      "ApiResponsePreviewView" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "msg" : {
+            "type" : "string"
+          },
+          "data" : {
+            "$ref" : "#/components/schemas/PreviewView"
+          },
+          "traceId" : {
+            "type" : "string"
+          }
+        }
+      },
+      "PreviewView" : {
+        "type" : "object",
+        "properties" : {
+          "contentType" : {
+            "type" : "string"
+          },
+          "code" : {
+            "type" : "string"
+          },
+          "valid" : {
+            "type" : "boolean"
+          },
+          "errors" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "warnings" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "normalizedPayload" : {
+            "$ref" : "#/components/schemas/JsonNode"
+          },
+          "summary" : {
+            "type" : "string"
+          },
+          "baseRevisionId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "latestRevisionId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "conflict" : {
+            "type" : "boolean"
           }
         }
       },
@@ -6510,6 +7001,57 @@
           }
         }
       },
+      "ApiResponseListRevisionView" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "msg" : {
+            "type" : "string"
+          },
+          "data" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/RevisionView"
+            }
+          },
+          "traceId" : {
+            "type" : "string"
+          }
+        }
+      },
+      "RevisionView" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "revisionNo" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "action" : {
+            "type" : "string"
+          },
+          "sourceRevisionId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "publishedBy" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "publishedAt" : {
+            "type" : "string"
+          },
+          "summary" : {
+            "type" : "string"
+          }
+        }
+      },
       "ApiResponseListKgNodeEntity" : {
         "type" : "object",
         "properties" : {
@@ -6715,6 +7257,27 @@
           "status" : {
             "type" : "integer",
             "format" : "int32"
+          }
+        }
+      },
+      "ApiResponseListDraftView" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "msg" : {
+            "type" : "string"
+          },
+          "data" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/DraftView"
+            }
+          },
+          "traceId" : {
+            "type" : "string"
           }
         }
       },

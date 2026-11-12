@@ -25,8 +25,8 @@ public class ContentAdminDtos {
     public record PreviewResp(String template, String system, String output, String model,
                               int tokensIn, int tokensOut, long costMs) {}
 
-    /** 内容 upsert 回执：写成功即 bump 内容版本并立即生效。 */
-    public record ContentWriteResp(String code, long contentVersion, boolean effective) {}
+    /** 内容 upsert 回执：写成功即 bump 内容版本并立即生效；H-04 追加 revisionNo。 */
+    public record ContentWriteResp(String code, long contentVersion, boolean effective, int revisionNo) {}
 
     public record ContentVersionResp(long contentVersion) {}
 }

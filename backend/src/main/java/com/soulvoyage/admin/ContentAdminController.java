@@ -9,6 +9,12 @@ import com.soulvoyage.admin.dto.ContentAdminDtos.KgAuditNode;
 import com.soulvoyage.admin.dto.ContentAdminDtos.KgAuditRelation;
 import com.soulvoyage.admin.dto.ContentAdminDtos.KgGraphAuditResp;
 import com.soulvoyage.admin.dto.ContentAdminDtos.PreviewResp;
+import com.soulvoyage.domain.content.ContentOpsService;
+import com.soulvoyage.domain.content.ContentType;
+import com.soulvoyage.domain.content.dto.ContentOpsDtos.DraftView;
+import com.soulvoyage.domain.content.dto.ContentOpsDtos.PreviewView;
+import com.soulvoyage.domain.content.dto.ContentOpsDtos.PublishView;
+import com.soulvoyage.domain.content.dto.ContentOpsDtos.RevisionView;
 import com.soulvoyage.audit.AuditService;
 import com.soulvoyage.auth.AuthPrincipal;
 import com.soulvoyage.common.api.ApiResponse;
@@ -16,11 +22,8 @@ import com.soulvoyage.common.api.ErrorCode;
 import com.soulvoyage.common.exception.BizException;
 import com.soulvoyage.domain.content.ContentStore;
 import com.soulvoyage.domain.content.ExerciseLibraryEntity;
-import com.soulvoyage.domain.content.ExerciseLibraryRepository;
 import com.soulvoyage.domain.content.KgNodeEntity;
-import com.soulvoyage.domain.content.KgNodeRepository;
 import com.soulvoyage.domain.content.SceneCardEntity;
-import com.soulvoyage.domain.content.SceneCardRepository;
 import com.soulvoyage.kg.Neo4jKgService;
 import com.soulvoyage.llm.LlmClient;
 import com.soulvoyage.llm.PromptTemplates;
@@ -46,10 +49,8 @@ public class ContentAdminController {
 
     private static final List<String> KG_TYPES = List.of("DISTORTION", "PSY_TOPIC", "COMM_CASE", "STRENGTH_TECH");
 
-    private final KgNodeRepository kgRepo;
-    private final SceneCardRepository sceneRepo;
-    private final ExerciseLibraryRepository exerciseRepo;
     private final ContentStore store;
+    private final ContentOpsService ops;
     private final AuditService audit;
     private final ObjectMapper mapper;
     private final PromptTemplates prompts;
@@ -67,12 +68,14 @@ public class ContentAdminController {
     public record ExerciseBody(String name, List<String> applyEmotions, JsonNode steps,
                                Integer durationMin, Short status) {}
 
+    /** H-04 草稿保存请求：payload 允许暂时不完整，发布前统一校验。 */
+    public record DraftBody(JsonNode payload, Long baseRevisionId, String note) {}
+
     // ---------------- 读（管理视角，含下架行） ----------------
 
     @GetMapping("/kg")
     public ApiResponse<List<KgNodeEntity>> listKg(@RequestParam(required = false) String type) {
-        return ApiResponse.ok(type == null || type.isBlank()
-                ? kgRepo.findAll() : kgRepo.findByTypeAndStatus(type, (short) 1));
+        return ApiResponse.ok(ops.listKg(type));
     }
 
     /**
@@ -93,12 +96,12 @@ public class ContentAdminController {
 
     @GetMapping("/scenes")
     public ApiResponse<List<SceneCardEntity>> listScenes() {
-        return ApiResponse.ok(sceneRepo.findAll());
+        return ApiResponse.ok(ops.listScenes());
     }
 
     @GetMapping("/exercises")
     public ApiResponse<List<ExerciseLibraryEntity>> listExercises() {
-        return ApiResponse.ok(exerciseRepo.findAll());
+        return ApiResponse.ok(ops.listExercises());
     }
 
     // ---------------- 写（upsert + 版本 bump + 审计） ----------------
@@ -106,7 +109,7 @@ public class ContentAdminController {
     @PutMapping("/kg/{code}")
     public ApiResponse<ContentWriteResp> upsertKg(@AuthenticationPrincipal AuthPrincipal p,
                                                   @PathVariable String code, @RequestBody KgBody body) {
-        KgNodeEntity e = kgRepo.findByCode(code).orElseGet(() -> {
+        KgNodeEntity e = ops.findKg(code).orElseGet(() -> {
             if (body.type() == null || !KG_TYPES.contains(body.type()))
                 throw new BizException(ErrorCode.BAD_PARAMS, "新建知识节点需要合法 type");
             KgNodeEntity n = new KgNodeEntity();
@@ -123,14 +126,14 @@ public class ContentAdminController {
         if (body.status() != null) e.setStatus(body.status());
         if (e.getName() == null || e.getPayloadJson() == null)
             throw new BizException(ErrorCode.BAD_PARAMS, "缺少 name/payload");
-        kgRepo.save(e);
-        return published(p, "KG_UPSERT", code);
+        PublishView pv = ops.publishDirect(p.userId(), ContentType.KG, code, ops.snapshot(e), "KG_UPSERT");
+        return ApiResponse.ok(new ContentWriteResp(code, pv.contentVersion(), pv.effective(), pv.revisionNo()));
     }
 
     @PutMapping("/scenes/{code}")
     public ApiResponse<ContentWriteResp> upsertScene(@AuthenticationPrincipal AuthPrincipal p,
                                                      @PathVariable String code, @RequestBody SceneBody body) {
-        SceneCardEntity e = sceneRepo.findByCode(code).orElseGet(() -> {
+        SceneCardEntity e = ops.findScene(code).orElseGet(() -> {
             SceneCardEntity n = new SceneCardEntity();
             n.setCode(code);
             return n;
@@ -155,8 +158,8 @@ public class ContentAdminController {
             throw new BizException(ErrorCode.BAD_PARAMS, "新建场景卡需要 title/description");
         if (e.getGoalDimensions() == null) e.setGoalDimensions("[]");
         if (e.getMaxTurns() == null) e.setMaxTurns(20);
-        sceneRepo.save(e);
-        return published(p, "SCENE_UPSERT", code);
+        PublishView pv = ops.publishDirect(p.userId(), ContentType.SCENE, code, ops.snapshot(e), "SCENE_UPSERT");
+        return ApiResponse.ok(new ContentWriteResp(code, pv.contentVersion(), pv.effective(), pv.revisionNo()));
     }
 
     @PutMapping("/exercises/{code}")
@@ -164,7 +167,7 @@ public class ContentAdminController {
                                                         @PathVariable String code,
                                                         @RequestBody ExerciseBody body) {
         if (!code.startsWith("ex_")) throw new BizException(ErrorCode.BAD_PARAMS, "练习编码须为 ex_* 小写");
-        ExerciseLibraryEntity e = exerciseRepo.findByCode(code).orElseGet(() -> {
+        ExerciseLibraryEntity e = ops.findExercise(code).orElseGet(() -> {
             ExerciseLibraryEntity n = new ExerciseLibraryEntity();
             n.setCode(code);
             return n;
@@ -176,8 +179,8 @@ public class ContentAdminController {
         if (body.status() != null) e.setStatus(body.status());
         if (e.getName() == null || e.getApplyEmotions() == null || e.getStepsJson() == null)
             throw new BizException(ErrorCode.BAD_PARAMS, "新建练习需要 name/applyEmotions/steps");
-        exerciseRepo.save(e);
-        return published(p, "EXERCISE_UPSERT", code);
+        PublishView pv = ops.publishDirect(p.userId(), ContentType.EXERCISE, code, ops.snapshot(e), "EXERCISE_UPSERT");
+        return ApiResponse.ok(new ContentWriteResp(code, pv.contentVersion(), pv.effective(), pv.revisionNo()));
     }
 
     /** 手动强制刷新（管理端改完库后校对用）；返回当前版本号 */
@@ -186,6 +189,61 @@ public class ContentAdminController {
         long v = store.bump();
         audit.record(p.userId(), "CONTENT_REFRESH", "content:version", null);
         return ApiResponse.ok(new ContentVersionResp(v));
+    }
+
+    // ---------------- H-04 草稿 / 预览 / 发布 / 回滚 ----------------
+
+    @GetMapping("/snapshot/{type}/{code}")
+    public ApiResponse<JsonNode> snapshot(@PathVariable String type, @PathVariable String code) {
+        return ApiResponse.ok(ops.snapshot(ContentType.parse(type), code));
+    }
+
+    @GetMapping("/drafts")
+    public ApiResponse<List<DraftView>> drafts(@RequestParam(required = false) String type) {
+        return ApiResponse.ok(ops.drafts(type));
+    }
+
+    @GetMapping("/drafts/{type}/{code}")
+    public ApiResponse<DraftView> draft(@PathVariable String type, @PathVariable String code) {
+        return ApiResponse.ok(ops.getDraft(ContentType.parse(type), code));
+    }
+
+    @PutMapping("/drafts/{type}/{code}")
+    public ApiResponse<DraftView> saveDraft(@AuthenticationPrincipal AuthPrincipal p,
+                                            @PathVariable String type, @PathVariable String code,
+                                            @RequestBody DraftBody body) {
+        return ApiResponse.ok(ops.saveDraft(p.userId(), ContentType.parse(type), code,
+                body.payload(), body.baseRevisionId(), body.note()));
+    }
+
+    @DeleteMapping("/drafts/{type}/{code}")
+    public ApiResponse<Void> deleteDraft(@AuthenticationPrincipal AuthPrincipal p,
+                                         @PathVariable String type, @PathVariable String code) {
+        ops.deleteDraft(p.userId(), ContentType.parse(type), code);
+        return ApiResponse.ok(null);
+    }
+
+    @PostMapping("/drafts/{type}/{code}/preview")
+    public ApiResponse<PreviewView> previewDraft(@PathVariable String type, @PathVariable String code) {
+        return ApiResponse.ok(ops.preview(ContentType.parse(type), code));
+    }
+
+    @PostMapping("/drafts/{type}/{code}/publish")
+    public ApiResponse<PublishView> publishDraft(@AuthenticationPrincipal AuthPrincipal p,
+                                                 @PathVariable String type, @PathVariable String code) {
+        return ApiResponse.ok(ops.publishDraft(p.userId(), ContentType.parse(type), code));
+    }
+
+    @GetMapping("/revisions/{type}/{code}")
+    public ApiResponse<List<RevisionView>> revisions(@PathVariable String type, @PathVariable String code) {
+        return ApiResponse.ok(ops.revisions(ContentType.parse(type), code));
+    }
+
+    @PostMapping("/revisions/{type}/{code}/{revisionId}/rollback")
+    public ApiResponse<PublishView> rollback(@AuthenticationPrincipal AuthPrincipal p,
+                                             @PathVariable String type, @PathVariable String code,
+                                             @PathVariable long revisionId) {
+        return ApiResponse.ok(ops.rollback(p.userId(), ContentType.parse(type), code, revisionId));
     }
 
     // ---------------- A3 预览试跑 ----------------
@@ -239,11 +297,5 @@ public class ContentAdminController {
         } catch (Exception ex) {
             throw new BizException(ErrorCode.BAD_PARAMS, "场景卡内部数据损坏，请联系管理员修复");
         }
-    }
-
-    private ApiResponse<ContentWriteResp> published(AuthPrincipal p, String action, String code) {
-        long v = store.bump();
-        audit.record(p.userId(), action, "content:" + code, null);
-        return ApiResponse.ok(new ContentWriteResp(code, v, true));
     }
 }

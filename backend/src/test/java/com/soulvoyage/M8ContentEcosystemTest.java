@@ -111,7 +111,7 @@ class M8ContentEcosystemTest {
         var adminPrincipal = new AuthPrincipal(uid, "ADMIN");
         long v0 = store.bump();
 
-        String code = "pt_m8_" + System.nanoTime();
+        String code = "psy_m8_" + System.nanoTime();
         ObjectNode payload = mapper.createObjectNode()
                 .put("summary", "M8 热更新验证用摘要")
                 .put("microAction", "读完后写下标题里的关键词")
@@ -135,11 +135,12 @@ class M8ContentEcosystemTest {
         // 场景卡 upsert 同样即时生效
         String sceneCode = "M8_HOT_SCENE";
         asAdmin(adminPrincipal, () -> admin.upsertScene(adminPrincipal, sceneCode, new ContentAdminController.SceneBody(
-                "热更新新场景", "管理端写入的场景描述", List.of("日常相处"), "热更NPC", "同学",
+                "热更新新场景", "管理端写入的场景描述", List.of("MILD", "NORMAL"), "热更NPC", "同学",
                 mapper.createObjectNode().put("motivation", "m").put("bottomLine", "b")
                         .put("triggers", "t").put("style", "s"),
                 List.of("LISTEN"), 8,
-                mapper.createObjectNode().put("NORMAL", "（热更新开场白）你先说。"),
+                mapper.createObjectNode().put("MILD", "（热更新开场白·轻）你先说。")
+                        .put("NORMAL", "（热更新开场白）你先说。"),
                 List.of("人际冲突"), List.of("学业压力"), (short) 1)));
         var added = store.scenes().stream().filter(s -> s.code().equals(sceneCode)).findFirst();
         assertTrue(added.isPresent(), "新场景应立即出现在快照");

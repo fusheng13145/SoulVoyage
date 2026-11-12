@@ -12,12 +12,15 @@ import com.soulvoyage.auth.AuthPrincipal;
 import com.soulvoyage.common.api.ErrorCode;
 import com.soulvoyage.common.exception.BizException;
 import com.soulvoyage.domain.content.ContentStore;
+import com.soulvoyage.domain.content.ContentOpsService;
+import com.soulvoyage.domain.content.ContentType;
+import com.soulvoyage.domain.content.dto.ContentOpsDtos.DraftView;
+import com.soulvoyage.domain.content.dto.ContentOpsDtos.PreviewView;
+import com.soulvoyage.domain.content.dto.ContentOpsDtos.PublishView;
+import com.soulvoyage.domain.content.dto.ContentOpsDtos.RevisionView;
 import com.soulvoyage.domain.content.ExerciseLibraryEntity;
-import com.soulvoyage.domain.content.ExerciseLibraryRepository;
 import com.soulvoyage.domain.content.KgNodeEntity;
-import com.soulvoyage.domain.content.KgNodeRepository;
 import com.soulvoyage.domain.content.SceneCardEntity;
-import com.soulvoyage.domain.content.SceneCardRepository;
 import com.soulvoyage.kg.Neo4jKgService;
 import com.soulvoyage.llm.LlmClient;
 import com.soulvoyage.llm.PromptTemplates;
@@ -42,6 +45,8 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -58,10 +63,8 @@ import static org.mockito.Mockito.when;
 @MockitoSettings(strictness = Strictness.LENIENT)
 class ContentAdminControllerTest {
 
-    @Mock KgNodeRepository kgRepo;
-    @Mock SceneCardRepository sceneRepo;
-    @Mock ExerciseLibraryRepository exerciseRepo;
     @Mock ContentStore store;
+    @Mock ContentOpsService ops;
     @Mock AuditService audit;
     @Mock PromptTemplates prompts;
     @Mock LlmClient llm;
@@ -74,9 +77,16 @@ class ContentAdminControllerTest {
 
     @BeforeEach
     void setUp() {
-        controller = new ContentAdminController(kgRepo, sceneRepo, exerciseRepo, store, audit,
+        controller = new ContentAdminController(store, ops, audit,
                 mapper, prompts, llm, neo4jKg);
         when(store.bump()).thenReturn(42L);
+        when(ops.snapshot(any(KgNodeEntity.class))).thenReturn(mapper.createObjectNode());
+        when(ops.snapshot(any(SceneCardEntity.class))).thenReturn(mapper.createObjectNode());
+        when(ops.snapshot(any(ExerciseLibraryEntity.class))).thenReturn(mapper.createObjectNode());
+        when(ops.publishDirect(anyLong(), any(ContentType.class), anyString(), any(), anyString()))
+                .thenAnswer(inv -> new PublishView(
+                        ((ContentType) inv.getArgument(1)).name(), inv.getArgument(2),
+                        1, 42L, true, List.of()));
     }
 
     private ObjectNode obj(String json) throws Exception {
@@ -95,21 +105,20 @@ class ContentAdminControllerTest {
     void listKgFiltersByType() {
         KgNodeEntity a = new KgNodeEntity();
         a.setCode("d1");
-        when(kgRepo.findAll()).thenReturn(List.of(a));
-        when(kgRepo.findByTypeAndStatus("DISTORTION", (short) 1)).thenReturn(List.of(a));
+        when(ops.listKg(null)).thenReturn(List.of(a));
+        when(ops.listKg("   ")).thenReturn(List.of(a));
+        when(ops.listKg("DISTORTION")).thenReturn(List.of(a));
 
         assertEquals(1, controller.listKg(null).getData().size());
         assertEquals(1, controller.listKg("   ").getData().size());
         assertEquals(1, controller.listKg("DISTORTION").getData().size());
-
-        verify(kgRepo, never()).findByTypeAndStatus(eq(""), any());
     }
 
     @Test
     @DisplayName("listScenes / listExercises：管理视角返回全量含下架")
     void listScenesAndExercisesReturnAll() {
-        when(sceneRepo.findAll()).thenReturn(List.of(new SceneCardEntity()));
-        when(exerciseRepo.findAll()).thenReturn(List.of(new ExerciseLibraryEntity()));
+        when(ops.listScenes()).thenReturn(List.of(new SceneCardEntity()));
+        when(ops.listExercises()).thenReturn(List.of(new ExerciseLibraryEntity()));
 
         assertEquals(1, controller.listScenes().getData().size());
         assertEquals(1, controller.listExercises().getData().size());
@@ -153,7 +162,7 @@ class ContentAdminControllerTest {
         exist.setType("DISTORTION");
         exist.setName("旧名");
         exist.setPayloadJson("{}");
-        when(kgRepo.findByCode("d1")).thenReturn(Optional.of(exist));
+        when(ops.findKg("d1")).thenReturn(Optional.of(exist));
 
         ContentAdminController.KgBody body = new ContentAdminController.KgBody(
                 null, "灾难化", obj("{\"definition\":\"x\"}"), (short) 2);
@@ -166,21 +175,21 @@ class ContentAdminControllerTest {
         assertEquals("d1", data.code());
         assertEquals(42L, data.contentVersion());
         assertEquals(true, data.effective());
-        verify(kgRepo).save(exist);
-        verify(audit).record(1L, "KG_UPSERT", "content:d1", null);
+        assertEquals(1, data.revisionNo());
+        verify(ops).publishDirect(eq(1L), eq(ContentType.KG), eq("d1"), any(), eq("KG_UPSERT"));
     }
 
     @Test
     @DisplayName("upsertKg：新建节点必须有合法 type 与 name/payload")
     void upsertKgCreatesNewNodeWithValidType() throws Exception {
-        when(kgRepo.findByCode("d9")).thenReturn(Optional.empty());
+        when(ops.findKg("d9")).thenReturn(Optional.empty());
 
         ContentAdminController.KgBody body = new ContentAdminController.KgBody(
                 "PSY_TOPIC", "情绪是什么", obj("{\"summary\":\"s\"}"), null);
         controller.upsertKg(admin, "d9", body);
 
         ArgumentCaptor<KgNodeEntity> c = ArgumentCaptor.forClass(KgNodeEntity.class);
-        verify(kgRepo).save(c.capture());
+        verify(ops).snapshot(c.capture());
         assertEquals("d9", c.getValue().getCode());
         assertEquals("PSY_TOPIC", c.getValue().getType());
     }
@@ -188,7 +197,7 @@ class ContentAdminControllerTest {
     @Test
     @DisplayName("upsertKg：新建时缺 type 或 type 未知一律拒绝")
     void upsertKgRejectsNewNodeWithoutValidType() throws Exception {
-        when(kgRepo.findByCode("d9")).thenReturn(Optional.empty());
+        when(ops.findKg("d9")).thenReturn(Optional.empty());
 
         BizException missing = assertThrows(BizException.class, () -> controller.upsertKg(admin, "d9",
                 new ContentAdminController.KgBody(null, "n", obj("{}"), null)));
@@ -207,7 +216,7 @@ class ContentAdminControllerTest {
         exist.setType("DISTORTION");
         exist.setName("n");
         exist.setPayloadJson("{}");
-        when(kgRepo.findByCode("d1")).thenReturn(Optional.of(exist));
+        when(ops.findKg("d1")).thenReturn(Optional.of(exist));
 
         BizException ex = assertThrows(BizException.class, () -> controller.upsertKg(admin, "d1",
                 new ContentAdminController.KgBody("BOGUS", null, null, null)));
@@ -218,13 +227,13 @@ class ContentAdminControllerTest {
     @Test
     @DisplayName("upsertKg：合并后仍缺 name 或 payload 时拒绝落库")
     void upsertKgRejectsIncompleteNode() throws Exception {
-        when(kgRepo.findByCode("d9")).thenReturn(Optional.empty());
+        when(ops.findKg("d9")).thenReturn(Optional.empty());
 
         BizException ex = assertThrows(BizException.class, () -> controller.upsertKg(admin, "d9",
                 new ContentAdminController.KgBody("DISTORTION", null, obj("{}"), null)));
 
         assertEquals(ErrorCode.BAD_PARAMS, ex.getErrorCode());
-        verify(kgRepo, never()).save(any());
+        verify(ops, never()).publishDirect(anyLong(), any(), anyString(), any(), anyString());
     }
 
     // ---------------- upsertScene ----------------
@@ -232,7 +241,7 @@ class ContentAdminControllerTest {
     @Test
     @DisplayName("upsertScene：新建场景卡补齐默认考察维度与回合上限")
     void upsertSceneCreatesWithDefaults() {
-        when(sceneRepo.findByCode("sc_new")).thenReturn(Optional.empty());
+        when(ops.findScene("sc_new")).thenReturn(Optional.empty());
 
         ContentAdminController.SceneBody body = new ContentAdminController.SceneBody(
                 "宿舍冲突", "和室友的边界", List.of("MILD", "HARD"), null, null, null, null, null, null,
@@ -241,7 +250,7 @@ class ContentAdminControllerTest {
         controller.upsertScene(admin, "sc_new", body);
 
         ArgumentCaptor<SceneCardEntity> c = ArgumentCaptor.forClass(SceneCardEntity.class);
-        verify(sceneRepo).save(c.capture());
+        verify(ops).snapshot(c.capture());
         assertEquals("MILD,HARD", c.getValue().getDifficulties());
         assertEquals("沟通", c.getValue().getTags());
         assertEquals("人际冲突", c.getValue().getRecommendedFor());
@@ -253,7 +262,7 @@ class ContentAdminControllerTest {
     @Test
     @DisplayName("upsertScene：新建缺 title/description 时拒绝")
     void upsertSceneRejectsIncompleteNewCard() {
-        when(sceneRepo.findByCode("sc_new")).thenReturn(Optional.empty());
+        when(ops.findScene("sc_new")).thenReturn(Optional.empty());
 
         BizException ex = assertThrows(BizException.class, () -> controller.upsertScene(admin, "sc_new",
                 new ContentAdminController.SceneBody(null, null, null, null, null, null, null, null, null,
@@ -270,7 +279,7 @@ class ContentAdminControllerTest {
         exist.setTitle("旧标题");
         exist.setDescription("旧描述");
         exist.setPersonaJson("{\"npcName\":\"旧 NPC\",\"relation\":\"室友\",\"persona\":{\"tone\":\"hard\"}}");
-        when(sceneRepo.findByCode("sc1")).thenReturn(Optional.of(exist));
+        when(ops.findScene("sc1")).thenReturn(Optional.of(exist));
 
         ContentAdminController.SceneBody body = new ContentAdminController.SceneBody(
                 null, null, null, "新 NPC", null, null, List.of("LISTEN", "BOUNDARY"), 30, null, null, null, null);
@@ -294,7 +303,7 @@ class ContentAdminControllerTest {
         exist.setTitle("t");
         exist.setDescription("d");
         exist.setPersonaJson("{ 这不是 JSON");
-        when(sceneRepo.findByCode("sc1")).thenReturn(Optional.of(exist));
+        when(ops.findScene("sc1")).thenReturn(Optional.of(exist));
 
         BizException ex = assertThrows(BizException.class, () -> controller.upsertScene(admin, "sc1",
                 new ContentAdminController.SceneBody(null, null, null, "n", null, null, null, null, null,
@@ -318,19 +327,19 @@ class ContentAdminControllerTest {
     @Test
     @DisplayName("upsertExercise：新建缺 name/applyEmotions/steps 时拒绝")
     void upsertExerciseRejectsIncompleteNewRecord() {
-        when(exerciseRepo.findByCode("ex_new")).thenReturn(Optional.empty());
+        when(ops.findExercise("ex_new")).thenReturn(Optional.empty());
 
         BizException ex = assertThrows(BizException.class, () -> controller.upsertExercise(admin, "ex_new",
                 new ContentAdminController.ExerciseBody("只有名字", null, null, null, null)));
 
         assertEquals(ErrorCode.BAD_PARAMS, ex.getErrorCode());
-        verify(exerciseRepo, never()).save(any());
+        verify(ops, never()).publishDirect(anyLong(), any(), anyString(), any(), anyString());
     }
 
     @Test
     @DisplayName("upsertExercise：正常写入并 bump 版本、落审计")
     void upsertExercisePersistsAndBumps() throws Exception {
-        when(exerciseRepo.findByCode("ex_478_breath")).thenReturn(Optional.empty());
+        when(ops.findExercise("ex_478_breath")).thenReturn(Optional.empty());
 
         ContentAdminController.ExerciseBody body = new ContentAdminController.ExerciseBody(
                 "4-7-8 呼吸", List.of("焦虑", "愤怒"), node("[{\"step\":\"吸气\"}]"), 3, (short) 1);
@@ -338,13 +347,14 @@ class ContentAdminControllerTest {
         ContentWriteResp data = controller.upsertExercise(admin, "ex_478_breath", body).getData();
 
         ArgumentCaptor<ExerciseLibraryEntity> c = ArgumentCaptor.forClass(ExerciseLibraryEntity.class);
-        verify(exerciseRepo).save(c.capture());
+        verify(ops).snapshot(c.capture());
         assertEquals("4-7-8 呼吸", c.getValue().getName());
         assertEquals("[\"焦虑\",\"愤怒\"]", c.getValue().getApplyEmotions());
         assertEquals("[{\"step\":\"吸气\"}]", c.getValue().getStepsJson());
         assertEquals((short) 3, c.getValue().getDurationMin());
         assertEquals(42L, data.contentVersion());
-        verify(audit).record(1L, "EXERCISE_UPSERT", "content:ex_478_breath", null);
+        verify(ops).publishDirect(eq(1L), eq(ContentType.EXERCISE), eq("ex_478_breath"), any(),
+                eq("EXERCISE_UPSERT"));
     }
 
     // ---------------- refresh / preview ----------------
@@ -419,5 +429,56 @@ class ContentAdminControllerTest {
         assertEquals("SYS-RENDERED", data.system());
         assertNotNull(data.output());
         assertFalse(String.valueOf(data.template()).isBlank());
+    }
+
+    // ---------------- H-04 草稿 / 预览 / 发布 / 回滚 ----------------
+
+    @Test
+    @DisplayName("H-04：snapshot/drafts/getDraft 透传 ContentType 与 code")
+    void contentOpsReadEndpointsDelegate() throws Exception {
+        when(ops.snapshot(ContentType.KG, "cd_x"))
+                .thenReturn(mapper.createObjectNode().put("name", "n"));
+        DraftView dv = new DraftView("KG", "cd_x", mapper.createObjectNode(), 7L, "备注",
+                1L, "2026-11-12T00:00:00Z", true, List.of(), List.of());
+        when(ops.drafts("kg")).thenReturn(List.of(dv));
+        when(ops.getDraft(ContentType.KG, "cd_x")).thenReturn(dv);
+
+        assertEquals("n", controller.snapshot("kg", "cd_x").getData().path("name").asText());
+        assertEquals(1, controller.drafts("kg").getData().size());
+        assertEquals("cd_x", controller.draft("kg", "cd_x").getData().code());
+    }
+
+    @Test
+    @DisplayName("H-04：saveDraft/preview/publish/delete 透传参数")
+    void contentOpsWriteEndpointsDelegate() throws Exception {
+        ObjectNode payload = obj("{\"name\":\"n\"}");
+        DraftView dv = new DraftView("KG", "cd_x", payload, null, null,
+                1L, "t", true, List.of(), List.of());
+        PreviewView pv = new PreviewView("KG", "cd_x", true, List.of(), List.of(),
+                payload, "KG", null, null, false);
+        PublishView pub = new PublishView("KG", "cd_x", 2, 9L, true, List.of());
+        when(ops.saveDraft(1L, ContentType.KG, "cd_x", payload, 7L, "备注")).thenReturn(dv);
+        when(ops.preview(ContentType.KG, "cd_x")).thenReturn(pv);
+        when(ops.publishDraft(1L, ContentType.KG, "cd_x")).thenReturn(pub);
+
+        assertEquals("cd_x", controller.saveDraft(admin, "kg", "cd_x",
+                new ContentAdminController.DraftBody(payload, 7L, "备注")).getData().code());
+        assertTrue(controller.previewDraft("kg", "cd_x").getData().valid());
+        assertEquals(2, controller.publishDraft(admin, "kg", "cd_x").getData().revisionNo());
+        controller.deleteDraft(admin, "kg", "cd_x");
+        verify(ops).deleteDraft(1L, ContentType.KG, "cd_x");
+    }
+
+    @Test
+    @DisplayName("H-04：revisions/rollback 透传 ContentType 与 revisionId")
+    void contentOpsHistoryEndpointsDelegate() {
+        RevisionView rv = new RevisionView(3L, 2, "PUBLISH", null, 1L, "t", "DISTORTION · 灾难化");
+        PublishView pub = new PublishView("KG", "cd_x", 3, 10L, true, List.of());
+        when(ops.revisions(ContentType.KG, "cd_x")).thenReturn(List.of(rv));
+        when(ops.rollback(1L, ContentType.KG, "cd_x", 3L)).thenReturn(pub);
+
+        assertEquals(1, controller.revisions("kg", "cd_x").getData().size());
+        assertEquals(3, controller.rollback(admin, "kg", "cd_x", 3L).getData().revisionNo());
+        verify(ops).rollback(1L, ContentType.KG, "cd_x", 3L);
     }
 }

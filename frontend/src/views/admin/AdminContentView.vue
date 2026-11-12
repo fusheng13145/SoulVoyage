@@ -1,5 +1,5 @@
 ﻿<script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onMounted, ref, computed } from 'vue'
 import AdminShell from '@/components/AdminShell.vue'
 import SvCard from '@/components/ui/SvCard.vue'
 import {
@@ -11,10 +11,22 @@ import {
   upsertExerciseStatus,
   refreshContent,
   previewPrompt,
+  getContentSnapshot,
+  listContentDrafts,
+  getContentDraft,
+  saveContentDraft,
+  deleteContentDraft,
+  previewContentDraft,
+  publishContentDraft,
+  listContentRevisions,
+  rollbackContentRevision,
   type KgNode,
   type SceneCard,
   type ExerciseItem,
   type PreviewResp,
+  type ContentDraft,
+  type ContentPreview,
+  type ContentRevision,
 } from '@/api/admin'
 import { toast } from '@/stores/ui'
 
@@ -31,6 +43,14 @@ const kg = ref<KgNode[]>([])
 const scenes = ref<SceneCard[]>([])
 const exercises = ref<ExerciseItem[]>([])
 const expanded = ref<string>('')
+const drafts = ref<ContentDraft[]>([])
+
+const typePath = (t: Tab) => (t === 'kg' ? 'kg' : t === 'scenes' ? 'scene' : 'exercise')
+const contentTypeOf = (t: Tab) => (t === 'kg' ? 'KG' : t === 'scenes' ? 'SCENE' : 'EXERCISE')
+const draftMap = computed(
+  () => new Map(drafts.value.map(d => [`${d.contentType}:${d.code}`, d])),
+)
+const draftOf = (t: Tab, code: string) => draftMap.value.get(`${contentTypeOf(t)}:${code}`)
 
 const KG_TYPES = ['DISTORTION', 'PSY_TOPIC', 'COMM_CASE', 'STRENGTH_TECH']
 const KG_TYPE_LABEL: Record<string, string> = {
@@ -46,6 +66,7 @@ async function load() {
     if (tab.value === 'kg') kg.value = await listKg(kgType.value || undefined)
     else if (tab.value === 'scenes') scenes.value = await listScenes()
     else exercises.value = await listExercises()
+    drafts.value = await listContentDrafts(typePath(tab.value)).catch(() => [])
   } catch (e) {
     toast((e as Error).message || '内容没拉起来')
   } finally {
@@ -89,6 +110,156 @@ const pretty = (json: string | null | undefined) => {
     return JSON.stringify(JSON.parse(json), null, 2)
   } catch {
     return json
+  }
+}
+
+// —— H-04 草稿 / 校验预览 / 发布 / 回滚 ——
+const editorOpen = ref(false)
+const editorTab = ref<Tab>('kg')
+const editorType = ref('kg')
+const editorCode = ref('')
+const editorText = ref('')
+const editorBase = ref<number | null>(null)
+const editorBusy = ref(false)
+const editorPreview = ref<ContentPreview | null>(null)
+const editorRevisions = ref<ContentRevision[]>([])
+const latestRevisionNo = computed(() => editorRevisions.value[0]?.revisionNo ?? 0)
+const fmtTime = (s: string) => (s ? s.replace('T', ' ').slice(0, 19) : '—')
+
+async function openEditor(t: Tab, code: string) {
+  editorOpen.value = true
+  editorTab.value = t
+  editorType.value = typePath(t)
+  editorCode.value = code
+  editorBusy.value = true
+  editorPreview.value = null
+  try {
+    const draft = await getContentDraft(editorType.value, code).catch(() => null)
+    const payload = draft ? draft.payload : await getContentSnapshot(editorType.value, code)
+    editorBase.value = draft?.baseRevisionId ?? null
+    editorText.value = JSON.stringify(payload, null, 2)
+    await loadRevisions()
+  } catch (e) {
+    toast((e as Error).message || '载入内容失败')
+    editorOpen.value = false
+  } finally {
+    editorBusy.value = false
+  }
+}
+
+function closeEditor() {
+  editorOpen.value = false
+  editorPreview.value = null
+  editorRevisions.value = []
+}
+
+function parseEditor(): unknown | null {
+  try {
+    return JSON.parse(editorText.value)
+  } catch {
+    toast('内容必须是合法 JSON')
+    return null
+  }
+}
+
+async function loadRevisions() {
+  if (!editorOpen.value) return
+  editorRevisions.value = await listContentRevisions(editorType.value, editorCode.value).catch(
+    () => [],
+  )
+}
+
+async function persistDraft(): Promise<boolean> {
+  const payload = parseEditor()
+  if (payload === null) return false
+  const d = await saveContentDraft(editorType.value, editorCode.value, {
+    payload,
+    baseRevisionId: editorBase.value,
+  })
+  editorBase.value = d.baseRevisionId
+  return true
+}
+
+async function saveDraft() {
+  if (editorBusy.value) return
+  editorBusy.value = true
+  try {
+    if (await persistDraft()) {
+      toast('草稿已保存')
+      await load()
+      await loadRevisions()
+      editorPreview.value = await previewContentDraft(
+        editorType.value,
+        editorCode.value,
+      ).catch(() => null)
+    }
+  } catch (e) {
+    toast((e as Error).message || '保存草稿失败')
+  } finally {
+    editorBusy.value = false
+  }
+}
+
+async function previewDraft() {
+  if (editorBusy.value) return
+  editorBusy.value = true
+  try {
+    if (await persistDraft()) {
+      editorPreview.value = await previewContentDraft(editorType.value, editorCode.value)
+    }
+  } catch (e) {
+    toast((e as Error).message || '校验失败')
+  } finally {
+    editorBusy.value = false
+  }
+}
+
+async function publishDraft() {
+  if (!editorPreview.value?.valid || editorPreview.value?.conflict) {
+    toast('请先通过校验预览')
+    return
+  }
+  editorBusy.value = true
+  try {
+    const p = await publishContentDraft(editorType.value, editorCode.value)
+    toast(`已发布 v${p.revisionNo}（内容版本 v${p.contentVersion}）`)
+    closeEditor()
+    await load()
+  } catch (e) {
+    toast((e as Error).message || '发布失败')
+  } finally {
+    editorBusy.value = false
+  }
+}
+
+async function discardDraft() {
+  if (!window.confirm('丢弃这条草稿？')) return
+  editorBusy.value = true
+  try {
+    await deleteContentDraft(editorType.value, editorCode.value)
+    editorPreview.value = null
+    toast('草稿已丢弃')
+    await load()
+    await loadRevisions()
+  } catch (e) {
+    toast((e as Error).message || '丢弃失败')
+  } finally {
+    editorBusy.value = false
+  }
+}
+
+async function rollback(r: ContentRevision) {
+  if (!window.confirm(`回滚到 v${r.revisionNo}？会生成一条新的回滚版本。`)) return
+  editorBusy.value = true
+  try {
+    const p = await rollbackContentRevision(editorType.value, editorCode.value, r.id)
+    toast(`已回滚，新版本 v${p.revisionNo}`)
+    await load()
+    await openEditor(editorTab.value, editorCode.value)
+  } catch (e) {
+    toast((e as Error).message || '回滚失败')
+  } finally {
+    editorBusy.value = false
   }
 }
 
@@ -153,11 +324,13 @@ async function preview() {
           <span class="pill" :class="n.status === 1 ? 'ok' : 'off'">{{
             n.status === 1 ? '上架' : '下架'
           }}</span>
+          <span v-if="draftOf('kg', n.code)" class="pill draft">草稿</span>
           <span class="t-txt"
             ><b>{{ n.name }}</b
             ><small>{{ n.code }} · {{ KG_TYPE_LABEL[n.type] || n.type }}</small></span
           >
           <span class="acts">
+            <button class="btn tiny" @click.stop="openEditor('kg', n.code)">编辑</button>
             <button class="btn tiny" @click.stop="toggleStatus(n.code, n.status === 1 ? 0 : 1)">
               {{ n.status === 1 ? '下架' : '上架' }}
             </button>
@@ -171,11 +344,13 @@ async function preview() {
           <span class="pill" :class="s.status === 1 ? 'ok' : 'off'">{{
             s.status === 1 ? '上架' : '下架'
           }}</span>
+          <span v-if="draftOf('scenes', s.code)" class="pill draft">草稿</span>
           <span class="t-txt"
             ><b>{{ s.title }}</b
             ><small>{{ s.code }} · 标签 {{ s.tags || '—' }}</small></span
           >
           <span class="acts">
+            <button class="btn tiny" @click.stop="openEditor('scenes', s.code)">编辑</button>
             <button class="btn tiny" @click.stop="toggleStatus(s.code, s.status === 1 ? 0 : 1)">
               {{ s.status === 1 ? '下架' : '上架' }}
             </button>
@@ -192,11 +367,13 @@ async function preview() {
           <span class="pill" :class="x.status === 1 ? 'ok' : 'off'">{{
             x.status === 1 ? '上架' : '下架'
           }}</span>
+          <span v-if="draftOf('exercises', x.code)" class="pill draft">草稿</span>
           <span class="t-txt"
             ><b>{{ x.name }}</b
             ><small>{{ x.code }} · {{ x.durationMin ?? '—' }} 分钟</small></span
           >
           <span class="acts">
+            <button class="btn tiny" @click.stop="openEditor('exercises', x.code)">编辑</button>
             <button class="btn tiny" @click.stop="toggleStatus(x.code, x.status === 1 ? 0 : 1)">
               {{ x.status === 1 ? '下架' : '上架' }}
             </button>
@@ -205,6 +382,61 @@ async function preview() {
         <pre v-if="expanded === x.code" class="json">{{ pretty(x.stepsJson) }}</pre>
       </SvCard>
     </template>
+
+    <!-- H-04 内容编辑器：草稿 / 校验 / 发布 / 历史回滚 -->
+    <SvCard v-if="editorOpen" class="editor">
+      <div class="editor-head">
+        <h3>编辑 · {{ editorCode }}</h3>
+        <button class="btn tiny" @click="closeEditor">关闭</button>
+      </div>
+      <p class="muted">完整快照 JSON。保存草稿不会影响线上；发布前请先校验预览。</p>
+      <textarea v-model="editorText" class="in area mono" rows="18" spellcheck="false" />
+      <div class="editor-actions">
+        <button class="btn" :disabled="editorBusy" @click="saveDraft">保存草稿</button>
+        <button class="btn" :disabled="editorBusy" @click="previewDraft">校验预览</button>
+        <button
+          class="btn primary"
+          :disabled="editorBusy || !editorPreview?.valid || editorPreview?.conflict"
+          @click="publishDraft"
+        >
+          发布
+        </button>
+        <button class="btn" :disabled="editorBusy" @click="discardDraft">丢弃草稿</button>
+      </div>
+      <div v-if="editorPreview" class="pv-out">
+        <p class="muted">
+          {{ editorPreview.summary }} · {{ editorPreview.valid ? '校验通过' : '校验未通过' }}
+        </p>
+        <p v-if="editorPreview.conflict" class="err">
+          线上内容已被他人更新，请关闭后重新载入最新版本。
+        </p>
+        <ul v-if="editorPreview.errors.length" class="errs">
+          <li v-for="e in editorPreview.errors" :key="e">{{ e }}</li>
+        </ul>
+        <ul v-if="editorPreview.warnings.length" class="warns">
+          <li v-for="w in editorPreview.warnings" :key="w">{{ w }}</li>
+        </ul>
+      </div>
+      <div class="revs">
+        <div class="revs-head">
+          <b>历史版本</b>
+          <button class="btn tiny" @click="loadRevisions">刷新</button>
+        </div>
+        <p v-if="!editorRevisions.length" class="muted">还没有发布历史。</p>
+        <div v-for="r in editorRevisions" :key="r.id" class="rev">
+          <span class="rev-main">v{{ r.revisionNo }} · {{ r.action }} · {{ r.summary }}</span>
+          <span class="muted">{{ fmtTime(r.publishedAt) }}</span>
+          <button
+            v-if="r.revisionNo !== latestRevisionNo"
+            class="btn tiny"
+            :disabled="editorBusy"
+            @click="rollback(r)"
+          >
+            回滚
+          </button>
+        </div>
+      </div>
+    </SvCard>
 
     <!-- A3 预览试跑 -->
     <SvCard class="pv">
@@ -323,6 +555,76 @@ async function preview() {
 .pill.off {
   background: var(--sv-sep);
   color: var(--sv-label3);
+}
+.pill.draft {
+  background: color-mix(in srgb, var(--sv-indigo) 16%, transparent);
+  color: var(--sv-indigo);
+}
+.editor {
+  margin-top: var(--sv-s5, 20px);
+}
+.editor-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.editor-head h3 {
+  font-size: var(--sv-fs-subhead);
+  margin: 0;
+}
+.editor-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.err {
+  color: var(--sv-danger);
+  font-size: var(--sv-fs-caption1);
+}
+.errs,
+.warns {
+  margin: 6px 0;
+  padding-left: 18px;
+  font-size: var(--sv-fs-caption1);
+}
+.errs {
+  color: var(--sv-danger);
+}
+.warns {
+  color: var(--sv-warn);
+}
+.revs {
+  margin-top: 10px;
+  border-top: 1px solid var(--sv-sep);
+  padding-top: 10px;
+}
+.revs-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+.rev {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 0;
+  border-top: 1px solid var(--sv-sep);
+  font-size: var(--sv-fs-caption1);
+}
+.rev:first-of-type {
+  border-top: none;
+}
+.rev-main {
+  flex: 1;
+  min-width: 0;
 }
 [data-theme='dark'] .pill.ok {
   color: #6ee787;

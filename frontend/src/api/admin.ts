@@ -167,6 +167,48 @@ export interface ContentWriteResp {
   code: string
   contentVersion: number
   effective: boolean
+  revisionNo: number
+}
+export interface ContentDraft {
+  contentType: string
+  code: string
+  payload: unknown
+  baseRevisionId: number | null
+  note: string | null
+  updatedBy: number
+  updatedAt: string
+  valid: boolean
+  errors: string[]
+  warnings: string[]
+}
+export interface ContentPreview {
+  contentType: string
+  code: string
+  valid: boolean
+  errors: string[]
+  warnings: string[]
+  normalizedPayload: unknown
+  summary: string
+  baseRevisionId: number | null
+  latestRevisionId: number | null
+  conflict: boolean
+}
+export interface ContentPublish {
+  contentType: string
+  code: string
+  revisionNo: number
+  contentVersion: number
+  effective: boolean
+  warnings: string[]
+}
+export interface ContentRevision {
+  id: number
+  revisionNo: number
+  action: string
+  sourceRevisionId: number | null
+  publishedBy: number
+  publishedAt: string
+  summary: string
 }
 export interface PreviewResp {
   template: string
@@ -190,6 +232,45 @@ export const upsertExerciseStatus = (code: string, status: number) =>
   http.put<ApiResp<ContentWriteResp>>(`/admin/content/exercises/${code}`, { status }).then(r => r.data.data)
 export const refreshContent = () =>
   http.post<ApiResp<{ contentVersion: number }>>('/admin/content/refresh', {}).then(r => r.data.data)
+
+// —— H-04 内容运营闭环 ——
+export const getContentSnapshot = (type: string, code: string) =>
+  http.get<ApiResp<unknown>>(`/admin/content/snapshot/${type}/${code}`).then(r => r.data.data)
+export const listContentDrafts = (type?: string) =>
+  http
+    .get<ApiResp<ContentDraft[]>>('/admin/content/drafts', { params: type ? { type } : {} })
+    .then(r => r.data.data)
+export const getContentDraft = (type: string, code: string) =>
+  http.get<ApiResp<ContentDraft>>(`/admin/content/drafts/${type}/${code}`).then(r => r.data.data)
+export const saveContentDraft = (
+  type: string,
+  code: string,
+  body: { payload: unknown; baseRevisionId?: number | null; note?: string },
+) =>
+  http
+    .put<ApiResp<ContentDraft>>(`/admin/content/drafts/${type}/${code}`, body)
+    .then(r => r.data.data)
+export const deleteContentDraft = (type: string, code: string) =>
+  http.delete<ApiResp<null>>(`/admin/content/drafts/${type}/${code}`).then(r => r.data.data)
+export const previewContentDraft = (type: string, code: string) =>
+  http
+    .post<ApiResp<ContentPreview>>(`/admin/content/drafts/${type}/${code}/preview`, {})
+    .then(r => r.data.data)
+export const publishContentDraft = (type: string, code: string) =>
+  http
+    .post<ApiResp<ContentPublish>>(`/admin/content/drafts/${type}/${code}/publish`, {})
+    .then(r => r.data.data)
+export const listContentRevisions = (type: string, code: string) =>
+  http
+    .get<ApiResp<ContentRevision[]>>(`/admin/content/revisions/${type}/${code}`)
+    .then(r => r.data.data)
+export const rollbackContentRevision = (type: string, code: string, revisionId: number) =>
+  http
+    .post<ApiResp<ContentPublish>>(
+      `/admin/content/revisions/${type}/${code}/${revisionId}/rollback`,
+      {},
+    )
+    .then(r => r.data.data)
 export type PreviewReq = Body<
   { template: string; user: string; vars?: Record<string, string> },
   'PreviewBody'
