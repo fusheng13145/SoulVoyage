@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { ref, watch, onUnmounted } from 'vue'
+import { ref, toRef, watch, onUnmounted } from 'vue'
 import { overlayDepth } from '@/stores/ui'
+import { useFocusTrap } from '@/composables/focusTrap'
 
 const props = withDefaults(
   defineProps<{
@@ -13,6 +14,8 @@ const props = withDefaults(
 const emit = defineEmits<{ 'update:modelValue': [boolean] }>()
 
 const dragY = ref(0)
+const panelEl = ref<HTMLElement | null>(null)
+useFocusTrap(panelEl, toRef(props, 'modelValue'))
 let startY: number | null = null
 
 function onDragDown(e: PointerEvent) {
@@ -44,6 +47,7 @@ watch(
     if (v) window.addEventListener('keydown', onKey)
     else window.removeEventListener('keydown', onKey)
   },
+  { immediate: true },
 )
 onUnmounted(() => {
   if (props.modelValue) overlayDepth.value -= 1
@@ -53,11 +57,19 @@ onUnmounted(() => {
 <template>
   <Teleport to="#sv-layer">
     <transition name="sheet">
-      <div v-if="modelValue" class="root" role="dialog" aria-modal="true" :aria-label="title">
+      <div
+        v-if="modelValue"
+        class="root"
+        role="dialog"
+        aria-modal="true"
+        :aria-label="title || '底部面板'"
+      >
         <div class="dim" @click="close" />
         <div
+          ref="panelEl"
           class="panel"
           :class="{ full }"
+          tabindex="-1"
           :style="dragY ? { transform: `translateY(${dragY}px)`, transition: 'none' } : {}"
         >
           <div

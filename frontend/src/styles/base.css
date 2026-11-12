@@ -87,6 +87,15 @@ button {
   font-size: var(--sv-fs-caption1);
 }
 
+/* 图标按钮最小命中区：不改变视觉尺寸，只保证可点/可聚焦范围 */
+.sv-hit {
+  min-width: var(--sv-hit);
+  min-height: var(--sv-hit);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
 /* 按钮（40px / 6px；按下只改背景，不缩放） */
 .sv-btn {
   display: inline-flex;

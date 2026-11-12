@@ -293,6 +293,15 @@ async function logout() {
         />
       </SvList>
 
+      <SvList title="键盘操作">
+        <SvCell
+          label="全局快捷键"
+          hint="Tab 移动 · Alt+1..5 切换页面 · ? 查看说明 · Esc 关闭浮层"
+          icon="i-grid"
+          :chevron="false"
+        />
+      </SvList>
+
       <SvList title="支持">
         <SvCell
           label="危机资源"

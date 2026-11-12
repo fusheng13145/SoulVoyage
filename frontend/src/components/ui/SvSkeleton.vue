@@ -5,6 +5,7 @@ withDefaults(defineProps<{ h?: number; w?: string; round?: boolean }>(), { h: 14
 <template>
   <span
     class="sk"
+    aria-hidden="true"
     :style="{
       height: h + 'px',
       width: w || '100%',

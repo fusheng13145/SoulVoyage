@@ -1,9 +1,31 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import { dialogState, resolveDialog } from '@/stores/ui'
+import { computed, onUnmounted, ref, watch } from 'vue'
+import { dialogState, overlayDepth, resolveDialog } from '@/stores/ui'
+import { useFocusTrap } from '@/composables/focusTrap'
 import SvIcon from './SvIcon.vue'
 
 const open = computed(() => !!dialogState.value)
+const boxEl = ref<HTMLElement | null>(null)
+useFocusTrap(boxEl, open)
+
+let counted = false
+watch(
+  open,
+  v => {
+    if (v && !counted) {
+      overlayDepth.value += 1
+      counted = true
+    } else if (!v && counted) {
+      overlayDepth.value -= 1
+      counted = false
+    }
+  },
+  { immediate: true },
+)
+onUnmounted(() => {
+  if (counted) overlayDepth.value -= 1
+})
+
 function onKey(e: KeyboardEvent) {
   if (!open.value) return
   if (e.key === 'Escape') resolveDialog(false)
@@ -15,9 +37,17 @@ function onKey(e: KeyboardEvent) {
     <transition name="dlg">
       <div v-if="dialogState" class="wrap" role="presentation" @keydown="onKey">
         <div class="veil" @click="resolveDialog(false)" />
-        <div class="box" role="alertdialog" aria-modal="true" :aria-label="dialogState.title">
+        <div
+          ref="boxEl"
+          class="box"
+          role="alertdialog"
+          aria-modal="true"
+          :aria-label="dialogState.title"
+          :aria-describedby="dialogState.message ? 'sv-dialog-msg' : undefined"
+          tabindex="-1"
+        >
           <b>{{ dialogState.title }}</b>
-          <p v-if="dialogState.message">{{ dialogState.message }}</p>
+          <p v-if="dialogState.message" id="sv-dialog-msg">{{ dialogState.message }}</p>
           <div class="btns">
             <button class="c" @click="resolveDialog(false)">{{ dialogState.cancelText || '取消' }}</button>
             <button

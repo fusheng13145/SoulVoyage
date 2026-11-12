@@ -9,7 +9,7 @@
   --sv-card2: #ede6d9;
   --sv-label: #2b2722;
   --sv-label2: #5f584d;
-  --sv-label3: #6f6659;
+  --sv-label3: #635b50;
   --sv-sep: #ddd3c2;
   --sv-line-strong: #c9bca6;
   --sv-accent: #3f5f4e;
@@ -92,6 +92,7 @@
   --sv-r-sheet: 12px;
   --sv-r-tag: 3px;
   --sv-r-pill: 999px; /* 仅状态点/进度环等真胶囊 */
+  --sv-hit: 44px; /* 最小命中区（无障碍） */
   --sv-sh-1: none;
   --sv-sh-2: none;
   --sv-ease: cubic-bezier(0.2, 0, 0, 1);
@@ -110,7 +111,7 @@
   --sv-card2: #242730;
   --sv-label: #ede7dc;
   --sv-label2: #b7b0a3;
-  --sv-label3: #8e8779;
+  --sv-label3: #9d9587;
   --sv-sep: #2e323a;
   --sv-line-strong: #414652;
   --sv-accent: #9dbfa9;

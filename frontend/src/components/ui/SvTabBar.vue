@@ -3,16 +3,33 @@ import SvIcon from './SvIcon.vue'
 import { vHaptic } from '@/directives/haptic'
 
 const tabs = [
-  { to: '/today', label: '今日', icon: 'i-today' },
-  { to: '/diaries', label: '日记', icon: 'i-diary' },
-  { to: '/practice', label: '练习', icon: 'i-heart' },
-  { to: '/insights', label: '洞察', icon: 'i-chart' },
-  { to: '/me', label: '我的', icon: 'i-me' },
+  { to: '/today', label: '今日', icon: 'i-today', key: 'Alt+1' },
+  { to: '/diaries', label: '日记', icon: 'i-diary', key: 'Alt+2' },
+  { to: '/practice', label: '练习', icon: 'i-heart', key: 'Alt+3' },
+  { to: '/insights', label: '洞察', icon: 'i-chart', key: 'Alt+4' },
+  { to: '/me', label: '我的', icon: 'i-me', key: 'Alt+5' },
 ]
+
+function onKey(e: KeyboardEvent) {
+  if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return
+  const links = Array.from(
+    (e.currentTarget as HTMLElement).querySelectorAll<HTMLElement>('.tab'),
+  )
+  const idx = links.indexOf(document.activeElement as HTMLElement)
+  if (idx < 0) return
+  e.preventDefault()
+  const next =
+    e.key === 'Home'
+      ? 0
+      : e.key === 'End'
+        ? links.length - 1
+        : (idx + (e.key === 'ArrowRight' ? 1 : -1) + links.length) % links.length
+  links[next]?.focus()
+}
 </script>
 
 <template>
-  <nav class="tabbar" aria-label="主导航">
+  <nav class="tabbar" aria-label="主导航" @keydown="onKey">
     <router-link
       v-for="t in tabs"
       :key="t.to"
@@ -21,6 +38,7 @@ const tabs = [
       class="tab"
       :class="{ on: $route.path.startsWith(t.to) }"
       :aria-current="$route.path.startsWith(t.to) ? 'page' : undefined"
+      :aria-keyshortcuts="t.key"
     >
       <SvIcon :name="t.icon" :size="22" tone="inherit" />
       <span>{{ t.label }}</span>
