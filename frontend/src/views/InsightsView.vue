@@ -17,7 +17,7 @@ import { isDark } from '@/composables/theme'
 import { toast } from '@/stores/ui'
 import { useCrisisStore } from '@/stores/crisis'
 import { addBusinessDays, businessDate } from '@/utils/date'
-import type { EmotionPointView, WeekProfileView } from '@/types/domain'
+import type { EmotionInsightView, EmotionPointView, WeekProfileView, WeeklyDigestView } from '@/types/domain'
 
 echarts.use([
   LineChart,
@@ -37,6 +37,11 @@ const range = ref<number>(30)
 const weeks = computed(() => crisis.weeks as WeekProfileView[])
 const points = ref<EmotionPointView[]>([])
 const empty = computed(() => points.value.length === 0)
+const insight = ref<EmotionInsightView | null>(null)
+const latestDigest = computed<WeeklyDigestView | null>(() => insight.value?.weekly[0] ?? null)
+const digestByWeek = computed(
+  () => new Map((insight.value?.weekly ?? []).map(w => [w.statWeek, w])),
+)
 
 const curveEl = ref<HTMLElement | null>(null)
 const pieEl = ref<HTMLElement | null>(null)
@@ -56,13 +61,16 @@ const today = () => businessDate()
 
 async function load() {
   const from = businessDate(addBusinessDays(new Date(), -(range.value - 1)))
-  const [traj] = await Promise.all([
+  const insightWeeks = Math.min(12, Math.max(1, Math.round(range.value / 7)))
+  const [traj, ins] = await Promise.all([
     emotionApi.trajectory<{ points: EmotionPointView[] }>({ from, to: today() }),
+    emotionApi.insight<EmotionInsightView>({ weeks: insightWeeks }).catch(() => null),
     crisis.refreshProfile().catch(() => {
       /* 画像失败仍可看曲线 */
     }),
   ])
   points.value = traj.points
+  insight.value = ins
   try {
     const list = await reportApi.list<{ items: { id: number; type: string }[] }>({ page: 0, size: 20 })
     const sim = list.items.find(i => i.type === 'SIMULATE' || i.type === 'SIMULATE_REVIEW')
@@ -327,6 +335,36 @@ watch(range, () => load())
         headline="平台已进入关怀模式：常规生成暂停，支持资源优先呈现。"
       />
 
+      <SvCard v-if="latestDigest">
+        <div class="digest-head">
+          <h2 class="t">本周小结</h2>
+          <span class="sv-cap">{{ latestDigest.statWeek }}</span>
+        </div>
+        <p class="digest-title">{{ latestDigest.headline }}</p>
+        <ul class="digest-lines">
+          <li v-for="(line, i) in latestDigest.lines" :key="i">{{ line }}</li>
+        </ul>
+      </SvCard>
+
+      <SvCard v-if="insight">
+        <div class="vola-head">
+          <h2 class="t">波动提示</h2>
+          <span class="vola-tag" :class="insight.volatility.level.toLowerCase()">{{
+            insight.volatility.label
+          }}</span>
+        </div>
+        <p class="sv-muted">{{ insight.volatility.hint }}</p>
+        <div v-if="insight.volatility.sampleDays" class="vola-metrics">
+          <span>样本 {{ insight.volatility.sampleDays }} 天</span>
+          <span v-if="insight.volatility.stdDev != null"
+            >标准差 {{ Number(insight.volatility.stdDev).toFixed(2) }}</span
+          >
+          <span v-if="insight.volatility.maxDailyDelta != null"
+            >最大单日变化 {{ Number(insight.volatility.maxDailyDelta).toFixed(2) }}</span
+          >
+        </div>
+      </SvCard>
+
       <SvCard>
         <h2 class="t">情绪曲线</h2>
         <p class="sv-muted">效价（-1 低落 ~ +1 明亮）与强度随日期的走势，数据来自你的每一次记录。</p>
@@ -376,6 +414,9 @@ watch(range, () => load())
               >平均效价 {{ Number(w.avgValence).toFixed(2) }}</span
             >
           </div>
+          <p v-if="digestByWeek.get(w.statWeek)" class="sv-muted week-digest">
+            {{ digestByWeek.get(w.statWeek)?.headline }}
+          </p>
           <p v-if="w.stressorTop?.length" class="line">
             压力源：<span v-for="s in w.stressorTop" :key="s.name" class="tag"
               >{{ s.name }} ×{{ s.count }}</span
@@ -389,6 +430,36 @@ watch(range, () => load())
         </div>
       </SvCard>
 
+      <SvCard v-if="insight && (insight.stressors.length || insight.distortions.length)">
+        <h2 class="t">看见这些线索</h2>
+        <div v-for="s in insight.stressors" :key="'s-' + s.name" class="explain">
+          <div class="explain-head">
+            <b>压力源 · {{ s.name }}</b>
+            <span class="sv-cap">×{{ s.count }}</span>
+          </div>
+          <p class="sv-muted">{{ s.what }}</p>
+          <p class="sv-cap tip">可以试试：{{ s.tip }}</p>
+        </div>
+        <div v-for="d in insight.distortions" :key="'d-' + d.name" class="explain">
+          <div class="explain-head">
+            <b>误区线索 · {{ d.name }}</b>
+            <span class="sv-cap">×{{ d.count }}</span>
+          </div>
+          <p v-if="d.definition" class="sv-muted">{{ d.definition }}</p>
+          <p v-if="d.typicalSignature" class="sv-cap">常见句式：{{ d.typicalSignature }}</p>
+          <p v-if="d.question" class="sv-cap tip">可以问问自己：{{ d.question }}</p>
+        </div>
+      </SvCard>
+
+      <SvCard v-if="insight?.actions.length">
+        <h2 class="t">下一步</h2>
+        <router-link v-for="a in insight.actions" :key="a.code" :to="a.route" class="action">
+          <span class="action-title">{{ a.title }}</span>
+          <span class="sv-cap">{{ a.detail }}</span>
+          <span class="action-go">→</span>
+        </router-link>
+      </SvCard>
+
       <SvDisclaimer
         text="趋势仅供参考，不构成任何诊断。如需专业帮助请拨打 12356。"
         reason="所有数据点来自你自己的日记、模拟与打卡记录（含 SELF_RATING），没有外部数据。"
@@ -398,6 +469,100 @@ watch(range, () => load())
 </template>
 
 <style scoped>
+.digest-head,
+.vola-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+.digest-title {
+  margin: 2px 0 8px;
+  font-size: var(--sv-fs-title3);
+  color: var(--sv-label);
+}
+.digest-lines {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--sv-label2);
+  font-size: var(--sv-fs-body);
+  line-height: 1.7;
+}
+.vola-tag {
+  font-size: var(--sv-fs-caption1);
+  border: 1px solid var(--sv-sep);
+  border-radius: var(--sv-r-tag);
+  padding: 0 6px;
+  color: var(--sv-label2);
+  white-space: nowrap;
+}
+.vola-tag.wavy {
+  color: var(--sv-warn);
+  border-color: var(--sv-warn);
+}
+.vola-tag.volatile {
+  color: var(--sv-danger);
+  border-color: var(--sv-danger);
+}
+.vola-tag.insufficient {
+  color: var(--sv-label3);
+}
+.vola-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 6px;
+  font-size: var(--sv-fs-caption1);
+  color: var(--sv-label3);
+}
+.explain {
+  border-top: 1px solid var(--sv-sep);
+  padding-top: 10px;
+  margin-top: 10px;
+}
+.explain:first-of-type {
+  border-top: none;
+  padding-top: 0;
+  margin-top: 0;
+}
+.explain-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+.explain p {
+  margin: 4px 0 0;
+}
+.tip {
+  color: var(--sv-indigo);
+}
+.week-digest {
+  margin: 2px 0 0;
+}
+.action {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 20px 10px 0;
+  border-top: 1px solid var(--sv-sep);
+  color: inherit;
+  text-decoration: none;
+}
+.action:first-of-type {
+  border-top: none;
+}
+.action-title {
+  font-size: var(--sv-fs-body);
+  color: var(--sv-label);
+}
+.action-go {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--sv-label3);
+}
 .range-seg {
   min-width: 170px;
 }

@@ -5,6 +5,7 @@ import com.soulvoyage.common.exception.BizException;
 import com.soulvoyage.domain.emotion.EmotionController;
 import com.soulvoyage.domain.emotion.EmotionTrajectoryEntity;
 import com.soulvoyage.domain.emotion.EmotionTrajectoryRepository;
+import com.soulvoyage.domain.emotion.dto.EmotionDtos.SelfRatingReq;
 import com.soulvoyage.domain.user.UserEntity;
 import com.soulvoyage.domain.user.UserRepository;
 import org.junit.jupiter.api.Test;
@@ -38,9 +39,9 @@ class SelfRatingTest {
         return userRepo.save(u).getId();
     }
 
-    private EmotionController.SelfRatingReq req(String emotion, String valence, String intensity,
-                                                String note, LocalDate date) {
-        return new EmotionController.SelfRatingReq(emotion, new BigDecimal(valence),
+    private SelfRatingReq req(String emotion, String valence, String intensity,
+                              String note, LocalDate date) {
+        return new SelfRatingReq(emotion, new BigDecimal(valence),
                 new BigDecimal(intensity), note, date);
     }
 

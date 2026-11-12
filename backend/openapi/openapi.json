@@ -2369,6 +2369,34 @@
         }
       }
     },
+    "/api/v1/emotions/insights" : {
+      "get" : {
+        "tags" : [ "emotion-controller" ],
+        "operationId" : "insights",
+        "parameters" : [ {
+          "name" : "weeks",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 4
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseInsightResp"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/diaries" : {
       "get" : {
         "tags" : [ "diary-controller" ],
@@ -5531,6 +5559,172 @@
           },
           "distortionTop" : {
             "$ref" : "#/components/schemas/JsonNode"
+          }
+        }
+      },
+      "ApiResponseInsightResp" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "msg" : {
+            "type" : "string"
+          },
+          "data" : {
+            "$ref" : "#/components/schemas/InsightResp"
+          },
+          "traceId" : {
+            "type" : "string"
+          }
+        }
+      },
+      "DistortionInsight" : {
+        "type" : "object",
+        "properties" : {
+          "kgNodeId" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "count" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "definition" : {
+            "type" : "string"
+          },
+          "typicalSignature" : {
+            "type" : "string"
+          },
+          "question" : {
+            "type" : "string"
+          }
+        }
+      },
+      "InsightResp" : {
+        "type" : "object",
+        "properties" : {
+          "generatedFor" : {
+            "type" : "string"
+          },
+          "weeks" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "crisisMode" : {
+            "type" : "boolean"
+          },
+          "weekly" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/WeeklyDigest"
+            }
+          },
+          "volatility" : {
+            "$ref" : "#/components/schemas/Volatility"
+          },
+          "stressors" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/StressorInsight"
+            }
+          },
+          "distortions" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/DistortionInsight"
+            }
+          },
+          "actions" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/NextAction"
+            }
+          }
+        }
+      },
+      "NextAction" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "string"
+          },
+          "title" : {
+            "type" : "string"
+          },
+          "detail" : {
+            "type" : "string"
+          },
+          "route" : {
+            "type" : "string"
+          }
+        }
+      },
+      "StressorInsight" : {
+        "type" : "object",
+        "properties" : {
+          "name" : {
+            "type" : "string"
+          },
+          "count" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "what" : {
+            "type" : "string"
+          },
+          "tip" : {
+            "type" : "string"
+          }
+        }
+      },
+      "Volatility" : {
+        "type" : "object",
+        "properties" : {
+          "level" : {
+            "type" : "string"
+          },
+          "label" : {
+            "type" : "string"
+          },
+          "hint" : {
+            "type" : "string"
+          },
+          "sampleDays" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "stdDev" : {
+            "type" : "number"
+          },
+          "minValence" : {
+            "type" : "number"
+          },
+          "maxValence" : {
+            "type" : "number"
+          },
+          "maxDailyDelta" : {
+            "type" : "number"
+          }
+        }
+      },
+      "WeeklyDigest" : {
+        "type" : "object",
+        "properties" : {
+          "statWeek" : {
+            "type" : "string"
+          },
+          "headline" : {
+            "type" : "string"
+          },
+          "lines" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
           }
         }
       },

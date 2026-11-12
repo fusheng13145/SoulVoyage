@@ -1156,6 +1156,22 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/v1/emotions/insights': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get: operations['insights']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/v1/diaries': {
     parameters: {
       query?: never
@@ -2454,6 +2470,62 @@ export interface components {
       riskLevel?: string
       stressorTop?: components['schemas']['JsonNode']
       distortionTop?: components['schemas']['JsonNode']
+    }
+    ApiResponseInsightResp: {
+      /** Format: int32 */
+      code?: number
+      msg?: string
+      data?: components['schemas']['InsightResp']
+      traceId?: string
+    }
+    DistortionInsight: {
+      kgNodeId?: string
+      name?: string
+      /** Format: int32 */
+      count?: number
+      definition?: string
+      typicalSignature?: string
+      question?: string
+    }
+    InsightResp: {
+      generatedFor?: string
+      /** Format: int32 */
+      weeks?: number
+      crisisMode?: boolean
+      weekly?: components['schemas']['WeeklyDigest'][]
+      volatility?: components['schemas']['Volatility']
+      stressors?: components['schemas']['StressorInsight'][]
+      distortions?: components['schemas']['DistortionInsight'][]
+      actions?: components['schemas']['NextAction'][]
+    }
+    NextAction: {
+      code?: string
+      title?: string
+      detail?: string
+      route?: string
+    }
+    StressorInsight: {
+      name?: string
+      /** Format: int32 */
+      count?: number
+      what?: string
+      tip?: string
+    }
+    Volatility: {
+      level?: string
+      label?: string
+      hint?: string
+      /** Format: int32 */
+      sampleDays?: number
+      stdDev?: number
+      minValence?: number
+      maxValence?: number
+      maxDailyDelta?: number
+    }
+    WeeklyDigest: {
+      statWeek?: string
+      headline?: string
+      lines?: string[]
     }
     ApiResponseDiaryListResp: {
       /** Format: int32 */
@@ -4808,6 +4880,28 @@ export interface operations {
         }
         content: {
           '*/*': components['schemas']['ApiResponseProfileResp']
+        }
+      }
+    }
+  }
+  insights: {
+    parameters: {
+      query?: {
+        weeks?: number
+      }
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          '*/*': components['schemas']['ApiResponseInsightResp']
         }
       }
     }

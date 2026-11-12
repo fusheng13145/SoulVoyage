@@ -50,3 +50,60 @@ export interface WeekProfileView {
   stressorTop: { name: string; count: number }[]
   distortionTop: { name: string; count: number }[]
 }
+
+/** H-02 周报摘要（/emotions/insights） */
+export interface WeeklyDigestView {
+  statWeek: string
+  headline: string
+  lines: string[]
+}
+
+/** H-02 波动提示：样本不足时数值字段为 null */
+export interface VolatilityView {
+  level: 'STEADY' | 'WAVY' | 'VOLATILE' | 'INSUFFICIENT'
+  label: string
+  hint: string
+  sampleDays: number
+  stdDev: string | number | null
+  minValence: string | number | null
+  maxValence: string | number | null
+  maxDailyDelta: string | number | null
+}
+
+/** H-02 压力源解释 */
+export interface StressorInsightView {
+  name: string
+  count: number
+  what: string
+  tip: string
+}
+
+/** H-02 误区解释 */
+export interface DistortionInsightView {
+  kgNodeId: string
+  name: string
+  count: number
+  definition: string
+  typicalSignature: string
+  question: string
+}
+
+/** H-02 可执行下一步 */
+export interface NextActionView {
+  code: string
+  title: string
+  detail: string
+  route: string
+}
+
+/** H-02 洞察总响应 */
+export interface EmotionInsightView {
+  generatedFor: string
+  weeks: number
+  crisisMode: boolean
+  weekly: WeeklyDigestView[]
+  volatility: VolatilityView
+  stressors: StressorInsightView[]
+  distortions: DistortionInsightView[]
+  actions: NextActionView[]
+}

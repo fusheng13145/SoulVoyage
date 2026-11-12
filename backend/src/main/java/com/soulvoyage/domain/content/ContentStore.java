@@ -35,16 +35,20 @@ public class ContentStore {
     public record TechEntry(String kgNodeId, String name, String description, String whenToUse,
                             List<String> emotions, List<String> steps) {}
 
+    public record StressorEntry(String name, String what, String tip) {}
+
     private record Snapshot(long version,
                             List<DistortionEntry> distortions,
                             Map<String, String> stressorMap,
+                            Map<String, StressorEntry> stressorDefinitions,
                             List<PsyEntry> psyTopics,
                             List<CaseEntry> commCases,
                             List<TechEntry> techniques,
                             List<SceneCard> scenes,
                             List<Exercise> exercises) {
         static Snapshot empty() {
-            return new Snapshot(-1, List.of(), Map.of(), List.of(), List.of(), List.of(), List.of(), List.of());
+            return new Snapshot(-1, List.of(), Map.of(), Map.of(), List.of(), List.of(), List.of(),
+                    List.of(), List.of());
         }
     }
 
@@ -64,6 +68,8 @@ public class ContentStore {
     public List<DistortionEntry> distortions() { return current().distortions(); }
 
     public Map<String, String> stressorMap() { return current().stressorMap(); }
+
+    public Map<String, StressorEntry> stressorDefinitions() { return current().stressorDefinitions(); }
 
     public List<PsyEntry> psyTopics() { return current().psyTopics(); }
 
@@ -128,6 +134,7 @@ public class ContentStore {
                     kgRepo.findByTypeAndStatus("DISTORTION", (short) 1).stream().map(this::toDistortion)
                             .filter(java.util.Objects::nonNull).toList(),
                     loadStressorMap(),
+                    loadStressorDefinitions(),
                     kgRepo.findByTypeAndStatus("PSY_TOPIC", (short) 1).stream().map(this::toPsy)
                             .filter(java.util.Objects::nonNull).toList(),
                     kgRepo.findByTypeAndStatus("COMM_CASE", (short) 1).stream().map(this::toCase)
@@ -243,6 +250,23 @@ public class ContentStore {
                         return mapper.<Map<String, String>>readValue(x.getMetaValue(), new TypeReference<>() {});
                     } catch (Exception e) {
                         return Map.<String, String>of();
+                    }
+                }).orElseGet(Map::of);
+    }
+
+    private Map<String, StressorEntry> loadStressorDefinitions() {
+        return metaRepo.findByMetaKey("kg:stressor_definitions")
+                .map(x -> {
+                    try {
+                        JsonNode root = mapper.readTree(x.getMetaValue());
+                        Map<String, StressorEntry> m = new java.util.LinkedHashMap<>();
+                        root.fields().forEachRemaining(e -> m.put(e.getKey(),
+                                new StressorEntry(e.getKey(),
+                                        e.getValue().path("what").asText(""),
+                                        e.getValue().path("tip").asText(""))));
+                        return Map.copyOf(m);
+                    } catch (Exception e) {
+                        return Map.<String, StressorEntry>of();
                     }
                 }).orElseGet(Map::of);
     }

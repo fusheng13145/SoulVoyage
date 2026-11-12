@@ -1,46 +1,36 @@
 package com.soulvoyage.domain.emotion;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.soulvoyage.auth.AuthPrincipal;
 import com.soulvoyage.common.api.ApiResponse;
-import com.soulvoyage.common.api.ErrorCode;
-import com.soulvoyage.common.exception.BizException;
-import com.soulvoyage.common.time.BusinessCalendar;
-import com.soulvoyage.domain.crisis.CrisisState;
+import com.soulvoyage.domain.emotion.dto.EmotionDtos.InsightResp;
 import com.soulvoyage.domain.emotion.dto.EmotionDtos.ProfileResp;
-import com.soulvoyage.domain.emotion.dto.EmotionDtos.ProfileWeek;
+import com.soulvoyage.domain.emotion.dto.EmotionDtos.SelfRatingReq;
 import com.soulvoyage.domain.emotion.dto.EmotionDtos.SelfRatingResp;
-import com.soulvoyage.domain.emotion.dto.EmotionDtos.TrajectoryPoint;
 import com.soulvoyage.domain.emotion.dto.EmotionDtos.TrajectoryResp;
-import com.soulvoyage.domain.profile.EmotionProfileEntity;
-import com.soulvoyage.domain.profile.EmotionProfileRepository;
-import com.soulvoyage.domain.user.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
-import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.util.List;
-import java.util.Map;
 
 /**
- * UC3 情绪可视化数据源（手册 §6.3）：轨迹点 + 周画像。
+ * UC3 情绪接口（手册 §6.3）：只做路由与登录态注入，查询/打卡下沉到 EmotionService。
  * 均为登录态 + 隐式属主（查询强制以 JWT userId 为键，天然防 IDOR）。
- * 数值点（效价/强度/情绪词）非隐私原文，可明文回传；事件标签本属用户自己的记录。
  */
 @RestController
 @RequestMapping("/api/v1/emotions")
 @RequiredArgsConstructor
 public class EmotionController {
 
-    private final EmotionTrajectoryRepository trajRepo;
-    private final EmotionProfileRepository profileRepo;
-    private final UserRepository userRepo;
-    private final ObjectMapper mapper;
-    private final BusinessCalendar cal;
+    private final EmotionService emotionService;
+    private final EmotionInsightService insightService;
 
-    /** O2：range 14/30/90（默认 30）+ granularity=day|week；显式 from/to 亦钳制跨度 ≤90 天 */
+    /** O2：range 14/30/90（默认 30）+ granularity=day|week；显式 from/to 亦钳制跨度 ≤90 天。 */
     @GetMapping("/trajectory")
     public ApiResponse<TrajectoryResp> trajectory(
             @AuthenticationPrincipal AuthPrincipal p,
@@ -48,128 +38,30 @@ public class EmotionController {
             @RequestParam(required = false) LocalDate to,
             @RequestParam(defaultValue = "30") int range,
             @RequestParam(defaultValue = "day") String granularity) {
-        LocalDate end = to == null ? cal.today() : to;
-        LocalDate start = from == null ? end.minusDays(Math.min(Math.max(range, 1), 90) - 1L) : from;
-        if (start.plusDays(90).isBefore(end)) start = end.minusDays(90);
-        List<EmotionTrajectoryEntity> rows = trajRepo
-                .findByUserIdAndRecordDateBetweenOrderByRecordDateAsc(p.userId(), start, end);
-        List<TrajectoryPoint> points = "week".equals(granularity) ? weekly(rows) : daily(rows);
-        return ApiResponse.ok(new TrajectoryResp(start.toString(), end.toString(), points));
+        return ApiResponse.ok(emotionService.trajectory(p.userId(), from, to, range, granularity));
     }
 
-    private List<TrajectoryPoint> daily(List<EmotionTrajectoryEntity> rows) {
-        return rows.stream()
-                .map(t -> new TrajectoryPoint(
-                        t.getRecordDate().toString(),
-                        t.getSourceType(),
-                        t.getPrimaryEmotion(),
-                        t.getValence(),
-                        t.getIntensity(),
-                        parseJson(t.getEventTags())))
-                .toList();
-    }
-
-    /** 周聚合：效价/强度取均值，情绪取众数，eventTags 不随周上卷 */
-    private List<TrajectoryPoint> weekly(List<EmotionTrajectoryEntity> rows) {
-        var weeks = new java.util.TreeMap<LocalDate, List<EmotionTrajectoryEntity>>();
-        for (EmotionTrajectoryEntity t : rows) {
-            LocalDate ws = t.getRecordDate()
-                    .with(java.time.temporal.WeekFields.ISO.dayOfWeek(), 1);
-            weeks.computeIfAbsent(ws, k -> new java.util.ArrayList<>()).add(t);
-        }
-        return weeks.entrySet().stream().map(e -> {
-            List<EmotionTrajectoryEntity> g = e.getValue();
-            var emotion = g.stream()
-                    .collect(java.util.stream.Collectors.groupingBy(
-                            EmotionTrajectoryEntity::getPrimaryEmotion,
-                            java.util.stream.Collectors.counting()))
-                    .entrySet().stream().max(Map.Entry.comparingByValue())
-                    .map(Map.Entry::getKey).orElse("");
-            return new TrajectoryPoint(
-                    e.getKey().toString(),
-                    "WEEK",
-                    emotion,
-                    avg(g, true),
-                    avg(g, false),
-                    mapper.createArrayNode());
-        }).toList();
-    }
-
-    private BigDecimal avg(List<EmotionTrajectoryEntity> g, boolean valence) {
-        double m = g.stream().mapToDouble(t -> (valence ? t.getValence() : t.getIntensity())
-                .doubleValue()).average().orElse(0);
-        return BigDecimal.valueOf(m).setScale(3, java.math.RoundingMode.HALF_UP);
-    }
-
-    /**
-     * M6 轻量打卡（SELF_RATING）：今日页情绪盘直写轨迹点，不等任务管线。
-     * M7 会升级为完整打卡表，本接口保持同一 sourceType 以兼容下游消费。
-     */
+    /** M6 轻量打卡：今日页情绪盘直写轨迹点。 */
     @PostMapping("/self-rating")
     public ApiResponse<SelfRatingResp> selfRating(
             @AuthenticationPrincipal AuthPrincipal p,
             @RequestBody SelfRatingReq req) {
-        String emotion = req.emotion() == null ? "" : req.emotion().trim();
-        if (emotion.isEmpty() || emotion.length() > 32)
-            throw new BizException(ErrorCode.BAD_PARAMS, "emotion 需为 1-32 字");
-        if (req.valence() == null || req.valence().abs().compareTo(BigDecimal.ONE) > 0)
-            throw new BizException(ErrorCode.BAD_PARAMS, "valence 需在 [-1,1]");
-        if (req.intensity() == null || req.intensity().compareTo(BigDecimal.ZERO) < 0
-                || req.intensity().compareTo(BigDecimal.ONE) > 0)
-            throw new BizException(ErrorCode.BAD_PARAMS, "intensity 需在 [0,1]");
-        LocalDate today = cal.today();
-        LocalDate date = req.date() == null ? today : req.date();
-        if (date.isAfter(today))
-            throw new BizException(ErrorCode.BAD_PARAMS, "打卡日期不能晚于今天");
-        String note = req.note() == null ? null : req.note().trim();
-        if (note != null && note.isEmpty()) note = null;
-        if (note != null && note.length() > 200)
-            throw new BizException(ErrorCode.BAD_PARAMS, "一句话最多 200 字");
-
-        EmotionTrajectoryEntity t = new EmotionTrajectoryEntity();
-        t.setUserId(p.userId());
-        t.setRecordDate(date);
-        t.setSourceType("SELF_RATING");
-        t.setPrimaryEmotion(emotion);
-        t.setValence(req.valence().setScale(3, java.math.RoundingMode.HALF_UP));
-        t.setIntensity(req.intensity().setScale(2, java.math.RoundingMode.HALF_UP));
-        if (note != null) t.setEventTags(mapper.createArrayNode().add(note).toString());
-        t = trajRepo.save(t);
-        return ApiResponse.ok(new SelfRatingResp(t.getId(), date.toString()));
+        return ApiResponse.ok(emotionService.selfRating(p.userId(), req));
     }
 
-    public record SelfRatingReq(String emotion, BigDecimal valence, BigDecimal intensity,
-                                String note, LocalDate date) {}
+    /** H-02：确定性洞察（周摘要/波动/解释/下一步），只读。 */
+    @GetMapping("/insights")
+    public ApiResponse<InsightResp> insights(
+            @AuthenticationPrincipal AuthPrincipal p,
+            @RequestParam(defaultValue = "4") int weeks) {
+        return ApiResponse.ok(insightService.insight(p.userId(), weeks));
+    }
 
-    /** O2：近 N 周参数（默认 12，钳制 1..52），DB 层 limit */
+    /** O2：近 N 周参数（默认 12，钳制 1..52），DB 层 limit。 */
     @GetMapping("/profile")
     public ApiResponse<ProfileResp> profile(
             @AuthenticationPrincipal AuthPrincipal p,
             @RequestParam(defaultValue = "12") int weeks) {
-        List<ProfileWeek> weekList = profileRepo.findByUserIdOrderByStatWeekDesc(
-                        p.userId(), org.springframework.data.domain.PageRequest.of(
-                                0, Math.min(Math.max(weeks, 1), 52))).stream()
-                .map(w -> new ProfileWeek(
-                        w.getStatWeek(),
-                        w.getAvgValence() == null ? "" : w.getAvgValence(),
-                        w.getRiskLevel(),
-                        parseJson(w.getStressorTopJson()),
-                        parseJson(w.getDistortionTopJson())))
-                .toList();
-        String crisisState = userRepo.findById(p.userId())
-                .map(u -> CrisisState.parse(u.getCrisisState()).name())
-                .orElse(CrisisState.NORMAL.name());
-        // crisisMode：处于危机生命周期任意活跃态（CRISIS 强干预 / COOLING 常驻横幅 / REVIEW 复核中）
-        return ApiResponse.ok(new ProfileResp(
-                CrisisState.parse(crisisState).active(), crisisState, weekList));
-    }
-
-    private com.fasterxml.jackson.databind.JsonNode parseJson(String s) {
-        if (s == null || s.isBlank()) return mapper.createArrayNode();
-        try {
-            return mapper.readTree(s);
-        } catch (Exception e) {
-            return mapper.createArrayNode();
-        }
+        return ApiResponse.ok(emotionService.profile(p.userId(), weeks));
     }
 }

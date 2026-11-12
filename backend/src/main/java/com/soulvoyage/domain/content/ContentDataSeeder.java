@@ -46,20 +46,25 @@ public class ContentDataSeeder implements ApplicationRunner {
     }
 
     private void seedKg() throws Exception {
-        if (kgRepo.count() > 0) return;
-        int n = 0;
         JsonNode dist = readJson("kg/cognitive_distortions.json");
-        for (JsonNode d : dist.path("distortions"))
-            n += insertNode("DISTORTION", d.get("kgNodeId").asText(), d.get("name").asText(), d);
-        for (JsonNode p : readJson("kg/psy_topics.json").path("topics"))
-            n += insertNode("PSY_TOPIC", p.get("kgNodeId").asText(), p.get("title").asText(), p);
-        for (JsonNode c : readJson("kg/comm_cases.json").path("cases"))
-            n += insertNode("COMM_CASE", c.get("kgNodeId").asText(), c.get("title").asText(), c);
-        for (JsonNode t : readJson("kg/strength_techniques.json").path("techniques"))
-            n += insertNode("STRENGTH_TECH", t.get("kgNodeId").asText(), t.get("name").asText(), t);
+        if (kgRepo.count() == 0) {
+            int n = 0;
+            for (JsonNode d : dist.path("distortions"))
+                n += insertNode("DISTORTION", d.get("kgNodeId").asText(), d.get("name").asText(), d);
+            for (JsonNode p : readJson("kg/psy_topics.json").path("topics"))
+                n += insertNode("PSY_TOPIC", p.get("kgNodeId").asText(), p.get("title").asText(), p);
+            for (JsonNode c : readJson("kg/comm_cases.json").path("cases"))
+                n += insertNode("COMM_CASE", c.get("kgNodeId").asText(), c.get("title").asText(), c);
+            for (JsonNode t : readJson("kg/strength_techniques.json").path("techniques"))
+                n += insertNode("STRENGTH_TECH", t.get("kgNodeId").asText(), t.get("name").asText(), t);
+            log.info("content seed: kg_node={} rows", n);
+        }
+        // 字典类 meta 独立补种：既有库的 kg_node 已存在时也要补齐新增字典
         if (metaRepo.findByMetaKey("kg:stressor_map").isEmpty())
             metaRepo.save(meta("kg:stressor_map", mapper.writeValueAsString(dist.path("stressorMap"))));
-        log.info("content seed: kg_node={} rows", n);
+        if (metaRepo.findByMetaKey("kg:stressor_definitions").isEmpty())
+            metaRepo.save(meta("kg:stressor_definitions",
+                    mapper.writeValueAsString(dist.path("stressorDefinitions"))));
     }
 
     private int insertNode(String type, String code, String name, JsonNode payload) {
