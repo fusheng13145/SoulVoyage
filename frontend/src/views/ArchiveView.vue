@@ -162,7 +162,7 @@ function doPrint() {
 
 <template>
   <div class="archive">
-    <SvNavBar title="成长档案" back="返回" :large="false">
+    <SvNavBar title="成长档案" back="返回" :large="false" class="print-hide">
       <template #actions>
         <button class="ic" :disabled="exporting" aria-label="导出我的档案" @click="exportArchive">
           <SvIcon :name="exporting ? 'i-refresh' : 'i-export'" :size="20" tone="inherit" />
@@ -178,55 +178,83 @@ function doPrint() {
           <p>
             生成时间 {{ snapshot.generatedAt.slice(0, 16).replace('T', ' ') }} UTC · 由心屿漫行自助平台整理
           </p>
+          <p class="sv-muted">
+            共 {{ snapshot.reports.length }} 份报告 · {{ snapshot.emotionPoints.length }} 个情绪记录点 ·
+            {{ snapshot.profiles.length }} 个周画像
+          </p>
         </div>
-        <SvCard>
-          <h3 class="t">报告（{{ snapshot.reports.length }} 份）</h3>
-          <div v-for="r in snapshot.reports" :key="r.id" class="snap-report">
-            <b>{{ r.title }}</b>
-            <span class="type">{{ TYPE_LABELS[r.type] || r.type }}</span>
-            <small>{{ r.date }}{{ r.starred ? ' · ★ 已收藏' : '' }}</small>
-            <p v-if="r.feedback" class="insight sv-muted">
-              我的评价：{{ FEEDBACK_LABELS[r.feedback] || r.feedback }}
-              <span v-if="r.feedbackNote">·「{{ r.feedbackNote }}」</span>
-            </p>
-            <template v-if="r.content && typeof r.content === 'object'">
-              <p v-if="r.content.report?.insight" class="insight sv-muted">
-                {{ r.content.report.insight }}
+
+        <!-- M-03 目录：屏幕可跳转，打印作为目录页 -->
+        <nav class="toc" aria-label="档案目录">
+          <h2>目录</h2>
+          <ol>
+            <li><a href="#snap-reports">报告（{{ snapshot.reports.length }} 份）</a></li>
+            <li><a href="#snap-profiles">周画像（{{ snapshot.profiles.length }} 周）</a></li>
+            <li><a href="#snap-emotions">情绪记录（{{ snapshot.emotionPoints.length }} 点）</a></li>
+          </ol>
+        </nav>
+
+        <section id="snap-reports" class="snap-section">
+          <SvCard>
+            <h3 class="t">报告（{{ snapshot.reports.length }} 份）</h3>
+            <div v-for="r in snapshot.reports" :key="r.id" class="snap-report">
+              <b>{{ r.title }}</b>
+              <span class="type">{{ TYPE_LABELS[r.type] || r.type }}</span>
+              <small>{{ r.date }}{{ r.starred ? ' · ★ 已收藏' : '' }}</small>
+              <p v-if="r.feedback" class="insight sv-muted">
+                我的评价：{{ FEEDBACK_LABELS[r.feedback] || r.feedback }}
+                <span v-if="r.feedbackNote">·「{{ r.feedbackNote }}」</span>
               </p>
-              <p v-if="r.content.planTitle" class="insight sv-muted">{{ r.content.planTitle }}</p>
-              <p v-if="r.content.overall" class="insight sv-muted">沟通分 {{ r.content.overall.avgScore }}</p>
-            </template>
-          </div>
-        </SvCard>
-        <SvCard>
-          <h3 class="t">周画像</h3>
-          <table class="tbl">
-            <thead>
-              <tr>
-                <th>周</th>
-                <th>平均效价</th>
-                <th>风险档</th>
-                <th>压力源 Top</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="w in snapshot.profiles" :key="w.statWeek">
-                <td>{{ w.statWeek }}</td>
-                <td>{{ w.avgValence ?? '—' }}</td>
-                <td>{{ riskLabel[w.riskLevel] || w.riskLevel }}</td>
-                <td>{{ (w.stressorTop || []).map(s => `${s.name}×${s.count}`).join('、') || '—' }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </SvCard>
-        <SvCard>
-          <h3 class="t">情绪记录（{{ snapshot.emotionPoints.length }} 点）</h3>
-          <ul class="points">
-            <li v-for="(p, i) in snapshot.emotionPoints" :key="i">
-              {{ p.date }} · {{ p.emotion }}（效价 {{ p.valence }}，强度 {{ p.intensity }}）
-            </li>
-          </ul>
-        </SvCard>
+              <template v-if="r.content && typeof r.content === 'object'">
+                <p v-if="r.content.report?.insight" class="insight sv-muted">
+                  {{ r.content.report.insight }}
+                </p>
+                <p v-if="r.content.planTitle" class="insight sv-muted">{{ r.content.planTitle }}</p>
+                <p v-if="r.content.overall" class="insight sv-muted">沟通分 {{ r.content.overall.avgScore }}</p>
+              </template>
+            </div>
+          </SvCard>
+        </section>
+
+        <section id="snap-profiles" class="snap-section">
+          <SvCard>
+            <h3 class="t">周画像</h3>
+            <table class="tbl">
+              <thead>
+                <tr>
+                  <th>周</th>
+                  <th>平均效价</th>
+                  <th>风险档</th>
+                  <th>压力源 Top</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="w in snapshot.profiles" :key="w.statWeek">
+                  <td>{{ w.statWeek }}</td>
+                  <td>{{ w.avgValence ?? '—' }}</td>
+                  <td>{{ riskLabel[w.riskLevel] || w.riskLevel }}</td>
+                  <td>{{ (w.stressorTop || []).map(s => `${s.name}×${s.count}`).join('、') || '—' }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </SvCard>
+        </section>
+
+        <section id="snap-emotions" class="snap-section">
+          <SvCard>
+            <h3 class="t">情绪记录（{{ snapshot.emotionPoints.length }} 点）</h3>
+            <p v-if="!snapshot.emotionPoints.length" class="sv-muted">没有情绪记录。</p>
+            <ul class="points">
+              <li v-for="(p, i) in snapshot.emotionPoints" :key="i">
+                {{ p.date }} · {{ p.emotion }}（效价 {{ p.valence }}，强度 {{ p.intensity }}）
+              </li>
+            </ul>
+          </SvCard>
+        </section>
+
+        <footer class="print-only print-foot">
+          生成时间 {{ snapshot.generatedAt.slice(0, 16).replace('T', ' ') }} UTC · 本档案为自助记录汇总，不构成任何医学诊断。
+        </footer>
         <button class="sv-btn no-print" @click="doPrint">
           <SvIcon name="i-download" :size="18" tone="inherit" /> 打印 / 存为 PDF
         </button>
@@ -518,6 +546,34 @@ function doPrint() {
 .print-only {
   display: none;
 }
+.toc {
+  border: 1px solid var(--sv-sep);
+  border-radius: var(--sv-r-ctl);
+  padding: 12px 16px;
+  margin-bottom: var(--sv-s3);
+  font-size: var(--sv-fs-footnote);
+}
+.toc h2 {
+  font-size: var(--sv-fs-callout);
+  margin-bottom: 6px;
+}
+.toc ol {
+  padding-left: 20px;
+  list-style: decimal;
+}
+.toc li {
+  padding: 3px 0;
+}
+.toc a {
+  color: var(--sv-indigo);
+  text-decoration: none;
+}
+.toc a:hover {
+  text-decoration: underline;
+}
+.snap-section {
+  scroll-margin-top: 60px;
+}
 
 @media print {
   .no-print {
@@ -530,6 +586,24 @@ function doPrint() {
   .title-page h1 {
     font-size: 22px;
     margin-bottom: 4px;
+  }
+  .title-page {
+    break-after: page;
+  }
+  .toc {
+    break-after: page;
+  }
+  #snap-profiles,
+  #snap-emotions {
+    break-before: page;
+  }
+  .print-foot {
+    margin-top: 16px;
+    padding-top: 8px;
+    border-top: 1px solid #eee;
+    font-size: 11px;
+    color: #666;
+    line-height: 1.6;
   }
   .body {
     padding: 0;

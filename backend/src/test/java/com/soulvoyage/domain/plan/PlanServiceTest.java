@@ -520,6 +520,183 @@ class PlanServiceTest {
         assertEquals(ErrorCode.NOT_FOUND, ex.getErrorCode());
     }
 
+    // ---------------- M-07 推荐理由 ----------------
+
+    private EmotionTrajectoryEntity traj(LocalDate d, String valence, String emotion) {
+        EmotionTrajectoryEntity t = traj(d, valence);
+        t.setPrimaryEmotion(emotion);
+        return t;
+    }
+
+    private void stubRecent(List<EmotionTrajectoryEntity> rows) {
+        when(trajRepo.findByUserIdAndRecordDateBetweenOrderByRecordDateAsc(
+                eq(7L), any(LocalDate.class), any(LocalDate.class))).thenReturn(rows);
+    }
+
+    private Map<?, ?> firstItem(Map<String, Object> planView) {
+        return (Map<?, ?>) ((List<?>) planView.get("items")).get(0);
+    }
+
+    @Test
+    @DisplayName("M-07：理由优先取 items_json 中同练习的推荐理由")
+    void reasonsPreferMatchedSnapshotReason() {
+        GrowthPlanEntity p = plan(1L, 7L, "DONE", today().minusDays(2), today());
+        ObjectNode snap = mapper.createObjectNode();
+        snap.putArray("matchedExercises").addObject()
+                .put("exerciseId", "ex_478_breath")
+                .put("reason", "睡前做一轮呼吸，先把节奏放慢");
+        p.setItemsJson(snap.toString());
+        when(planRepo.findByUserIdOrderByCreatedAtDesc(7L)).thenReturn(List.of(p));
+        when(itemRepo.findByPlanIdOrderBySeqAsc(1L)).thenReturn(List.of(item(1L, 1, today(), null)));
+        when(exercises.exists("ex_478_breath")).thenReturn(true);
+        when(exercises.require("ex_478_breath")).thenReturn(
+                new Exercise("ex_478_breath", "4-7-8 呼吸", List.of(), List.of(), 4));
+
+        Map<?, ?> first = firstItem(service.list(7L).get(0));
+
+        assertEquals(List.of("睡前做一轮呼吸，先把节奏放慢"), first.get("reasons"));
+    }
+
+    @Test
+    @DisplayName("M-07：快照理由含诊断/疗效词时丢弃，回退到主导情绪匹配")
+    void reasonsRejectBannedSnapshotReason() {
+        GrowthPlanEntity p = plan(1L, 7L, "DONE", today().minusDays(2), today());
+        ObjectNode snap = mapper.createObjectNode();
+        snap.putArray("matchedExercises").addObject()
+                .put("exerciseId", "ex_478_breath")
+                .put("reason", "这套治疗方案可以治愈你的问题");
+        p.setItemsJson(snap.toString());
+        when(planRepo.findByUserIdOrderByCreatedAtDesc(7L)).thenReturn(List.of(p));
+        when(itemRepo.findByPlanIdOrderBySeqAsc(1L)).thenReturn(List.of(item(1L, 1, today(), null)));
+        when(exercises.exists("ex_478_breath")).thenReturn(true);
+        when(exercises.require("ex_478_breath")).thenReturn(
+                new Exercise("ex_478_breath", "4-7-8 呼吸", List.of("ANXIETY"), List.of(), 4));
+        stubRecent(List.of(traj(today().minusDays(1), "-0.4", "焦虑"),
+                traj(today(), "-0.5", "焦虑")));
+
+        Map<?, ?> first = firstItem(service.list(7L).get(0));
+
+        assertEquals(List.of("和最近常出现的「焦虑」感受相关"), first.get("reasons"));
+    }
+
+    @Test
+    @DisplayName("M-07：主导情绪次数并列时取最近一条记录的情绪")
+    void reasonsTieBreakToLatestEmotion() {
+        GrowthPlanEntity p = plan(1L, 7L, "DONE", today().minusDays(4), today());
+        p.setItemsJson("[]");
+        when(planRepo.findByUserIdOrderByCreatedAtDesc(7L)).thenReturn(List.of(p));
+        when(itemRepo.findByPlanIdOrderBySeqAsc(1L)).thenReturn(List.of(item(1L, 1, today(), null)));
+        when(exercises.exists("ex_478_breath")).thenReturn(true);
+        when(exercises.require("ex_478_breath")).thenReturn(
+                new Exercise("ex_478_breath", "4-7-8 呼吸", List.of("ANXIETY", "SADNESS"), List.of(), 4));
+        stubRecent(List.of(
+                traj(today().minusDays(3), "-0.2", "焦虑"),
+                traj(today().minusDays(2), "-0.2", "悲伤"),
+                traj(today().minusDays(1), "-0.2", "悲伤"),
+                traj(today(), "-0.2", "焦虑")));
+
+        Map<?, ?> first = firstItem(service.list(7L).get(0));
+
+        assertEquals(List.of("和最近常出现的「焦虑」感受相关"), first.get("reasons"));
+    }
+
+    @Test
+    @DisplayName("M-07：危机 grounding 且无快照时给出 grounding 兜底句")
+    void reasonsGroundingFallback() {
+        GrowthPlanEntity p = plan(1L, 7L, "DONE", today().minusDays(2), today());
+        p.setItemsJson("[]");
+        when(planRepo.findByUserIdOrderByCreatedAtDesc(7L)).thenReturn(List.of(p));
+        PlanItemEntity it = item(1L, 1, today(), null);
+        it.setExerciseCode("ex_54321");
+        when(itemRepo.findByPlanIdOrderBySeqAsc(1L)).thenReturn(List.of(it));
+        when(exercises.exists("ex_54321")).thenReturn(true);
+        when(exercises.require("ex_54321")).thenReturn(
+                new Exercise("ex_54321", "5-4-3-2-1 着陆", List.of(), List.of(), 3));
+
+        Map<?, ?> first = firstItem(service.list(7L).get(0));
+
+        assertEquals(List.of("此刻先做这一件，把注意力放回身体感受"), first.get("reasons"));
+    }
+
+    @Test
+    @DisplayName("M-07：无快照、无情绪命中、普通练习给出通用兜底句")
+    void reasonsGenericFallback() {
+        GrowthPlanEntity p = plan(1L, 7L, "DONE", today().minusDays(2), today());
+        p.setItemsJson("[]");
+        when(planRepo.findByUserIdOrderByCreatedAtDesc(7L)).thenReturn(List.of(p));
+        when(itemRepo.findByPlanIdOrderBySeqAsc(1L)).thenReturn(List.of(item(1L, 1, today(), null)));
+        when(exercises.exists("ex_478_breath")).thenReturn(true);
+        when(exercises.require("ex_478_breath")).thenReturn(
+                new Exercise("ex_478_breath", "4-7-8 呼吸", List.of("ANGER"), List.of(), 4));
+        stubRecent(List.of(traj(today().minusDays(1), "-0.2", "焦虑")));
+
+        Map<?, ?> first = firstItem(service.list(7L).get(0));
+
+        assertEquals(List.of("轻量自助练习，按自己的节奏做完就好"), first.get("reasons"));
+    }
+
+    @Test
+    @DisplayName("M-07：理由截断到 80 字、最多两条，重复读取结果一致")
+    void reasonsStableTruncatedAndAtMostTwo() {
+        GrowthPlanEntity p = plan(1L, 7L, "DONE", today().minusDays(2), today());
+        ObjectNode snap = mapper.createObjectNode();
+        snap.putArray("matchedExercises").addObject()
+                .put("exerciseId", "ex_478_breath")
+                .put("reason", "理".repeat(100));
+        p.setItemsJson(snap.toString());
+        when(planRepo.findByUserIdOrderByCreatedAtDesc(7L)).thenReturn(List.of(p));
+        when(itemRepo.findByPlanIdOrderBySeqAsc(1L)).thenReturn(List.of(item(1L, 1, today(), null)));
+        when(exercises.exists("ex_478_breath")).thenReturn(true);
+        when(exercises.require("ex_478_breath")).thenReturn(
+                new Exercise("ex_478_breath", "4-7-8 呼吸", List.of("ANXIETY"), List.of(), 4));
+        stubRecent(List.of(traj(today().minusDays(1), "-0.4", "焦虑"),
+                traj(today(), "-0.5", "焦虑")));
+
+        List<?> firstRead = (List<?>) firstItem(service.list(7L).get(0)).get("reasons");
+        List<?> secondRead = (List<?>) firstItem(service.list(7L).get(0)).get("reasons");
+
+        assertEquals(2, firstRead.size());
+        assertEquals(80, firstRead.get(0).toString().length());
+        assertEquals(firstRead, secondRead);
+    }
+
+    @Test
+    @DisplayName("M-07：计划列表多个计划只查询一次近 7 天轨迹")
+    void listQueriesRecentEmotionOnce() {
+        GrowthPlanEntity p1 = plan(1L, 7L, "DONE", today().minusDays(2), today());
+        GrowthPlanEntity p2 = plan(2L, 7L, "DROPPED", today().minusDays(4), today().minusDays(3));
+        when(planRepo.findByUserIdOrderByCreatedAtDesc(7L)).thenReturn(List.of(p1, p2));
+        when(itemRepo.findByPlanIdOrderBySeqAsc(1L)).thenReturn(List.of());
+        when(itemRepo.findByPlanIdOrderBySeqAsc(2L)).thenReturn(List.of());
+
+        service.list(7L);
+
+        verify(trajRepo, times(1)).findByUserIdAndRecordDateBetweenOrderByRecordDateAsc(
+                eq(7L), any(LocalDate.class), any(LocalDate.class));
+    }
+
+    @Test
+    @DisplayName("M-07：自适应建议复用同一次轨迹结果，低情绪仍能给出 REPLACE 建议")
+    void adaptationStillWorksWithSharedRecentEmotion() {
+        GrowthPlanEntity p = plan(1L, 7L, "ACTION", today(), today().plusDays(2));
+        when(planRepo.findById(1L)).thenReturn(Optional.of(p));
+        when(itemRepo.findByPlanIdOrderBySeqAsc(1L)).thenReturn(List.of(item(1L, 1, today(), null)));
+        when(userRepo.findById(7L)).thenReturn(Optional.of(user(7L, "NORMAL")));
+        when(exercises.exists("ex_478_breath")).thenReturn(true);
+        when(exercises.require("ex_478_breath")).thenReturn(
+                new Exercise("ex_478_breath", "4-7-8 呼吸", List.of("ANXIETY"), List.of(), 4));
+        stubRecent(List.of(traj(today().minusDays(1), "-0.500", "焦虑"),
+                traj(today(), "-0.500", "焦虑")));
+
+        Map<String, Object> view = service.detail(7L, 1L);
+
+        Map<?, ?> adaptation = (Map<?, ?>) view.get("adaptation");
+        assertNotNull(adaptation);
+        assertEquals("REPLACE", adaptation.get("type"));
+        verify(trajRepo, times(1)).findByUserIdAndRecordDateBetweenOrderByRecordDateAsc(
+                eq(7L), any(LocalDate.class), any(LocalDate.class));
+    }
+
     // ---------------- drop ----------------
 
     @Test

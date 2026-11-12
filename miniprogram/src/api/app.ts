@@ -58,6 +58,8 @@ export interface PlanItem {
   doneAt: string | null
   feedback: string | null
   durationMin: number
+  /** M-07 读取时派生的推荐理由（1–2 条） */
+  reasons?: string[]
 }
 
 export interface ActivePlan {

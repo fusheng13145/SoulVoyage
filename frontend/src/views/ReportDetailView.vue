@@ -183,13 +183,32 @@ async function saveNote() {
     busy.value = false
   }
 }
+
+/** M-03：单份报告走浏览器打印；不引入服务端 PDF 依赖 */
+function doPrint() {
+  window.print()
+}
 </script>
 
 <template>
   <div class="report">
-    <SvNavBar :title="report ? TYPE_LABELS[report.type] || '报告' : '报告'" back="返回" :large="false" />
+    <SvNavBar
+      :title="report ? TYPE_LABELS[report.type] || '报告' : '报告'"
+      back="返回"
+      :large="false"
+      class="print-hide"
+    />
 
     <SvPageBody v-if="report">
+      <div class="print-only print-head">
+        <p class="ph-kicker">心屿漫行 · {{ TYPE_LABELS[report.type] || report.type }}</p>
+        <h1>{{ report.title }}</h1>
+        <p>
+          {{ report.createdAt ? report.createdAt.slice(0, 16).replace('T', ' ') : '' }} ·
+          风险档：{{ riskChip.label }}
+        </p>
+      </div>
+
       <SvCard>
         <div class="head">
           <h2>{{ report.title }}</h2>
@@ -202,6 +221,10 @@ async function saveNote() {
           {{ TYPE_LABELS[report.type] || report.type }}
         </p>
       </SvCard>
+
+      <div class="print-actions no-print">
+        <button type="button" class="print-btn" @click="doPrint">打印 / 存为 PDF</button>
+      </div>
 
       <!-- 溯源 / 日记报告：事件-想法-情绪 + 压力源 + 误区 + 苏格拉底问题 -->
       <template v-if="isTrace || isDiaryReport">
@@ -295,7 +318,7 @@ async function saveNote() {
       </SvCard>
 
       <!-- L2 报表批注：收藏 + 轻反馈，只影响本账号 -->
-      <SvCard>
+      <SvCard class="no-print">
         <div class="anno-head">
           <h3 class="t">这份报告对你有帮助吗</h3>
           <button
@@ -341,10 +364,18 @@ async function saveNote() {
         <p v-else-if="report.feedbackNote" class="kept sv-muted">你留过一句：「{{ report.feedbackNote }}」</p>
       </SvCard>
 
+      <button type="button" class="sv-btn ghost no-print print-bottom" @click="doPrint">
+        打印 / 存为 PDF
+      </button>
+
       <SvDisclaimer
         text="报告基于你自己的记录由 AI 生成，是自助参考，不构成任何诊断"
         :reason="'结论对照心理学知识库（CBG 图谱）与你的原始记录推导，只描述可能性。所有原文信封加密，仅你可见。'"
       />
+
+      <footer class="print-only print-foot">
+        本报告由心屿漫行根据你自己的记录生成，仅供自助回顾，不构成任何诊断或医疗建议。
+      </footer>
     </SvPageBody>
 
     <SvPageBody v-else-if="loading"><p class="sv-muted none">报告解密中…</p></SvPageBody>
@@ -561,6 +592,69 @@ h4 {
 .none {
   text-align: center;
   padding: 40px 0;
+}
+.print-only {
+  display: none;
+}
+.print-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+.print-btn {
+  border: 1px solid var(--sv-sep);
+  background: var(--sv-card);
+  color: var(--sv-label2);
+  border-radius: var(--sv-r-tag);
+  padding: 8px 16px;
+  font-family: inherit;
+  font-size: var(--sv-fs-footnote);
+  cursor: pointer;
+}
+.print-bottom {
+  width: auto;
+  display: block;
+  margin: 4px auto 8px;
+}
+@media print {
+  .print-only {
+    display: block;
+  }
+  .print-head {
+    margin-bottom: 12px;
+  }
+  .print-head h1 {
+    font-size: 22px;
+    margin: 2px 0 4px;
+  }
+  .print-head .ph-kicker {
+    font-size: 12px;
+    color: #666;
+    letter-spacing: 0.04em;
+  }
+  .report :deep(.sv-card) {
+    box-shadow: none;
+    border: 1px solid #eee;
+    break-inside: avoid;
+  }
+  h2,
+  h3 {
+    break-after: avoid;
+  }
+  .plain li,
+  .plan-item,
+  .dist,
+  .tscore,
+  .rewrite {
+    break-inside: avoid;
+  }
+  .print-foot {
+    margin-top: 16px;
+    padding-top: 8px;
+    border-top: 1px solid #eee;
+    font-size: 11px;
+    color: #666;
+    line-height: 1.6;
+  }
 }
 .anno-head {
   display: flex;

@@ -111,7 +111,7 @@ watch(isAuthed, v => {
     <div class="canvas" :class="{ wide: isAdmin }">
       <div id="sv-layer" />
       <div class="sr-only" aria-live="polite">{{ pageTitle }}</div>
-      <SvCrisisBanner v-if="isAuthed && !isAdmin && route.path !== '/crisis'" />
+      <SvCrisisBanner v-if="isAuthed && !isAdmin && route.path !== '/crisis'" class="print-hide" />
       <main
         id="sv-main"
         ref="mainEl"
@@ -125,10 +125,10 @@ watch(isAuthed, v => {
           </transition>
         </router-view>
       </main>
-      <SvTabBar v-if="showTab" />
-      <SvToastHost />
-      <SvDialogHost />
-      <SvSheet v-model="helpOpen" title="键盘快捷键">
+      <SvTabBar v-if="showTab" class="print-hide" />
+      <SvToastHost class="print-hide" />
+      <SvDialogHost class="print-hide" />
+      <SvSheet v-model="helpOpen" title="键盘快捷键" class="print-hide">
         <ul class="keys">
           <li><kbd>Tab</kbd> 在控件间移动；首站可跳过导航</li>
           <li><kbd>Alt</kbd> + <kbd>1..5</kbd> 切换今日 / 日记 / 练习 / 洞察 / 我的</li>
@@ -271,5 +271,54 @@ watch(isAuthed, v => {
 .push-leave-to,
 .pop-leave-to {
   opacity: 0;
+}
+
+/*
+ * M-03：应用壳在屏幕上用固定高度 + 内部滚动；打印时必须解除这两层约束，
+ * 否则浏览器只输出当前可视区，长档案会被截断。
+ */
+@media print {
+  @page {
+    size: A4;
+    margin: 16mm 14mm;
+  }
+  html,
+  body {
+    background: #fff !important;
+    overflow: visible !important;
+  }
+  .print-hide,
+  .no-print,
+  .skip-link,
+  .sr-only,
+  #sv-layer {
+    display: none !important;
+  }
+  .stage {
+    display: block;
+    min-height: 0;
+    padding: 0;
+    background: #fff;
+  }
+  .canvas,
+  .canvas.wide {
+    width: auto;
+    height: auto;
+    min-height: 0;
+    max-height: none;
+    overflow: visible;
+    border: none;
+    border-radius: 0;
+    background: #fff;
+  }
+  main.screen,
+  .screen.sv-scroll {
+    flex: none;
+    height: auto;
+    min-height: 0;
+    overflow: visible !important;
+    padding: 0;
+    outline: none;
+  }
 }
 </style>

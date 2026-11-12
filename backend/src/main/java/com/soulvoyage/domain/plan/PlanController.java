@@ -86,10 +86,13 @@ public class PlanController {
     }
 
     private static PlanItemView item(Map<String, Object> m) {
+        @SuppressWarnings("unchecked")
+        List<String> reasons = (List<String>) m.get("reasons");
         return new PlanItemView(
                 ((Number) m.get("seq")).intValue(), (String) m.get("exerciseId"),
                 (String) m.get("guidance"), (String) m.get("scheduledDate"),
                 (String) m.get("doneAt"), (String) m.get("feedback"),
-                (String) m.get("exerciseName"), ((Number) m.get("durationMin")).intValue());
+                (String) m.get("exerciseName"), ((Number) m.get("durationMin")).intValue(),
+                reasons == null ? List.of() : reasons);
     }
 }

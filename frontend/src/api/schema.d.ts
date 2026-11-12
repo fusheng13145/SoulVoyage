@@ -2003,6 +2003,7 @@ export interface components {
       exerciseName?: string
       /** Format: int32 */
       durationMin?: number
+      reasons?: string[]
     }
     PlanView: {
       planId?: string

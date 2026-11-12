@@ -4301,6 +4301,12 @@
           "durationMin" : {
             "type" : "integer",
             "format" : "int32"
+          },
+          "reasons" : {
+            "type" : "array",
+            "items" : {
+              "type" : "string"
+            }
           }
         }
       },

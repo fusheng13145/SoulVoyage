@@ -6,7 +6,8 @@ import java.util.List;
 public class PlanDtos {
 
     public record PlanItemView(int seq, String exerciseId, String guidance, String scheduledDate,
-                               String doneAt, String feedback, String exerciseName, int durationMin) {}
+                               String doneAt, String feedback, String exerciseName, int durationMin,
+                               List<String> reasons) {}
 
     /** H-03 自适应建议：type=POSTPONE/REDUCE/REPLACE；无建议时整个对象为 null。 */
     public record PlanAdaptationView(String type, String title, String reason, String actionLabel) {}

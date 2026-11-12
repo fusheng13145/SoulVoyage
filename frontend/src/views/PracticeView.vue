@@ -131,6 +131,9 @@ async function skipTodayPlan() {
             <div class="pi-txt">
               <b>{{ it.exerciseName }}</b>
               <small>{{ it.guidance || `约 ${it.durationMin} 分钟` }}</small>
+              <small v-if="it.reasons?.length" class="why"
+                >为什么是它：{{ it.reasons.join('；') }}</small
+              >
             </div>
           </div>
           <button
@@ -310,6 +313,10 @@ async function skipTodayPlan() {
   font-size: var(--sv-fs-footnote);
   display: block;
   margin-top: 2px;
+}
+.pi-txt .why {
+  color: var(--sv-label3);
+  font-size: var(--sv-fs-caption1);
 }
 .ok {
   color: var(--sv-ok);

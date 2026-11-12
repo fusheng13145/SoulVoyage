@@ -13,6 +13,8 @@ export interface PlanItemView {
   exerciseName: string
   durationMin: number
   feedback: string | null
+  /** M-07 读取时派生的推荐理由（1–2 条，恒非空） */
+  reasons: string[]
 }
 
 /** H-03 计划自适应建议 */

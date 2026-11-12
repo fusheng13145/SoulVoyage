@@ -400,6 +400,7 @@ async function toggleFavorite() {
             <div class="pitem-txt">
               <b>{{ it.exerciseName }}</b>
               <small>{{ it.guidance || `约 ${it.durationMin} 分钟` }}</small>
+              <small v-if="it.reasons?.length" class="why">为什么是它：{{ it.reasons[0] }}</small>
             </div>
             <button v-if="!planItemDone(it)" class="sv-btn sm" @click="goFollow(it)">去跟练</button>
             <span v-else class="ok" aria-label="已完成">✓</span>
@@ -637,6 +638,9 @@ async function toggleFavorite() {
   font-size: var(--sv-fs-caption1);
   display: block;
   margin-top: 2px;
+}
+.pitem-txt .why {
+  color: var(--sv-label3);
 }
 .pitem .ok {
   color: var(--sv-mint);

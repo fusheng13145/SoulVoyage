@@ -290,6 +290,9 @@ function openCompanion() {
           <text class="sv-cap">{{ it.doneAt ? '已完成' : it.durationMin + ' 分钟' }}</text>
         </view>
         <text v-if="it.guidance" class="sv-muted guidance">{{ it.guidance }}</text>
+        <text v-if="it.reasons && it.reasons.length" class="sv-muted guidance why"
+          >为什么是它：{{ it.reasons[0] }}</text
+        >
       </view>
       <text class="sv-cap hint">完整的练习室在网页端：这里只把今天该做的排给你看。</text>
     </view>
@@ -531,6 +534,10 @@ function openCompanion() {
 }
 .guidance {
   line-height: 1.5;
+}
+.guidance.why {
+  color: var(--sv-label3);
+  font-size: var(--sv-fs-caption1);
 }
 .micro {
   display: flex;

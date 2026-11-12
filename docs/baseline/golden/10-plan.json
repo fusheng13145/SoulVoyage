@@ -20,6 +20,9 @@
               "exerciseName": "认知书写三栏表",
               "feedback": null,
               "guidance": "（mock）第 1 天：ex_cbt_write，做完就算赢。",
+              "reasons": [
+                "（mock）匹配当前「平静」，认知书写三栏表约 10 分钟即可"
+              ],
               "scheduledDate": "2026-11-12",
               "seq": 1
             }
@@ -53,6 +56,9 @@
             "exerciseName": "认知书写三栏表",
             "feedback": null,
             "guidance": "（mock）第 1 天：ex_cbt_write，做完就算赢。",
+            "reasons": [
+              "（mock）匹配当前「平静」，认知书写三栏表约 10 分钟即可"
+            ],
             "scheduledDate": "2026-11-12",
             "seq": 1
           },
@@ -63,6 +69,9 @@
             "exerciseName": "行为激活清单",
             "feedback": null,
             "guidance": "（mock）第 2 天：ex_action，做完就算赢。",
+            "reasons": [
+              "（mock）匹配当前「平静」，行为激活清单约 7 分钟即可"
+            ],
             "scheduledDate": "2026-11-13",
             "seq": 2
           }

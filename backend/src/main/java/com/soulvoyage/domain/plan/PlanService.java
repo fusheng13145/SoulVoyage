@@ -29,6 +29,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -47,6 +48,30 @@ public class PlanService {
     private static final String GROUNDING_EXERCISE = "ex_54321";
     private static final String GROUNDING_GUIDANCE =
             "此刻只做这一件：5-4-3-2-1 感官着陆，把自己稳稳放回当下。";
+
+    /** M-07 推荐理由：单条上限（超长截断，避免把报告正文塞进卡片） */
+    private static final int REASON_MAX = 80;
+
+    /** M-07 理由禁用词：任何理由命中即丢弃——理由只解释"为什么匹配"，不做诊断、不承诺疗效 */
+    private static final List<String> REASON_BANNED = List.of(
+            "诊断", "治疗", "治愈", "疗效", "病因", "抑郁症", "焦虑症", "处方", "药物");
+
+    /**
+     * M-07：练习库适用标签 → 可匹配的中文情绪（与 SupportAgent.EMOTION_TO_CATEGORIES 的映射互为逆）。
+     * ACUTE_STRESS / INSOMNIA 刻意不映射：那两类是对状态而非对情绪的适配，硬套情绪标签等于过度解释。
+     */
+    private static final Map<String, List<String>> CATEGORY_EMOTIONS = Map.ofEntries(
+            Map.entry("ANXIETY", List.of("焦虑")),
+            Map.entry("FEAR", List.of("恐惧")),
+            Map.entry("ANGER", List.of("愤怒")),
+            Map.entry("HIGH_PRESSURE", List.of("压力", "焦虑")),
+            Map.entry("SADNESS", List.of("悲伤", "委屈")),
+            Map.entry("LOW_MOOD", List.of("悲伤", "疲惫", "麻木")),
+            Map.entry("SHAME", List.of("羞耻", "内疚")),
+            Map.entry("GUILT", List.of("内疚", "羞耻")),
+            Map.entry("LONELINESS", List.of("孤独")),
+            Map.entry("NUMBNESS", List.of("麻木")),
+            Map.entry("CONFUSED", List.of("困惑")));
 
     private final GrowthPlanRepository planRepo;
     private final PlanItemRepository itemRepo;
@@ -123,16 +148,19 @@ public class PlanService {
         var plan = planRepo.findByUserIdAndStatusOrderByEndDateAsc(userId, "ACTION").stream()
                 .filter(p -> !today.isBefore(p.getStartDate()) && !today.isAfter(p.getEndDate()))
                 .findFirst().orElse(null);
-        return plan == null ? null : view(userId, plan, true, true);
+        return plan == null ? null : view(userId, plan, true, true, recentEmotion(userId, today));
     }
 
     public List<Map<String, Object>> list(long userId) {
-        return planRepo.findByUserIdOrderByCreatedAtDesc(userId).stream()
-                .map(p -> view(userId, p, false, false)).toList();
+        List<GrowthPlanEntity> plans = planRepo.findByUserIdOrderByCreatedAtDesc(userId);
+        if (plans.isEmpty()) return List.of();
+        // M-07：同一用户的多个计划复用一次近 7 天查询，避免列表 N+1
+        RecentEmotion recent = recentEmotion(userId, cal.today());
+        return plans.stream().map(p -> view(userId, p, false, false, recent)).toList();
     }
 
     public Map<String, Object> detail(long userId, long planId) {
-        return view(userId, owned(userId, planId), false, true);
+        return view(userId, owned(userId, planId), false, true, recentEmotion(userId, cal.today()));
     }
 
     /** 用户主动放弃计划：自主权优先，不追问 */
@@ -161,7 +189,7 @@ public class PlanService {
             default -> throw new BizException(ErrorCode.BAD_PARAMS, "未知调整动作: " + action);
         }
         recalcSpan(p, all);
-        return view(userId, p, false, true);
+        return view(userId, p, false, true, recentEmotion(userId, cal.today()));
     }
 
     /** H-03「今天不做」：今日未完成项顺延到未来最近可用日；幂等。 */
@@ -181,7 +209,7 @@ public class PlanService {
             itemRepo.save(it);
         }
         recalcSpan(p, all);
-        return view(userId, p, false, true);
+        return view(userId, p, false, true, recentEmotion(userId, cal.today()));
     }
 
     /** C4 跟练完成回写：先做属主断言，再给计划条目盖章 */
@@ -319,6 +347,9 @@ public class PlanService {
 
     record ExercisePlanSource(int day, String exerciseId, String guidance) {}
 
+    /** M-07：一次近 7 天查询同时服务"理由"与"自适应建议"，避免同一视图重复读轨迹 */
+    private record RecentEmotion(BigDecimal avgValence, String dominantEmotion) {}
+
     /** 取可执行计划项：优先 planItems（LLM 排期）；缺/全非法时退回 matchedExercises 确定性摊开（每日 ≤2 项） */
     private List<ExercisePlanSource> planSources(JsonNode supportResult, int days) {
         var out = new ArrayList<ExercisePlanSource>();
@@ -438,7 +469,8 @@ public class PlanService {
 
     /** 确定性建议：逾期 → 顺延；低完成率 → 减量；低情绪 → 替换。危机活跃态不主动建议。 */
     private Map<String, Object> adaptation(long userId, GrowthPlanEntity p,
-                                           List<PlanItemEntity> all, LocalDate today) {
+                                           List<PlanItemEntity> all, LocalDate today,
+                                           RecentEmotion recent) {
         if (!"ACTION".equals(p.getStatus()) || today.isAfter(p.getEndDate())) return null;
         boolean crisis = userRepo.findById(userId)
                 .map(u -> CrisisState.parse(u.getCrisisState()).active())
@@ -467,7 +499,7 @@ public class PlanService {
                     "减到每天一项");
         }
 
-        BigDecimal avg = recentValence(userId, today);
+        BigDecimal avg = recent.avgValence();
         if (avg != null && avg.compareTo(new BigDecimal("-0.30")) <= 0) {
             return adaptMap("REPLACE", "换一个更轻的练习",
                     "近 7 天情绪均值偏低（" + avg.setScale(2, RoundingMode.HALF_UP).toPlainString()
@@ -486,23 +518,107 @@ public class PlanService {
         return m;
     }
 
-    /** 近 7 天平均效价；少于 2 个记录日返回 null（避免单点过度解读）。 */
-    private BigDecimal recentValence(long userId, LocalDate today) {
+    /**
+     * M-07：近 7 天轨迹只读一次，同时得到平均效价（自适应建议）与主导情绪（推荐理由）。
+     * 主导情绪取出现次数最多者；并列时取最近一条记录的情绪，保证同输入同输出。
+     */
+    private RecentEmotion recentEmotion(long userId, LocalDate today) {
         List<EmotionTrajectoryEntity> rows = trajRepo
                 .findByUserIdAndRecordDateBetweenOrderByRecordDateAsc(
                         userId, today.minusDays(6), today);
+        if (rows.isEmpty()) return new RecentEmotion(null, null);
+
+        BigDecimal avg = null;
         long days = rows.stream().map(EmotionTrajectoryEntity::getRecordDate).distinct().count();
-        if (days < 2) return null;
-        double avg = rows.stream().filter(t -> t.getValence() != null)
-                .mapToDouble(t -> t.getValence().doubleValue()).average().orElse(Double.NaN);
-        return Double.isNaN(avg) ? null : BigDecimal.valueOf(avg).setScale(3, RoundingMode.HALF_UP);
+        if (days >= 2) {
+            double v = rows.stream().filter(t -> t.getValence() != null)
+                    .mapToDouble(t -> t.getValence().doubleValue()).average().orElse(Double.NaN);
+            if (!Double.isNaN(v)) avg = BigDecimal.valueOf(v).setScale(3, RoundingMode.HALF_UP);
+        }
+
+        Map<String, Long> counts = new LinkedHashMap<>();
+        for (EmotionTrajectoryEntity t : rows) {
+            String emotion = t.getPrimaryEmotion();
+            if (emotion != null && !emotion.isBlank()) counts.merge(emotion, 1L, Long::sum);
+        }
+        String latest = null;
+        for (int i = rows.size() - 1; i >= 0; i--) {
+            String emotion = rows.get(i).getPrimaryEmotion();
+            if (emotion != null && !emotion.isBlank()) {
+                latest = emotion;
+                break;
+            }
+        }
+        String dominant = counts.entrySet().stream()
+                .max(Comparator.comparingLong(Map.Entry<String, Long>::getValue))
+                .map(Map.Entry::getKey).orElse(null);
+        if (latest != null && dominant != null
+                && counts.get(latest).longValue() == counts.get(dominant).longValue()) {
+            dominant = latest;
+        }
+        return new RecentEmotion(avg, dominant);
+    }
+
+    /** itemsJson 是生成时快照；解析失败按无快照处理，理由走确定性兜底。 */
+    private JsonNode snapshot(GrowthPlanEntity p) {
+        String json = p.getItemsJson();
+        if (json == null || json.isBlank()) return mapper.createObjectNode();
+        try {
+            JsonNode n = mapper.readTree(json);
+            return n == null ? mapper.createObjectNode() : n;
+        } catch (Exception e) {
+            log.debug("plan snapshot unreadable plan={}", p.getId());
+            return mapper.createObjectNode();
+        }
+    }
+
+    /**
+     * M-07 读取时派生理由：优先用生成时快照里的推荐理由，其次按近期主导情绪与练习适用标签匹配，
+     * 最后按 grounding / 普通练习兜底。恒返回 1–2 条，不调用 LLM、不做诊断。
+     */
+    private List<String> reasonsFor(PlanItemEntity it, JsonNode snapshot, Exercise ex,
+                                    RecentEmotion recent) {
+        var out = new LinkedHashSet<String>();
+        String matched = matchedReason(snapshot, it.getExerciseCode());
+        if (matched != null) out.add(matched);
+        if (out.size() < 2) {
+            String emotion = matchedEmotion(ex, recent.dominantEmotion());
+            if (emotion != null) out.add("和最近常出现的「" + emotion + "」感受相关");
+        }
+        if (out.isEmpty()) {
+            out.add(GROUNDING_EXERCISE.equals(it.getExerciseCode())
+                    ? "此刻先做这一件，把注意力放回身体感受"
+                    : "轻量自助练习，按自己的节奏做完就好");
+        }
+        return List.copyOf(out);
+    }
+
+    private String matchedReason(JsonNode snapshot, String exerciseCode) {
+        for (JsonNode m : snapshot.path("matchedExercises")) {
+            if (!exerciseCode.equals(m.path("exerciseId").asText(""))) continue;
+            String reason = m.path("reason").asText("").replaceAll("\\s+", " ").trim();
+            if (reason.isEmpty() || REASON_BANNED.stream().anyMatch(reason::contains)) continue;
+            return reason.length() > REASON_MAX ? reason.substring(0, REASON_MAX) : reason;
+        }
+        return null;
+    }
+
+    private String matchedEmotion(Exercise ex, String dominant) {
+        if (ex == null || dominant == null || dominant.isBlank()) return null;
+        for (String category : ex.applyEmotions()) {
+            if (CATEGORY_EMOTIONS.getOrDefault(category, List.of()).contains(dominant)) {
+                return dominant;
+            }
+        }
+        return null;
     }
 
     /** todayOnly：仅展开今日条目，但完成度按全计划统计；withAdaptation 仅 active/detail 计算建议 */
     private Map<String, Object> view(long userId, GrowthPlanEntity p, boolean todayOnly,
-                                     boolean withAdaptation) {
+                                     boolean withAdaptation, RecentEmotion recent) {
         LocalDate today = cal.today();
         List<PlanItemEntity> all = itemRepo.findByPlanIdOrderBySeqAsc(p.getId());
+        JsonNode snapshot = snapshot(p);
         int done = (int) all.stream().filter(x -> x.getDoneAt() != null).count();
         int dueTotal = (int) all.stream()
                 .filter(x -> !x.getScheduledDate().isAfter(today)).count();
@@ -533,6 +649,7 @@ public class PlanService {
                     ? exercises.require(it.getExerciseCode()) : null;
             m.put("exerciseName", ex == null ? it.getExerciseCode() : ex.name());
             m.put("durationMin", ex == null ? 0 : ex.durationMin());
+            m.put("reasons", reasonsFor(it, snapshot, ex, recent));
             list.add(m);
         }
         Map<String, Object> out = new HashMap<>();
@@ -547,7 +664,7 @@ public class PlanService {
         out.put("doneCount", done);
         out.put("totalCount", all.size());
         out.put("items", list);
-        out.put("adaptation", withAdaptation ? adaptation(userId, p, all, today) : null);
+        out.put("adaptation", withAdaptation ? adaptation(userId, p, all, today, recent) : null);
         out.put("completionRate", completionRate);
         out.put("overdueCount", overdueCount);
         out.put("remainingCount", remainingCount);

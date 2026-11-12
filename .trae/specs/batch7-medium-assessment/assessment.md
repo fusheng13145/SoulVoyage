@@ -3,6 +3,7 @@
 > 依据：基线 spec §4.3、tasks.md 11.8。
 > 性质：**只做评估，不实施**。结论用于逐项审批与 Batch 7 排期。
 > 原则：优先选技术上更合理、可维护、可回滚的方案，不以“改动小”作为排序依据。
+> **实施状态（2026-11-12）**：M-07 / M-03 已在 Batch 7A 落地，见 `.trae/specs/batch7a-m07-m03/`；M-07 采用读取时派生，无 `plan_item.reason`、无迁移；M-03 继续浏览器打印，无 PDF 库。其余项仍待逐项审批。
 
 ## 0. 结论摘要
 
@@ -42,6 +43,11 @@
 **验收**
 - 每个计划项/推荐在无 LLM 时也有稳定理由；同一输入理由一致；文案无诊断词。
 
+**落地（Batch 7A）**
+- `PlanService.view()` 读取时派生 `reasons`：`items_json.matchedExercises.reason` → 近 7 天主导情绪 + `applyEmotions` → grounding/通用兜底；禁用词过滤、截断 80 字、最多 2 条。
+- 无 `plan_item.reason`、无 V4 迁移、无读取时 LLM 调用；`recentEmotion()` 一次查询同时服务理由与自适应建议。
+- 契约新增 `PlanItemView.reasons`；Web/小程序今日页与练习页展示「为什么是它」。
+
 ### M-03 报告导出 2.0（P1，S–M，A）
 
 **现状**
@@ -55,6 +61,11 @@
 
 **验收**
 - 单报告可打印；档案目录可跳转；打印预览无截断；导出仍走现有一次性快照/审计。
+
+**落地（Batch 7A）**
+- `ReportDetailView` 增加「打印 / 存为 PDF」与 print-only 标题/页脚；打印隐藏导航、批注卡、按钮与原始 JSON。
+- `ArchiveView` 快照增加目录、章节锚点、标题页/目录/章节分页；`App.vue` 在 `@media print` 解除应用壳固定高度与内部滚动，修复长档案截断。
+- 未新增后端导出接口、未引入 PDF 依赖。
 
 ### M-02 知识图谱可视化（P2，M，A）
 
