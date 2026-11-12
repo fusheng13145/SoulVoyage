@@ -1,7 +1,7 @@
 {
   "openapi" : "3.0.1",
   "info" : {
-    "title" : "SoulVoyage API",
+    "title" : "soul-voyage API",
     "description" : "å¿å±¿æ¼«è¡ââå¤ Agent å¿çæé¿å¹³å°åç«¯æ¥å£å¥çº¦",
     "version" : "v1"
   },

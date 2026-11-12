@@ -1,6 +1,6 @@
 # Batch 4 实施 Spec：核心编排（B-03 / B-04 / B-11 / B-13）
 
-> 上位基准：`.trae/specs/establish-soulvoyage-baseline/spec.md` §3.3、§3.6 Batch 4；
+> 上位基准：`.trae/specs/establish-soul-voyage-baseline/spec.md` §3.3、§3.6 Batch 4；
 > 任务来源：`tasks.md` Task 9。
 > 性质：B 类重构。**核心编排代码，改动前逐项书面批准；B-13 需专项批准，未批准不执行。**
 > 行为等价红线：5 条流水线步骤顺序、SSE 事件名称/顺序/载荷键、任务状态值、错误码语义不变。
@@ -54,7 +54,7 @@ orchestrator/
 | `orchestrator/AgentRegistry.java` | `Map<AgentCode, Agent>`；`require(AgentCode)`；构造时重复码显式报错；`@PostConstruct` 校验所有流水线步骤的 Agent 均可解析 |
 | `orchestrator/pipeline/PipelineRegistry.java` | `Map<PipelineCode, TaskDefinition>`；`require(PipelineCode)` / `require(String)`；`@PostConstruct` 校验「枚举值全覆盖 + 每条流水线在合成上下文下 steps 非空」 |
 | `orchestrator/OrchestratorService.java` | `submit(String)` 首行 `PipelineCode code = PipelineCode.from(...)`；`pipelines.require(code).validatePayload(input)`；`pipelineCode` 落库用 `code.name()`；事件/日志/协议处 `spec.agentCode().name()` |
-| `backend/src/test/.../M9DualTrackMatrixTest.java:72` | `new StepSpec("risk", AgentCode.RISK_ARCHIVE, ...)` |
+| `soul-backend/src/test/.../M9DualTrackMatrixTest.java:72` | `new StepSpec("risk", AgentCode.RISK_ARCHIVE, ...)` |
 
 payload 校验（只校验「结构必需项 / 类型」，不新增业务规则）：
 
@@ -83,7 +83,7 @@ payload 校验（只校验「结构必需项 / 类型」，不新增业务规则
 | 新增 `orchestrator/TaskExecutionService.java` | 从 `run` 迁入：RUNNING 迁移、危机上下文、步骤循环、`promoteDiaryText`、DEGRADED/PARTIAL_SUCCESS、FINAL 落库、失败收口、取消检查、终态发布 |
 | 新增 `orchestrator/TaskStepRunner.java` | 从 `executeStep` 迁入：REQUEST 落库、step_started、3 次尝试与 2s/8s 退避、step_retry、SUCCESS/FAILED 日志与指标、middle_result、LLM 用量归集 |
 | `orchestrator/OrchestratorService.java` | 改为门面：`submit/retry` 委托 Submission，`byNo/finalPayload` 保留查询，`cancel` 走状态机；删除 `nextConsumer`，协议上游固定 `AgentCode.ORCHESTRATOR.name()` |
-| `backend/src/test/.../OrchestratorEventSequenceTest.java`（新增） | 假 Agent + 假 TaskDefinition 断言事件序列与状态：`task_created → task_status(RUNNING) → step_started → middle_result → task_status(SUCCESS) → done`；输出校验失败时为 `step_failed → task_status(PARTIAL_SUCCESS) → done`；取消为 `task_status(CANCELLED) → done` |
+| `soul-backend/src/test/.../OrchestratorEventSequenceTest.java`（新增） | 假 Agent + 假 TaskDefinition 断言事件序列与状态：`task_created → task_status(RUNNING) → step_started → middle_result → task_status(SUCCESS) → done`；输出校验失败时为 `step_failed → task_status(PARTIAL_SUCCESS) → done`；取消为 `task_status(CANCELLED) → done` |
 
 约束：
 - `TaskInstanceEntity.status` 仍是 `String`，DB 值不变；状态机只做写入前判定。

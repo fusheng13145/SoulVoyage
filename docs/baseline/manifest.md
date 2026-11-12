@@ -1,6 +1,6 @@
-# SoulVoyage 基线快照清单（Batch 0）
+# soul-voyage 基线快照清单（Batch 0）
 
-> 依据：`.trae/specs/establish-soulvoyage-baseline/spec.md` §3.6 与 `.trae/documents/batch0-batch1-baseline-refactor.md` Phase A
+> 依据：`.trae/specs/establish-soul-voyage-baseline/spec.md` §3.6 与 `.trae/documents/batch0-batch1-baseline-refactor.md` Phase A
 > 目的：为 Batch 1 及后续重构提供可复跑、可对照的静态契约、运行时 golden 与视觉基线。
 > 本目录只存放快照与说明，不参与构建。
 
@@ -14,7 +14,7 @@
 | JDK | 21.0.6 LTS |
 | Node | v24.15.0 |
 | Maven | 3.9.15 |
-| 后端 | `backend/target/soulvoyage-backend-0.1.0.jar`（2026-09-29 构建，晚于全部后端主源码，未重建） |
+| 后端 | `soul-backend/target/soul-backend-0.1.0.jar`（2026-09-29 构建，晚于全部后端主源码，未重建） |
 | 数据库 | 本机 MySQL 8.x @ `localhost:3306`，Redis 7 @ `localhost:6379` |
 | 前端 | Vite dev @ `http://localhost:5174`（`npm run dev -- --port 5174 --strictPort`） |
 | 后端端口 | `http://localhost:8080`（`/actuator/health` 就绪） |
@@ -24,9 +24,9 @@
 
 | 文件 | 来源 | SHA-256 |
 |---|---|---|
-| `openapi.json` | `backend/openapi/openapi.json` | `25FBFA93532CA7E00915D40BBB8A9F5F037BD201E4A0B2E2E6AF380C7BF4639C` |
+| `openapi.json` | `soul-backend/openapi/openapi.json` | `25FBFA93532CA7E00915D40BBB8A9F5F037BD201E4A0B2E2E6AF380C7BF4639C` |
 | `schema.sql` | `deploy/sql/schema.sql`（只读副本，不改语义） | `545C44325A71A824349153B70B7B35E3ADADEAD035DD2C94EEB0B761C1444505` |
-| `schema.web.d.ts` | `frontend/src/api/schema.d.ts` | `7EC6B01076228A1EBBEE1E10963CFFFAAEB69FEA197EBE4D7C63C2422ACADC0D` |
+| `schema.web.d.ts` | `soul-frontend/src/api/schema.d.ts` | `7EC6B01076228A1EBBEE1E10963CFFFAAEB69FEA197EBE4D7C63C2422ACADC0D` |
 | `schema.miniprogram.d.ts` | `miniprogram/src/api/schema.d.ts` | `7EC6B01076228A1EBBEE1E10963CFFFAAEB69FEA197EBE4D7C63C2422ACADC0D` |
 
 - Web 与小程序两份生成类型哈希一致：当前契约无端侧漂移。
@@ -99,7 +99,7 @@
 2. 运行时场景会写入测试数据（唯一用户名 `base_*` / `base_ui_*`、1 个群体看板组）；不建表、不改 schema、不删既有数据。
 3. 管理端场景使用本地 `admin` 账号；若该账号不可登录，14/15 文件会写 `status=SKIPPED` 并说明原因。
 4. golden 中的报告/回执正文来自 mock LLM，仅用于「同环境前后对照」，不代表真实模型输出。
-5. A-18 核验：`backend/Dockerfile:16-17` 已定义 `HEALTHCHECK` 调用 `/actuator/health`，`deploy/docker-compose.yml` 的 `depends_on: service_healthy` 可正常工作；**Spec 中「compose 未定义 healthcheck」的描述已按事实修正，本次不改 compose**。
+5. A-18 核验：`soul-backend/Dockerfile:16-17` 已定义 `HEALTHCHECK` 调用 `/actuator/health`，`deploy/docker-compose.yml` 的 `depends_on: service_healthy` 可正常工作；**Spec 中「compose 未定义 healthcheck」的描述已按事实修正，本次不改 compose**。
 6. 快照不包含任何密钥；`deploy/local.env` 仅以环境变量注入进程，未打印、未复制。
 
 ## 8. 复跑命令
@@ -109,10 +109,10 @@
 node deploy/tools/check_c_guard.mjs
 
 # 2) 后端（先注入 deploy/local.env，不打印密钥）
-java "-Dfile.encoding=UTF-8" -jar backend/target/soulvoyage-backend-0.1.0.jar
+java "-Dfile.encoding=UTF-8" -jar soul-backend/target/soul-backend-0.1.0.jar
 
 # 3) 前端
-cd frontend; npm run dev -- --port 5174 --strictPort
+cd soul-frontend; npm run dev -- --port 5174 --strictPort
 
 # 4) golden + 截图
 node deploy/tools/snapshot_batch0.mjs
@@ -125,14 +125,14 @@ node deploy/tools/snapshots_batch0.mjs
 
 | 命令 | 结果 |
 |---|---|
-| `cd backend && mvn -B test` | BUILD SUCCESS；401 例，0 失败，9 跳过（与基线一致） |
-| `cd frontend && npm run lint` | 0 error |
-| `cd frontend && npm run format:check` | 通过 |
-| `cd frontend && npm run typecheck` | 通过（新增脚本） |
-| `cd frontend && npm run test` | 11 个 spec / 108 例全绿（基线 100 例 + 日期 5 + SSE 终态 2 + 主题跟随 1） |
-| `cd frontend && npm run coverage` | 逻辑层 100%（lines/branches/functions/statements） |
-| `cd frontend && npm run build` | 成功 |
-| `cd frontend && npm run gen:api` + `git diff --exit-code -- src/api/schema.d.ts` | 无契约漂移 |
+| `cd soul-backend && mvn -B test` | BUILD SUCCESS；401 例，0 失败，9 跳过（与基线一致） |
+| `cd soul-frontend && npm run lint` | 0 error |
+| `cd soul-frontend && npm run format:check` | 通过 |
+| `cd soul-frontend && npm run typecheck` | 通过（新增脚本） |
+| `cd soul-frontend && npm run test` | 11 个 spec / 108 例全绿（基线 100 例 + 日期 5 + SSE 终态 2 + 主题跟随 1） |
+| `cd soul-frontend && npm run coverage` | 逻辑层 100%（lines/branches/functions/statements） |
+| `cd soul-frontend && npm run build` | 成功 |
+| `cd soul-frontend && npm run gen:api` + `git diff --exit-code -- src/api/schema.d.ts` | 无契约漂移 |
 | `cd miniprogram && npm run typecheck && build:mp-weixin && build:h5` | 全部通过（未改小程序） |
 | `node deploy/tools/check_c_guard.mjs` | PASS，C 类零 diff |
 | 视觉走查（375/1440，明暗） | 今日/日记/练习/洞察/我的正常；练习页计划条目恢复显示 |
@@ -141,5 +141,5 @@ node deploy/tools/snapshots_batch0.mjs
 
 | 位置 | 现象 | 证据 | 建议 |
 |---|---|---|---|
-| `frontend/src/views/PracticeView.vue` 原第 61 行 | `/plans/active` 返回 `planId="pl_N"`，页面直接拼 `/plans/pl_N`；后端 `PlanController` 只接受 `long`，请求 400，计划条目永远为空且整页报「加载失败」 | 基线截图 `screenshots/375-light-practice.png`；`ExerciseController.parsePlanId` 会剥 `pl_` 前缀，说明这是路径参数与 body 参数的口径不一致 | 已在 Batch 1 的 A-21 改造中一并修正为 `Number(planId.replace(/^pl_/, ''))`；属前端视图内修复，不改后端契约。若需回退 A-21，此行需同步回退 |
+| `soul-frontend/src/views/PracticeView.vue` 原第 61 行 | `/plans/active` 返回 `planId="pl_N"`，页面直接拼 `/plans/pl_N`；后端 `PlanController` 只接受 `long`，请求 400，计划条目永远为空且整页报「加载失败」 | 基线截图 `screenshots/375-light-practice.png`；`ExerciseController.parsePlanId` 会剥 `pl_` 前缀，说明这是路径参数与 body 参数的口径不一致 | 已在 Batch 1 的 A-21 改造中一并修正为 `Number(planId.replace(/^pl_/, ''))`；属前端视图内修复，不改后端契约。若需回退 A-21，此行需同步回退 |
 

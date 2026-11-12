@@ -1,4 +1,4 @@
-# 心屿漫行 SoulVoyage
+# 心屿漫行 soul-voyage
 
 > 面向大学生群体的任务驱动型多智能体协同心理自助成长平台。
 > 仅为自助辅助工具，不做心理诊断、不替代心理咨询师；高危信号触发转介提示。
@@ -11,8 +11,8 @@
 ## 仓库结构
 
 ```
-backend/      SpringBoot 3 + Java 21 单体（orchestrator / agent / llm / kg / crypto / asr / wechat / admin / auth ...）
-frontend/     Vue3 + TypeScript + Vite（Web 端，iOS 设计系统）
+soul-backend/      SpringBoot 3 + Java 21 单体（orchestrator / agent / llm / kg / crypto / asr / wechat / admin / auth ...）
+soul-frontend/     Vue3 + TypeScript + Vite（Web 端，iOS 设计系统）
 miniprogram/  uni-app + Vue3 + TS（微信小程序端，M14：微信只做既有账号的第二入口）
 deploy/       sql/schema.sql（库表唯一事实源）+ sql/migrate_mN.sql · neo4j/seed.cypher · tools/（smoke/walk/load/llm_stub/asr_stub 脚本）· docker-compose.yml（预置未运行）
 docs/         项目手册.md（唯一事实源）· demo/V2交互原型.html（M6 视觉基线）
@@ -24,7 +24,7 @@ docs/         项目手册.md（唯一事实源）· demo/V2交互原型.html（
 |---|---|---|
 | JDK | 21 | 虚拟线程已启用 |
 | Maven | 3.9 | |
-| MySQL | 8.4 @127.0.0.1:3306（服务 MySQL84） | 库 `soulvoyage`，账号 `soulvoyage`，先导入 `deploy/sql/schema.sql` |
+| MySQL | 8.4 @127.0.0.1:3306（服务 MySQL84） | 库 `soul_voyage`，账号 `soul_voyage`，先导入 `deploy/sql/schema.sql` |
 | Redis | @127.0.0.1:6379 免密 | 会话上下文 / 任务态 / JWT 黑名单 |
 | Neo4j | 5.26.12 @127.0.0.1:7687（`D:/neo4j-community-5.26.12`） | 本机实例已就绪并导入 `deploy/neo4j/seed.cypher`（116 节点 / 178 关系，与 `resources/kg/*.json` 同源）；启动/导种子/查数走 `deploy/tools/neo4j.sh start\|seed\|status\|cy`（官方 `neo4j.bat` 在本机 PowerShell 5.1 下有 hashtable 键冲突缺陷，脚本内已注释 Java 直调绕过方式）。**M16 已落地**：`neo4j-java-driver 5.26.0` + `Neo4jKgService`（按 `content:version` 懒同步的只读派生视图，MySQL `kg_node` 仍是唯一写入口）+ `Neo4jKgConfig`（`SV_NEO4J_ENABLED=true` 时以 `@Primary` 接管）；图不可用时秒级回落 `kg_node` 兜底（驱动超时 2s + 30s 短路熔断）。开关关闭时装配图与 M14 及之前**逐字一致** |
 | LLM | 无 Key | `SV_LLM_PROVIDER=mock` 走 MockLlmClient；`openai` 即 OpenAI 兼容真流式网关（M10 落地，真协议由 `deploy/tools/llm_stub.mjs` 本机桩钉住），密钥就绪后配置切换即可 |
@@ -32,16 +32,16 @@ docs/         项目手册.md（唯一事实源）· demo/V2交互原型.html（
 
 ```bash
 # 后端（注意：中文路径下 mvn spring-boot:run 的 fork 会 ClassNotFound，用 jar 方式跑）
-cd backend
+cd soul-backend
 mvn -DskipTests package
 set -a && . ../deploy/local.env && set +a    # Git Bash；含本机 MySQL 密码与开发密钥
-java -Dfile.encoding=UTF-8 -jar target/soulvoyage-backend-0.1.0.jar   # http://localhost:8080
+java -Dfile.encoding=UTF-8 -jar target/soul-backend-0.1.0.jar   # http://localhost:8080
 
 # 导入/重建数据库（Windows 必须指定客户端字符集）
 mysql -u root -p --default-character-set=utf8mb4 < deploy/sql/schema.sql
 
 # 前端
-cd frontend
+cd soul-frontend
 npm install && npm run dev                   # http://localhost:5173（代理 /api → 8080）
 
 # 微信小程序端（uni-app + Vue3；本机无 HTTPS 域名，走 H5 目标验证）

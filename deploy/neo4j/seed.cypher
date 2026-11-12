@@ -1,4 +1,4 @@
-// SoulVoyage · Neo4j 知识图谱种子（与 backend/src/main/resources/kg/*.json 同源，由脚本生成后人工核对）
+// soul-voyage · Neo4j 知识图谱种子（与 soul-backend/src/main/resources/kg/*.json 同源，由脚本生成后人工核对）
 // 用法（Neo4j 就绪后）: cypher-shell -u neo4j -p <pw> -f deploy/neo4j/seed.cypher
 // 引入动机见手册 §5.3：真实模型上线后由 Neo4jKgService 实现 KgSearchService，替换内存版。
 

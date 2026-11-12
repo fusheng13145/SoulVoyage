@@ -1,16 +1,16 @@
 # --- Java / Maven ---
-backend/target/
+soul-backend/target/
 # 本机直跑用的临时类路径（mvn dependency:build-classpath 生成），不入库
-backend/cp.txt
+soul-backend/cp.txt
 *.class
 *.jar
 !.mvn/wrapper/maven-wrapper.jar
 
 # --- Node / Vue ---
-frontend/node_modules/
-frontend/dist/
+soul-frontend/node_modules/
+soul-frontend/dist/
 # vitest 覆盖率报告（构建产物）
-frontend/coverage/
+soul-frontend/coverage/
 deploy/tools/node_modules/
 *.local
 

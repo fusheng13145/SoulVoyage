@@ -1,6 +1,6 @@
 # H-06 无障碍与键盘变更单
 
-> 上位基准：`.trae/specs/establish-soulvoyage-baseline/spec.md` §4.2 H-06；基线 tasks.md Task 11.6。
+> 上位基准：`.trae/specs/establish-soul-voyage-baseline/spec.md` §4.2 H-06；基线 tasks.md Task 11.6。
 > 性质：纯前端可达性改造。**不改业务逻辑、不改接口契约、不动 C 类文件**。
 > 范围：全局壳（skip link / 焦点管理 / 快捷键）+ 浮层焦点陷阱 + 对比度与命中区收敛。
 

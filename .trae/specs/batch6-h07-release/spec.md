@@ -1,8 +1,8 @@
 # H-07 M15 上线收口变更单
 
-> 上位基准：`.trae/specs/establish-soulvoyage-baseline/spec.md` §4.2 H-07；基线 tasks.md Task 11.7。
+> 上位基准：`.trae/specs/establish-soul-voyage-baseline/spec.md` §4.2 H-07；基线 tasks.md Task 11.7。
 > 性质：部署/运维/合规收口。**不改业务逻辑、不改接口契约**；不把任何真实密钥写入仓库。
-> 范围：`deploy/`、`backend/Dockerfile`、`application.yml`、小程序线上域名配置。
+> 范围：`deploy/`、`soul-backend/Dockerfile`、`application.yml`、小程序线上域名配置。
 
 ## 1. 目标
 
@@ -22,7 +22,7 @@
 |---|---|
 | `deploy/docker-compose.yml` | 只有 MySQL/Redis/App/Web；无 Neo4j；LLM 必填但 ASR/WX/Neo4j 未编排 |
 | `deploy/nginx.conf` | 仅 HTTP；无 HSTS/CSP/X-Frame 等安全头；无 TLS |
-| `backend/Dockerfile` | 运行层以 root 启动 |
+| `soul-backend/Dockerfile` | 运行层以 root 启动 |
 | `application.yml` | 未显式关闭错误详情、未声明反向代理头策略 |
 | `miniprogram/src/config.ts` | 线上域名硬编码 `REPLACE-WITH-BEIAN-DOMAIN` |
 | 发布校验 | 无脚本；密钥/域名/证书是否就绪只能靠人工核对 |
@@ -56,7 +56,7 @@
   - `server.forward-headers-strategy: framework`（信任 nginx 的 `X-Forwarded-Proto`）
   - `server.error.include-message: never`、`include-stacktrace: never`、`include-exception: false`
   - `management.endpoints.web.exposure.include` 保持现状；公网只反代 `/actuator/health`
-- `backend/Dockerfile`：新增非 root 用户运行（`app`），jar 以 `--chown` 复制；健康检查不变。
+- `soul-backend/Dockerfile`：新增非 root 用户运行（`app`），jar 以 `--chown` 复制；健康检查不变。
 
 ### 3.4 小程序线上域名
 

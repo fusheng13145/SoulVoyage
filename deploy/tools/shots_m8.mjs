@@ -1,10 +1,10 @@
 // M8 视觉走查：每日一读+最近动态（今日页）/ 场景标签与训练档案（训练页）/ 续练回放 / 收藏（档案页）/ 报告引用案例
-// 用法：后端 :8080、前端 :5173 起好后 `node deploy/tools/shots_m8.mjs`（puppeteer-core 装在 frontend/node_modules）
+// 用法：后端 :8080、前端 :5173 起好后 `node deploy/tools/shots_m8.mjs`（puppeteer-core 装在 soul-frontend/node_modules）
 import { mkdirSync } from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 
-const require = createRequire(path.resolve('frontend/package.json'));
+const require = createRequire(path.resolve('soul-frontend/package.json'));
 const puppeteer = require('puppeteer-core');
 
 const BASE = 'http://localhost:8080/api/v1';

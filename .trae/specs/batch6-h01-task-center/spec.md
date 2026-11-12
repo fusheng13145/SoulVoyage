@@ -1,6 +1,6 @@
 # H-01 任务中心 2.0 变更单
 
-> 上位基准：`.trae/specs/establish-soulvoyage-baseline/spec.md` §4.2 H-01；基线 tasks.md Task 11.1。
+> 上位基准：`.trae/specs/establish-soul-voyage-baseline/spec.md` §4.2 H-01；基线 tasks.md Task 11.1。
 > 性质：扩展功能（非重构）。**不改任务语义**：仅新增查询/重试入口与展示层。
 > 范围：后端 API + Web 任务中心；小程序本项不做（端侧暂无任务入口，后续按需单独变更）。
 

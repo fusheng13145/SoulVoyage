@@ -1,6 +1,6 @@
 # H-02 情绪洞察 2.0 变更单
 
-> 上位基准：`.trae/specs/establish-soulvoyage-baseline/spec.md` §4.2 H-02；基线 tasks.md Task 11.2。
+> 上位基准：`.trae/specs/establish-soul-voyage-baseline/spec.md` §4.2 H-02；基线 tasks.md Task 11.2。
 > 性质：扩展功能（非重构）。**只读消费** `emotion_profile`、`emotion_trajectory` 与内容知识库；不新增风险语义，不改危机状态机。
 > 范围：后端新增确定性洞察接口 + Web 洞察页增强；小程序本项不做（端侧暂无洞察页，接口保留复用能力）。
 

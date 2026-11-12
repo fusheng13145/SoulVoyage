@@ -1,8 +1,8 @@
 // M13 冒烟（dev 真机 MySQL + Redis，双实例冒充两个节点）：技术债第 2 条「状态跨节点」真机验证。
 // 前置：deploy/local.env 基础上加 SV_DISTRIBUTED=true 起两个实例（同一 MySQL、同一 Redis）——
 //   set -a; . deploy/local.env; set +a
-//   SERVER_PORT=8081 SV_DISTRIBUTED=true SV_LLM_RATE_PER_MIN=10 java -jar backend/target/soulvoyage-backend-*.jar &
-//   SERVER_PORT=8082 SV_DISTRIBUTED=true SV_LLM_RATE_PER_MIN=10 java -jar backend/target/soulvoyage-backend-*.jar &
+//   SERVER_PORT=8081 SV_DISTRIBUTED=true SV_LLM_RATE_PER_MIN=10 java -jar soul-backend/target/soul-backend-*.jar &
+//   SERVER_PORT=8082 SV_DISTRIBUTED=true SV_LLM_RATE_PER_MIN=10 java -jar soul-backend/target/soul-backend-*.jar &
 //   LLM/ASR 用 mock 即可——闸门与供应商无关，用 mock 才更好证明"限流不是上游给的"。
 //   Redis 连接沿用 SV_REDIS_HOST/PORT/PASS（本脚本自己直连一次 Redis 捞原始字节做明文反证）。
 // 口径：判据语义（4001/4002/领取即焚）与单机版逐字一致，这里只证「另一台节点看到的是同一份状态」。

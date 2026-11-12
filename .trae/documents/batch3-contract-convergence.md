@@ -1,6 +1,6 @@
 # Batch 3 实施计划：B 类契约收敛（B-01 / B-02 / B-15 / B-19）
 
-> 依据：`.trae/specs/establish-soulvoyage-baseline/spec.md` §3.3、§3.6 Batch 3；`tasks.md` Task 8
+> 依据：`.trae/specs/establish-soul-voyage-baseline/spec.md` §3.3、§3.6 Batch 3；`tasks.md` Task 8
 > 性质：B 类谨慎重构，**逐项书面批准后才执行**；本文件仅为计划，未改动任何代码。
 > 前置：Batch 0/1/2 已完成；基线 golden 在 `docs/baseline/golden/`；契约快照在 `docs/baseline/openapi.json`。
 
@@ -27,7 +27,7 @@
 
 | 文件 | 改动 |
 |---|---|
-| 新增 `frontend/src/api/domains/{diary,emotion,checkin,plan,report,archive,letter,achievement,notification,reading,simulation,companion,exercise,account,auth,task}.ts` | 每域导出类型 + 方法；内部复用 `http`/`sse`；类型优先来自 `schema.d.ts`，缺口用 `types/domain.ts` |
+| 新增 `soul-frontend/src/api/domains/{diary,emotion,checkin,plan,report,archive,letter,achievement,notification,reading,simulation,companion,exercise,account,auth,task}.ts` | 每域导出类型 + 方法；内部复用 `http`/`sse`；类型优先来自 `schema.d.ts`，缺口用 `types/domain.ts` |
 | 修改 `views/*.vue` | 只替换 `http.get/post(...)` 为领域方法；不改请求参数/响应处理/交互 |
 | `api/admin.ts` | 保留，纳入 domains/admin 命名空间或继续独立 |
 
@@ -42,8 +42,8 @@
 |---|---|
 | 各域 `dto/XxxResp.java` | 新增 record；字段名/类型与现有 JSON 完全一致；嵌套结构同样 DTO 化 |
 | 各 Controller | 返回类型改为 `ApiResponse<XxxResp>`；内部构造逻辑保持 |
-| `backend/openapi/openapi.json` | 重新生成并入库 |
-| `frontend/src/api/schema.d.ts`、`miniprogram/src/api/schema.d.ts` | `gen:api` 重新生成 |
+| `soul-backend/openapi/openapi.json` | 重新生成并入库 |
+| `soul-frontend/src/api/schema.d.ts`、`miniprogram/src/api/schema.d.ts` | `gen:api` 重新生成 |
 
 - 风险：接口契约层；字段不变，但序列化顺序/空值策略可能变化，必须 golden diff。
 - 验收：`mvn test` 全绿；15 个 golden 场景 diff 仅允许“结构等价”；OpenAPI diff 审阅通过。
@@ -115,7 +115,7 @@
 
 ### 8.1 新增领域模块（18 个）
 
-`frontend/src/api/domains/`：`auth`、`task`、`diary`、`emotion`、`checkin`、`plan`、`report`、`reading`、`archive`、`letter`、`achievement`、`notification`、`simulation`、`companion`、`exercise`、`account`、`content`、`risk`、`voice`。
+`soul-frontend/src/api/domains/`：`auth`、`task`、`diary`、`emotion`、`checkin`、`plan`、`report`、`reading`、`archive`、`letter`、`achievement`、`notification`、`simulation`、`companion`、`exercise`、`account`、`content`、`risk`、`voice`。
 
 - 统一形态：路径与参数集中在领域模块内部，返回 `r.data.data`；列表/详情类响应以泛型 `<T>` 在调用处收窄，待 3B 生成类型后替换。
 - 未改任何后端代码、未改 `api/http.ts` 拦截器语义。
@@ -170,8 +170,8 @@
 
 ### 9.4 契约产物
 
-- `backend/openapi/openapi.json` 重新生成：+1853 / −100 行；新增 `MeResp`、`TrajectoryResp`、`ReportListResp`、`DiaryDetailResp`、`MetricsOverviewResp`、`BoardStatsResp`、`KgGraphAuditResp` 等强类型 schema，未纳入本阶段的端点仍保持原 schema。
-- `frontend/src/api/schema.d.ts`、`miniprogram/src/api/schema.d.ts` 经 `gen:api` 重新生成并入库。
+- `soul-backend/openapi/openapi.json` 重新生成：+1853 / −100 行；新增 `MeResp`、`TrajectoryResp`、`ReportListResp`、`DiaryDetailResp`、`MetricsOverviewResp`、`BoardStatsResp`、`KgGraphAuditResp` 等强类型 schema，未纳入本阶段的端点仍保持原 schema。
+- `soul-frontend/src/api/schema.d.ts`、`miniprogram/src/api/schema.d.ts` 经 `gen:api` 重新生成并入库。
 
 ### 9.5 门禁结果
 
@@ -214,7 +214,7 @@
 
 ### 10.4 契约产物
 
-- `backend/openapi/openapi.json` 重新生成；`frontend` 与 `miniprogram` 的 `schema.d.ts` 同步 `gen:api` 并入库。
+- `soul-backend/openapi/openapi.json` 重新生成；`frontend` 与 `miniprogram` 的 `schema.d.ts` 同步 `gen:api` 并入库。
 
 ### 10.5 门禁结果
 

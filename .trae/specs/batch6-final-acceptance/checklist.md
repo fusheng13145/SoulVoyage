@@ -1,6 +1,6 @@
 # Batch 6 · G9/G10 最终验收清单
 
-> 依据：`.trae/specs/establish-soulvoyage-baseline/spec.md` §4.2 与 `checklist.md` G9/G10。
+> 依据：`.trae/specs/establish-soul-voyage-baseline/spec.md` §4.2 与 `checklist.md` G9/G10。
 > 结论日期：2026-11-12。本轮只做验收整理，不新增业务代码。
 > 判定口径：**G9 = 工程交付 + 上线门禁**；H-07 的工程侧已完成，真实密钥/域名/证书/AppID 属外部输入。
 
@@ -70,7 +70,7 @@ docker run --rm -v "$PWD/deploy/nginx.https.conf:/etc/nginx/conf.d/default.conf:
 | 小程序 lint | `miniprogram: npm run lint` | 0 错误 | 通过 | PASS |
 | 小程序构建 | `miniprogram: npm run build:mp-weixin` | 构建成功 | 通过（无 AppID 警告为预期） | PASS |
 | 契约 | `backend: mvn -q test -Dtest=OpenApiContractTest` | 快照一致 | 通过 | PASS |
-| 契约生成 | `frontend/miniprogram: npm run gen:api` | 无未提交 diff | 已同步 | PASS |
+| 契约生成 | `soul-frontend/miniprogram: npm run gen:api` | 无未提交 diff | 已同步 | PASS |
 | golden | `node deploy/tools/snapshot_batch0.mjs` + diff | 15 文件字段路径一致 | 15/15 一致 | PASS |
 | C guard | `node deploy/tools/check_c_guard.mjs` | PASS | PASS | PASS |
 | compose | `docker compose ... config` | 配置可解析 | PASS（最小 env） | PASS |

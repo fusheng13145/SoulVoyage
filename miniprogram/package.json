@@ -10,7 +10,7 @@
     "build:mp-weixin": "uni build -p mp-weixin",
     "typecheck": "vue-tsc --noEmit",
     "test": "vitest run",
-    "gen:api": "openapi-typescript ../backend/openapi/openapi.json -o src/api/schema.d.ts && prettier --write src/api/schema.d.ts",
+    "gen:api": "openapi-typescript ../soul-backend/openapi/openapi.json -o src/api/schema.d.ts && prettier --write src/api/schema.d.ts",
     "lint": "eslint .",
     "format": "prettier --write src/",
     "format:check": "prettier --check src/"

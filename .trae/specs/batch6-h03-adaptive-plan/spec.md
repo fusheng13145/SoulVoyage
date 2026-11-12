@@ -1,6 +1,6 @@
 # H-03 成长计划自适应变更单
 
-> 上位基准：`.trae/specs/establish-soulvoyage-baseline/spec.md` §4.2 H-03；基线 tasks.md Task 11.3。
+> 上位基准：`.trae/specs/establish-soul-voyage-baseline/spec.md` §4.2 H-03；基线 tasks.md Task 11.3。
 > 性质：扩展功能（非重构）。**只改计划编排**：不改风险判定、危机状态机、报告/审计/加密语义。
 > 范围：后端计划自适应接口 + Web 今日/练习页；小程序本项不做（端侧暂无计划入口）。
 

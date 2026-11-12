@@ -1,6 +1,6 @@
 # H-05 可观测与成本护栏变更单
 
-> 上位基准：`.trae/specs/establish-soulvoyage-baseline/spec.md` §4.2 H-05；基线 tasks.md Task 11.5。
+> 上位基准：`.trae/specs/establish-soul-voyage-baseline/spec.md` §4.2 H-05；基线 tasks.md Task 11.5。
 > 性质：扩展功能（运营可观测）。**只读聚合**：不新增外部依赖、不写业务表、不改任务/LLM/风险语义。
 > 范围：后端指标服务 + 管理端总览页；小程序/用户端不新增入口。
 
@@ -37,7 +37,7 @@
 **新增 `SlowRequestRecorder` + `SlowRequestFilter`**：
 
 - 仅记录 `/api/v1/` 请求（排除 `/actuator` 与护栏本身），不记录 query、body、用户身份。
-- 仅保留 `duration ≥ soulvoyage.observability.slow-request-ms`（默认 500ms）的请求；内存环形缓冲上限 500 条，重启清零。
+- 仅保留 `duration ≥ soul.observability.slow-request-ms`（默认 500ms）的请求；内存环形缓冲上限 500 条，重启清零。
 - 记录字段：method、URI path、status、durationMs、at。
 
 **新增 `GET /api/v1/admin/metrics/guardrails`**：
@@ -62,7 +62,7 @@ slowRequests: [{ method, path, status, durationMs, at }]
 配置（`application.yml`）：
 
 ```yaml
-soulvoyage:
+soul:
   llm:
     budget:
       daily-tokens: ${SV_LLM_DAILY_TOKENS:2000000}
@@ -109,7 +109,7 @@ soulvoyage:
 |---|---|
 | 后端 | `AdminMetricsService` 承接 overview 与 guardrails；`AdminMetricsController` 仅依赖 service（Repository 冻结违规收敛） |
 | 慢请求 | `SlowRequestRecorder`（500 条环形缓冲）+ `SlowRequestFilter`（仅 /api/v1，排除 actuator/护栏自身，不读 query/body）；启动日志已确认过滤器注册 |
-| 预算配置 | `soulvoyage.llm.budget.*` 与 `soulvoyage.observability.slow-request-ms` 已写入 `application.yml` |
+| 预算配置 | `soul.llm.budget.*` 与 `soul.observability.slow-request-ms` 已写入 `application.yml` |
 | 契约 | OpenAPI 纯新增 250 行（guardrails 端点 + 7 DTO）；前端/小程序生成类型已同步 |
 | 管理端 | `AdminHomeView` 新增失败告警、成本预算、质量抽检、慢请求 TopN 四块 |
 | 测试 | 后端 470 例 0 失败（9 跳过）；前端 112 例 + typecheck + build；小程序 20 例 + typecheck + lint |

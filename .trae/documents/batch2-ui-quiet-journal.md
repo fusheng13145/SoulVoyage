@@ -1,6 +1,6 @@
 # Batch 2 实施计划：静室手记（Quiet Journal）UI 落地
 
-> 依据：`.trae/specs/establish-soulvoyage-baseline/spec.md` §5 与 §3.6 Batch 2
+> 依据：`.trae/specs/establish-soul-voyage-baseline/spec.md` §5 与 §3.6 Batch 2
 > 范围：纯展示层。不改 API 调用、路由语义、状态机、store 数据结构、后端、schema。
 > 前置：Batch 0（基线快照）+ Batch 1（A 类）已完成，守卫 PASS。
 > 本文件仅为计划，未改动任何代码。
@@ -26,9 +26,9 @@
 
 | 文件 | 改动 |
 |---|---|
-| `frontend/src/styles/tokens.css` | 落地 §5.3 暖纸/夜读两套色、字阶、间距、圆角、`--sv-border`、`--sv-elev-1`；新增 `--sv-accent`，`--sv-indigo` 保留为别名（迁移期）；新增 `--sv-serif`、`--sv-num`、`--sv-lh-*`；情绪色替换为 §5.3.3 低饱和值 |
-| `frontend/src/styles/base.css` | 正文 14px/1.65；`.sv-prose` 衬线 17/1.85 + 68ch；按钮 40px/6px、按下只改背景；输入/textarea 40px + `card2` + 1px `line-strong`；`.sv-surface` 改 1px 边框；焦点环 1px accent + 2px accent-soft；移除彩色阴影 |
-| `frontend/src/App.vue` | 删除 `stage::before` 三色光晕与 blur；删除桌面 430px 手机壳/44px 圆角/大阴影；桌面改暖纸背景 + 760px 纸页列（管理端放开为 1200px fluid）；转场改 200ms 透明度 + 6px 上移 |
+| `soul-frontend/src/styles/tokens.css` | 落地 §5.3 暖纸/夜读两套色、字阶、间距、圆角、`--sv-border`、`--sv-elev-1`；新增 `--sv-accent`，`--sv-indigo` 保留为别名（迁移期）；新增 `--sv-serif`、`--sv-num`、`--sv-lh-*`；情绪色替换为 §5.3.3 低饱和值 |
+| `soul-frontend/src/styles/base.css` | 正文 14px/1.65；`.sv-prose` 衬线 17/1.85 + 68ch；按钮 40px/6px、按下只改背景；输入/textarea 40px + `card2` + 1px `line-strong`；`.sv-surface` 改 1px 边框；焦点环 1px accent + 2px accent-soft；移除彩色阴影 |
+| `soul-frontend/src/App.vue` | 删除 `stage::before` 三色光晕与 blur；删除桌面 430px 手机壳/44px 圆角/大阴影；桌面改暖纸背景 + 760px 纸页列（管理端放开为 1200px fluid）；转场改 200ms 透明度 + 6px 上移 |
 | `SvNavBar.vue` | 52px、纯色 `bg` + 1px 底边；去 `backdrop-filter`；标题 16/600；大标题改衬线日期/问候（保留 slot 能力） |
 | `SvTabBar.vue` | 60px、1px 顶边、纯色；图标 22px、标签 11px；激活 accent；去掉 `scale(0.92)` 按压缩放 |
 | `SvCard.vue` | `card` 底 + 1px `sep` + 8px 圆角，默认无阴影；padding 20px |
@@ -84,7 +84,7 @@
 
 ## 3. 改动文件清单（汇总）
 
-- 样式：`frontend/src/styles/tokens.css`、`base.css`
+- 样式：`soul-frontend/src/styles/tokens.css`、`base.css`
 - 全局壳：`App.vue`、`SvNavBar.vue`、`SvTabBar.vue`、`AdminShell.vue`
 - 基础件：`SvCard/SvList/SvCell/SvSheet/SvDialogHost/SvToastHost/SvSegmented/SvSwitch/SvChip/SvCheckbox/SvSkeleton/SvDisclaimer/SvEmotionDial/SvCalendarHeat/SvBubble/SvTimeline/SvProgressRing/SvIcon` + `public/icons.svg`
 - 页面：§5.10 的 Web 用户端 19 页 + 管理端 7 页
@@ -110,9 +110,9 @@
 2. `npm run gen:api` 后 `git diff --exit-code -- src/api/schema.d.ts` 无漂移。
 3. 小程序 `typecheck` + `build:mp-weixin` + `build:h5` 通过。
 4. 静态扫描：
-   - `grep -rE "linear-gradient|radial-gradient|conic-gradient" frontend/src` → 0（功能性呼吸动画不得用渐变）；
-   - `grep -rE "backdrop-filter" frontend/src` → 0；
-   - `grep -rE "box-shadow" frontend/src` → 仅 Sheet/Dialog/Toast 命中 `--sv-elev-1`；
+   - `grep -rE "linear-gradient|radial-gradient|conic-gradient" soul-frontend/src` → 0（功能性呼吸动画不得用渐变）；
+   - `grep -rE "backdrop-filter" soul-frontend/src` → 0；
+   - `grep -rE "box-shadow" soul-frontend/src` → 仅 Sheet/Dialog/Toast 命中 `--sv-elev-1`；
    - emoji 扫描：系统 UI 模板中 0 命中（用户输入内容除外）。
 5. 截图矩阵：4 宽度 × 明暗 × 全部页面，无溢出、无空白、交互可完成。
 6. a11y：键盘走查登录→今日→写日记→分析→洞察→练习→我的；焦点可见；对比度 AA；reduced-motion 下呼吸练习有文字替代。

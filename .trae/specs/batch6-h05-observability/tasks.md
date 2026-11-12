@@ -7,7 +7,7 @@
 - [x] Task 2: 慢请求记录
   - [x] 2.1 `SlowRequestRecorder`（环形缓冲 500，≥阈值才记）
   - [x] 2.2 `SlowRequestFilter`（排除 actuator/护栏自身/query）
-  - [x] 2.3 配置 `soulvoyage.observability.slow-request-ms`
+  - [x] 2.3 配置 `soul.observability.slow-request-ms`
 
 - [x] Task 3: 护栏聚合
   - [x] 3.1 失败告警：24h 失败率 + 最近 5 条失败

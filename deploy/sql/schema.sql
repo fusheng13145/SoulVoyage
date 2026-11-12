@@ -1,5 +1,5 @@
 -- ============================================================
--- 心屿漫行 SoulVoyage — MySQL 8.x Schema v1.0
+-- 心屿漫行 soul-voyage — MySQL 8.x Schema v1.0
 -- 约定：
 --   1. 所有表 InnoDB + utf8mb4；主键 BIGINT AUTO_INCREMENT。
 --   2. 字段注释含 ✦ 的（列名后缀 _enc）为应用层 AES-256-GCM 密文，
@@ -12,11 +12,11 @@
 
 SET NAMES utf8mb4;
 
-CREATE DATABASE IF NOT EXISTS soulvoyage DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
-CREATE USER IF NOT EXISTS 'soulvoyage'@'localhost' IDENTIFIED BY 'CHANGE_ME_local_dev';
-GRANT ALL PRIVILEGES ON soulvoyage.* TO 'soulvoyage'@'localhost';
+CREATE DATABASE IF NOT EXISTS soul_voyage DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
+CREATE USER IF NOT EXISTS 'soul_voyage'@'localhost' IDENTIFIED BY 'CHANGE_ME_local_dev';
+GRANT ALL PRIVILEGES ON soul_voyage.* TO 'soul_voyage'@'localhost';
 FLUSH PRIVILEGES;
-USE soulvoyage;
+USE soul_voyage;
 
 -- ---------- 用户与权限 ----------
 

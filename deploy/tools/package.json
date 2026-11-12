@@ -1,5 +1,5 @@
 {
-  "name": "soulvoyage-deploy-tools",
+  "name": "soul-voyage-deploy-tools",
   "private": true,
   "description": "本机走查与压测脚本的独立依赖（不进前端产物、不进 CI 安装面）",
   "devDependencies": {

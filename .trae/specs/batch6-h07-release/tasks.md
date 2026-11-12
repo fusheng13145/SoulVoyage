@@ -11,7 +11,7 @@
 
 - [x] Task 3: 后端生产加固
   - [x] 3.1 `application.yml` 转发头策略 + 关闭错误详情
-  - [x] 3.2 `backend/Dockerfile` 非 root 运行
+  - [x] 3.2 `soul-backend/Dockerfile` 非 root 运行
 
 - [x] Task 4: 小程序线上域名
   - [x] 4.1 `config.ts` 读取 `VITE_ONLINE_ORIGIN`

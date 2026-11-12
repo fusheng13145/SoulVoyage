@@ -9,7 +9,7 @@
 // 控制面：
 //   POST /__ctl  {"mode":"ok|reject|truncate|stall|invalid"}   —— 注入供应商侧故障（一次生效于后续请求）
 //   GET  /__stats {"calls":n,"streamed":n,"tokensIn":n,"tokensOut":n,"byTemplate":{...}}
-// 覆盖范围：两个交互式模板给自然文本，其余模板按 backend/src/main/resources/schemas 现场造合法形状；
+// 覆盖范围：两个交互式模板给自然文本，其余模板按 soul-backend/src/main/resources/schemas 现场造合法形状；
 // 认不出模板的提示词一律 400——宁可报错也不要让桩冒充"模型真的会这么答"。
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
@@ -49,7 +49,7 @@ function route(systemText) {
  * 这样"以 OpenAI 协议跑异步流水线"才是可复跑的，而不是只有交互式回合能走真协议。
  * 语义级校验（练习 id 闭集、kgSource 反查）仍会拒——那是模型的活，不是桩的活。
  */
-const SCHEMA_DIR = new URL('../../backend/src/main/resources/schemas/', import.meta.url);
+const SCHEMA_DIR = new URL('../../soul-backend/src/main/resources/schemas/', import.meta.url);
 const schemaCache = new Map();
 async function schema(name) {
   if (!schemaCache.has(name))
@@ -150,7 +150,7 @@ createServer(async (req, res) => {
   if (mode === 'reject')
     return json(res, 429, { error: { message: 'stub: 上游限流', type: 'rate_limit_error' } });
   if (mode === 'stall') {
-    await sleep(70000);   // 比 soulvoyage.llm.timeout 更久：验客户端超时闸门真的会掐
+    await sleep(70000);   // 比 soul.llm.timeout 更久：验客户端超时闸门真的会掐
     return json(res, 200, { choices: [{ message: { content: '{}' } }] });
   }
   const content = mode === 'invalid' ? JSON.stringify({ hello: '不是任何契约要求的形状' }) : await contentFor(template, user);

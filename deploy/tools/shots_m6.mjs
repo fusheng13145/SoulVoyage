@@ -1,11 +1,11 @@
 // M6 视觉走查 + Lighthouse 无障碍：无头 Edge 截深浅两态五 Tab，再跑 a11y 评分
-// 用法：后端 :8080、前端 :5174 起好后 `node deploy/tools/shots_m6.mjs`（puppeteer-core/lighthouse 需先装在 frontend/node_modules）
+// 用法：后端 :8080、前端 :5174 起好后 `node deploy/tools/shots_m6.mjs`（puppeteer-core/lighthouse 需先装在 soul-frontend/node_modules）
 import { mkdirSync } from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { createRequire } from 'node:module';
 
-const require = createRequire(path.resolve('frontend/package.json'));
+const require = createRequire(path.resolve('soul-frontend/package.json'));
 const puppeteer = require('puppeteer-core');
 const lighthouse = (await import(pathToFileURL(require.resolve('lighthouse')).href)).default;
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # ─────────────────────────────────────────────────────────────────────────────
-# SoulVoyage · Neo4j 本地开发辅助脚本
+# soul-voyage · Neo4j 本地开发辅助脚本
 #
 # 背景（2026-09-29 实测）：官方 bin/neo4j.bat 与 neo4j-admin.bat 均以
 #   Powershell -File bin/*.ps1 包装，在本机 PowerShell 5.1 下抛

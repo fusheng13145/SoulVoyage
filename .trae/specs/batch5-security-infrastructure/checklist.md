@@ -53,7 +53,7 @@
 - [x] G3 `ScheduledLockAspect` 覆盖全部 `@Scheduled`，单节点行为不变
 - [x] G4 两实例并发调度，每个任务每次触发只执行一次（Redis 集成测试）
 - [x] G5 `MasterKeyStartupGuard` 在 prod profile 缺密钥时启动失败，dev 保留临时密钥告警
-- [x] G6 开关 `soulvoyage.lock.enabled=false` 可回到单节点语义
+- [x] G6 开关 `soul.lock.enabled=false` 可回到单节点语义
 
 ## H. 收口
 

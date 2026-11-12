@@ -1,6 +1,6 @@
 # Batch 5 实施 Spec：安全与基础设施（B-05/06/07/09/10/16/17/18/20）
 
-> 上位基准：`.trae/specs/establish-soulvoyage-baseline/spec.md` §3.3、§3.6 Batch 5；任务来源 `tasks.md` Task 10。
+> 上位基准：`.trae/specs/establish-soul-voyage-baseline/spec.md` §3.3、§3.6 Batch 5；任务来源 `tasks.md` Task 10。
 > 性质：B 类。**C 类目录零改动**；5B 三项虽为 C 邻近，但全部采用包外包装实现（见 §3.5），实施前仍需用户书面确认。
 > 行为等价红线：单节点行为不变；既有错误码语义不变（只增不改）；危机/审计/加密语义不变。
 
@@ -12,7 +12,7 @@
 | B-09 乐观锁 | 全后端 0 个 `@Version`；`mood_check_in`/`plan_item`/`report`/`user_preferences` 均可多端并发更新 |
 | B-07 登录锁 | `AuthService.authenticate` 失败计数 key 仅 `jwt:login-fail:{username}`，可被攻击者锁死任意账号 |
 | B-16 Redis 降级 | `JwtService.verify/parse` 直接调用 Redis，故障时全部鉴权 500，无降级策略 |
-| SSE 刷新 | `frontend/src/api/sse.ts` 两处裸 `fetch`，401 不刷新、不重试；`http.ts` 单飞刷新仅单标签有效 |
+| SSE 刷新 | `soul-frontend/src/api/sse.ts` 两处裸 `fetch`，401 不刷新、不重试；`http.ts` 单飞刷新仅单标签有效 |
 | B-17 上传/导出 | 语音仅校验大小；导出下载 token 单次消费缺少契约测试 |
 | B-18 结构 | 24 处 Controller 直接注入 Repository；无 ArchUnit |
 | B-20 小程序 | 无 Vitest、无单测脚本；仅 `typecheck`/`lint` |
@@ -39,7 +39,7 @@
 |---|---|
 | B-05 审计链跨节点互斥 | 新增 `common/lock/AuditChainLockAspect` 环绕 `AuditService.record`：Redis `SET NX PX`（key `lock:audit:chain`，租约 5s，自旋 2s）；拿不到锁 → 抛 `DEPENDENCY_UNAVAILABLE`（审计不可静默丢失）；Redis 故障 → 退回 JVM 锁 + `sv.audit.lock.degraded` 告警。哈希算法/字段零改动（C-05 不改） |
 | B-06 定时任务分布式锁 | 新增 `common/lock/ScheduledLockAspect` 拦截所有 `@Scheduled` 方法：key `lock:sched:{Class}.{method}`，`SET NX PX` 租约 30min，`finally` 释放；未抢到直接跳过（单节点行为不变）。不在 `domain/crisis/**` 内加任何代码（C-03 不改），5 个调度器统一覆盖 |
-| B-08 主密钥生产守卫 | 新增 `config/MasterKeyStartupGuard`（`crypto/**` 零改动）：激活 profile 含 `prod` 且 `soulvoyage.security.master-key` 为空 → 启动失败并给出明确错误；dev/test/default 保留临时密钥告警 |
+| B-08 主密钥生产守卫 | 新增 `config/MasterKeyStartupGuard`（`crypto/**` 零改动）：激活 profile 含 `prod` 且 `soul.security.master-key` 为空 → 启动失败并给出明确错误；dev/test/default 保留临时密钥告警 |
 
 ## 3. 验收标准
 
@@ -59,7 +59,7 @@
 
 - 每项独立提交。Flyway 可通过移除依赖与 `db/migration` 回滚（已基线化的库保留 history 表不影响运行）。
 - `@Version` 列只增不删；回滚代码时列保留（JPA 不映射即忽略）。
-- 5B 三个切面均可单独关闭（配置开关 `soulvoyage.lock.enabled=false`），关闭后回到 JVM 单节点语义。
+- 5B 三个切面均可单独关闭（配置开关 `soul.lock.enabled=false`），关闭后回到 JVM 单节点语义。
 
 ## 5. 批准状态
 
@@ -98,7 +98,7 @@
 | B-05 审计链跨节点互斥 | `common/lock/AuditChainLockAspect` 环绕 `AuditService.record`：Redis `SET NX PX`（租约 5s，自旋 2s）；争用失败 → 5002；Redis 故障 → 进程内 JVM 锁 + `sv.lock.degraded` 告警。`audit/**` 零改动，哈希算法/字段不变 |
 | B-06 调度分布式锁 | `common/lock/ScheduledLockAspect` 拦截全部 `@Scheduled`（5 个调度器 7 个方法）：key `lock:sched:{Class}.{method}`，租约 30min；未抢到 → `sv.sched.skipped` 计数并跳过；`domain/crisis/**` 零改动 |
 | B-08 主密钥守卫 | `config/MasterKeyStartupGuard`：prod profile 缺 `SV_MASTER_KEY` → 启动失败；dev/test/default 保持临时密钥告警。`crypto/**` 零改动 |
-| 开关 | `soulvoyage.lock.enabled=false` 时锁切面直接放行，回到单节点语义 |
+| 开关 | `soul.lock.enabled=false` 时锁切面直接放行，回到单节点语义 |
 
 **Stage 5B 门禁**
 

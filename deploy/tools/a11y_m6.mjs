@@ -3,7 +3,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { createRequire } from 'node:module';
 
-const require = createRequire(path.resolve('frontend/package.json'));
+const require = createRequire(path.resolve('soul-frontend/package.json'));
 const puppeteer = require('puppeteer-core');
 const lighthouse = (await import(pathToFileURL(require.resolve('lighthouse')).href)).default;
 

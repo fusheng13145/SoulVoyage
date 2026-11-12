@@ -21,7 +21,7 @@
 
 ## 2. M-07 前端与小程序
 
-- [ ] 2.1 `frontend/src/types/domain.ts`：`PlanItemView.reasons: string[]`。
+- [ ] 2.1 `soul-frontend/src/types/domain.ts`：`PlanItemView.reasons: string[]`。
 - [ ] 2.2 `PracticeView.vue`：guidance 下展示「为什么是它」；空数组不渲染。
 - [ ] 2.3 `TodayView.vue`：展示第一条理由。
 - [ ] 2.4 `miniprogram/src/api/app.ts`：`PlanItem.reasons?: string[]`。
@@ -55,7 +55,7 @@
 
 ## 6. 契约同步
 
-- [ ] 6.1 后端：`mvn test -Dtest=OpenApiContractTest -Dopenapi.update=true` 更新 `backend/openapi/openapi.json`。
+- [ ] 6.1 后端：`mvn test -Dtest=OpenApiContractTest -Dopenapi.update=true` 更新 `soul-backend/openapi/openapi.json`。
 - [ ] 6.2 审阅 diff：只允许 `PlanItemView.reasons` 新增。
 - [ ] 6.3 `frontend`：`npm run gen:api`。
 - [ ] 6.4 `miniprogram`：`npm run gen:api`。
@@ -73,6 +73,6 @@
 ## 8. 文档与提交
 
 - [ ] 8.1 更新 `.trae/specs/batch7-medium-assessment/assessment.md`：M-07 / M-03 标记「已实施」。
-- [ ] 8.2 更新基线 `.trae/specs/establish-soulvoyage-baseline/tasks.md` 11.8 状态。
+- [ ] 8.2 更新基线 `.trae/specs/establish-soul-voyage-baseline/tasks.md` 11.8 状态。
 - [ ] 8.3 填写 `checklist.md`，记录证据与受限项。
 - [ ] 8.4 提交 Batch 7A（仅包含本批文件）。

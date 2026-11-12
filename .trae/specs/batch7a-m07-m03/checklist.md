@@ -51,11 +51,11 @@
 - [x] B8 导出仍走现有一次性快照链路；未新增导出接口。  
   证据：`ArchiveController` 零改动；OpenAPI 无新增路径。
 - [x] B9 未新增 PDF 依赖。  
-  证据：`frontend/package.json` 未新增依赖。
+  证据：`soul-frontend/package.json` 未新增依赖。
 
 ## C. 契约
 
-- [x] C1 `backend/openapi/openapi.json` diff 仅 `PlanItemView.reasons` 新增。  
+- [x] C1 `soul-backend/openapi/openapi.json` diff 仅 `PlanItemView.reasons` 新增。  
   证据：`+6` 行，仅 `reasons: array<string>`。
 - [x] C2 Web `schema.d.ts` 与 OpenAPI 一致。  
   证据：`+1` 行 `reasons?: string[]`。

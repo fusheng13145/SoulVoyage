@@ -6,7 +6,7 @@ on:
   pull_request:
 
 jobs:
-  backend:
+  soul-backend:
     runs-on: ubuntu-latest
     env:
       # 业务时区钉死 Asia/Shanghai：避免 UTC 午夜边界让"今日"类用例在 CI 上随机翻红
@@ -27,39 +27,39 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: ~/.m2/repository
-          key: maven-${{ hashFiles('backend/pom.xml') }}
+          key: maven-${{ hashFiles('soul-backend/pom.xml') }}
           restore-keys: maven-
       # 手册 §九 红线：危机句式 100% 召回单独成步——全量挂了也要一眼看到是卡点断了
       - name: 高危句式回归卡点
-        working-directory: backend
+        working-directory: soul-backend
         run: mvn -B test -Dtest='RiskRulesTest'
       # 全量 H2 回归（含 OpenAPI 契约快照钉死、危机生命周期、管理端、双轨矩阵）
       - name: 后端全量测试
-        working-directory: backend
+        working-directory: soul-backend
         run: mvn -B test
-      # 覆盖率门禁：阈值见 backend/pom.xml，是**一次设足的目标线 0.85 / 0.75，不是防回退水位**。
+      # 覆盖率门禁：阈值见 soul-backend/pom.xml，是**一次设足的目标线 0.85 / 0.75，不是防回退水位**。
       # 2026-09-29 已由补测清偿达标：INSTRUCTION 90.54% / BRANCH 77.19%，本步放行。
       # 清偿走的是逐包补测（151 → 401 例），不是下调阈值；阈值本身未动。
       - name: 覆盖率门禁
-        working-directory: backend
+        working-directory: soul-backend
         run: mvn -B jacoco:check
       - name: 覆盖率报告
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: jacoco-report
-          path: backend/target/site/jacoco
+          path: soul-backend/target/site/jacoco
       - name: 打包冒烟（spring-boot repackage）
-        working-directory: backend
+        working-directory: soul-backend
         run: mvn -B package -DskipTests
       - name: surefire 报告
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: surefire-reports
-          path: backend/target/surefire-reports
+          path: soul-backend/target/surefire-reports
 
-  frontend:
+  soul-frontend:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -67,34 +67,34 @@ jobs:
         with:
           node-version: '22'
           cache: npm
-          cache-dependency-path: frontend/package-lock.json
+          cache-dependency-path: soul-frontend/package-lock.json
       - name: 安装依赖
-        working-directory: frontend
+        working-directory: soul-frontend
         run: npm ci
       - name: ESLint + Prettier
-        working-directory: frontend
+        working-directory: soul-frontend
         run: |
           npm run lint
           npm run format:check
       # 单元测试与覆盖率（口径：逻辑层；展示层由无头浏览器走查覆盖）
       - name: 单元测试与覆盖率
-        working-directory: frontend
+        working-directory: soul-frontend
         run: npm run coverage
       - name: 覆盖率报告
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: vitest-coverage
-          path: frontend/coverage
+          path: soul-frontend/coverage
       # vue-tsc 消费 OpenAPI 生成类型：后端契约变了这里必须同步 gen:api
       - name: 类型检查（vue-tsc）
-        working-directory: frontend
+        working-directory: soul-frontend
         run: npm run typecheck
       - name: 类型检查与构建
-        working-directory: frontend
+        working-directory: soul-frontend
         run: npm run build
       - name: gen:api 与提交的 schema.d.ts 一致
-        working-directory: frontend
+        working-directory: soul-frontend
         run: |
           npm run gen:api
           git diff --exit-code -- src/api/schema.d.ts

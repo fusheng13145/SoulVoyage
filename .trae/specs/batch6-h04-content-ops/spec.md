@@ -1,6 +1,6 @@
 # H-04 内容运营闭环变更单
 
-> 上位基准：`.trae/specs/establish-soulvoyage-baseline/spec.md` §4.2 H-04；基线 tasks.md Task 11.4。
+> 上位基准：`.trae/specs/establish-soul-voyage-baseline/spec.md` §4.2 H-04；基线 tasks.md Task 11.4。
 > 性质：扩展功能（跨模块）。触及内容真源，必须可预览、可回滚、可审计；**C-04 诊断词表/闭集 Schema 不动**。
 > 范围：后端内容草稿/发布/回滚链路 + 管理端内容页；小程序/用户端不新增入口。
 
@@ -31,7 +31,7 @@
 
 ### 3.1 数据模型（新增 V3 迁移，不改既有表）
 
-`backend/src/main/resources/db/migration/V3__content_ops.sql`：
+`soul-backend/src/main/resources/db/migration/V3__content_ops.sql`：
 
 | 表 | 用途 | 关键列 |
 |---|---|---|

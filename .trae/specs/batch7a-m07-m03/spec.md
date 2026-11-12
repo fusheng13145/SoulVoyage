@@ -67,9 +67,9 @@
 
 | 文件 | 改动 |
 |---|---|
-| `backend/src/main/java/com/soulvoyage/domain/plan/PlanService.java` | 新增 `RecentEmotion` 记录、`recentEmotion()`、`snapshot()`、`reasonsFor()`、`matchedReason()`、`matchedEmotionLabel()`、`safeReason()`；`view()` 为每项输出 `reasons`；`adaptation()` 复用同一次近 7 天查询结果，去掉重复 `recentValence()` 查询 |
-| `backend/src/main/java/com/soulvoyage/domain/plan/dto/PlanDtos.java` | `PlanItemView` 末尾新增 `List<String> reasons` |
-| `backend/src/main/java/com/soulvoyage/domain/plan/PlanController.java` | `item()` 映射 `reasons`，空值归一为 `List.of()` |
+| `soul-backend/src/main/java/com/leyon/soul/domain/plan/PlanService.java` | 新增 `RecentEmotion` 记录、`recentEmotion()`、`snapshot()`、`reasonsFor()`、`matchedReason()`、`matchedEmotionLabel()`、`safeReason()`；`view()` 为每项输出 `reasons`；`adaptation()` 复用同一次近 7 天查询结果，去掉重复 `recentValence()` 查询 |
+| `soul-backend/src/main/java/com/leyon/soul/domain/plan/dto/PlanDtos.java` | `PlanItemView` 末尾新增 `List<String> reasons` |
+| `soul-backend/src/main/java/com/leyon/soul/domain/plan/PlanController.java` | `item()` 映射 `reasons`，空值归一为 `List.of()` |
 
 实现约束：
 - `view()` 内只解析一次 `itemsJson`，只调用一次 `trajRepo.findByUserIdAndRecordDateBetweenOrderByRecordDateAsc()`。
@@ -81,9 +81,9 @@
 
 | 文件 | 改动 |
 |---|---|
-| `frontend/src/types/domain.ts` | `PlanItemView` 新增 `reasons: string[]` |
-| `frontend/src/views/PracticeView.vue` | 计划项在 guidance 下新增「为什么是它」行，展示 `reasons.join('；')` |
-| `frontend/src/views/TodayView.vue` | 今日计划卡展示 `reasons[0]`（空间受限，只显示第一条） |
+| `soul-frontend/src/types/domain.ts` | `PlanItemView` 新增 `reasons: string[]` |
+| `soul-frontend/src/views/PracticeView.vue` | 计划项在 guidance 下新增「为什么是它」行，展示 `reasons.join('；')` |
+| `soul-frontend/src/views/TodayView.vue` | 今日计划卡展示 `reasons[0]`（空间受限，只显示第一条） |
 | `miniprogram/src/api/app.ts` | `PlanItem` 新增 `reasons?: string[]` |
 | `miniprogram/src/pages/today/index.vue` | guidance 下展示 `reasons[0]` |
 
@@ -101,7 +101,7 @@
 
 ### 3.1 单报告打印
 
-`frontend/src/views/ReportDetailView.vue`：
+`soul-frontend/src/views/ReportDetailView.vue`：
 
 - 顶部操作区与页面底部各新增一个「打印 / 存为 PDF」按钮，调用 `window.print()`。
 - 新增 print-only 标题块：报告标题、类型、生成时间、风险档；页脚放固定免责声明。
@@ -114,7 +114,7 @@
 
 ### 3.2 成长档案目录与分页
 
-`frontend/src/views/ArchiveView.vue`：
+`soul-frontend/src/views/ArchiveView.vue`：
 
 - 快照视图新增目录（`nav.toc`）：
   - `#snap-reports` 报告（N 份）
@@ -129,7 +129,7 @@
 
 ### 3.3 应用壳打印修复（关键）
 
-`frontend/src/App.vue`：
+`soul-frontend/src/App.vue`：
 
 - 当前 `.canvas` 为 `height: 100dvh; overflow: hidden`，`.screen` 内部滚动；浏览器打印只会输出可视区，长档案会被截断。新增全局 `@media print`：
   - `.stage`、`.canvas`、`main.screen` 恢复 `height: auto; overflow: visible;`，去掉圆角、边框、背景；
@@ -149,7 +149,7 @@
 
 ## 4. 契约与兼容
 
-- `backend/openapi/openapi.json` 仅新增 `PlanItemView.reasons` 字段；无接口增删。
+- `soul-backend/openapi/openapi.json` 仅新增 `PlanItemView.reasons` 字段；无接口增删。
 - 重新生成后运行前端与小程序 `npm run gen:api`，两端 `schema.d.ts` 同步。
 - 小程序手写 `PlanItem` 类型同步 `reasons?: string[]`。
 - 旧客户端忽略新字段；新客户端对缺失 `reasons` 做空数组降级。
@@ -158,7 +158,7 @@
 
 ### 5.1 后端
 
-`backend/src/test/java/com/soulvoyage/domain/plan/PlanServiceTest.java` 新增：
+`soul-backend/src/test/java/com/leyon/soul/domain/plan/PlanServiceTest.java` 新增：
 
 1. `items_json.matchedExercises` 命中 → 理由取匹配项，截断 80 字。
 2. 匹配理由含禁用词 → 丢弃并走情绪匹配/兜底。

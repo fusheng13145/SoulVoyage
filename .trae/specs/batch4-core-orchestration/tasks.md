@@ -35,5 +35,5 @@
 
 - [x] Task 5: Batch 4 收口
   - [x] 5.1 全门禁：后端 / 前端 / 小程序 / golden 15 场景 / C guard
-  - [x] 5.2 更新 `.trae/specs/establish-soulvoyage-baseline/tasks.md` Task 9 与 `checklist.md` G7
+  - [x] 5.2 更新 `.trae/specs/establish-soul-voyage-baseline/tasks.md` Task 9 与 `checklist.md` G7
   - [x] 5.3 输出变更记录（事件序列对照、状态机迁移表、hook 时序变更说明）
