@@ -1,4 +1,5 @@
-import http, { TOKEN_KEY, type ApiResp, type Json } from './http'
+import http, { authFetch, type ApiResp, type Json } from './http'
+import { TERMINAL_TASK_STATUSES } from '@/constants/task'
 
 export interface SseEvent {
   event: string
@@ -53,12 +54,11 @@ export async function postSse(
   onEvent: (e: SseEvent) => void,
   signal?: AbortSignal,
 ): Promise<void> {
-  const res = await fetch(`/api/v1${path}`, {
+  const res = await authFetch(`/api/v1${path}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Accept: 'text/event-stream',
-      Authorization: `Bearer ${localStorage.getItem(TOKEN_KEY) || ''}`,
     },
     body: JSON.stringify(body),
     signal,
@@ -83,12 +83,10 @@ export async function streamTask(
   for (let attempt = 0; attempt <= 3 && !terminal; attempt++) {
     if (attempt > 0) await delay(800 * attempt)
     try {
-      const headers: Record<string, string> = {
-        Accept: 'text/event-stream',
-        Authorization: `Bearer ${localStorage.getItem(TOKEN_KEY) || ''}`,
-      }
+      const headers: Record<string, string> = { Accept: 'text/event-stream' }
       if (lastId) headers['Last-Event-ID'] = lastId
-      const res = await fetch(`/api/v1/tasks/${taskNo}/stream`, { headers, signal })
+      // B-07：SSE 复用统一 authFetch——401 时单飞刷新并重试，不再裸 fetch 导致静默 401
+      const res = await authFetch(`/api/v1/tasks/${taskNo}/stream`, { headers, signal })
       const r = await consume(res, onEvent)
       terminal = r.terminal
       if (r.lastId) lastId = r.lastId
@@ -106,7 +104,7 @@ async function pollFallback(taskNo: string, onEvent: (e: SseEvent) => void): Pro
     try {
       const { data } = await http.get<ApiResp<{ status: string; payload: unknown }>>(`/tasks/${taskNo}`)
       const st = data.data.status
-      if (st === 'SUCCESS' || st === 'PARTIAL_SUCCESS' || st === 'FAILED' || st === 'CANCELED') {
+      if ((TERMINAL_TASK_STATUSES as readonly string[]).includes(st)) {
         onEvent({ event: 'done', data: { status: st, payload: data.data.payload } })
         return
       }

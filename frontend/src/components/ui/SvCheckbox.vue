@@ -20,22 +20,22 @@ const emit = defineEmits<{ 'update:modelValue': [boolean] }>()
 
 <style scoped>
 .cb {
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  border-radius: var(--sv-r-tag);
   flex: none;
   cursor: pointer;
-  border: 1.8px solid var(--sv-label3);
-  background: transparent;
+  border: 1px solid var(--sv-line-strong);
+  background: var(--sv-card2);
   display: grid;
   place-items: center;
-  color: #fff;
+  color: var(--sv-on-accent);
   transition:
-    background 0.2s,
-    border-color 0.2s;
+    background 0.18s,
+    border-color 0.18s;
 }
 .cb.on {
-  background: var(--sv-mint);
-  border-color: var(--sv-mint);
+  background: var(--sv-accent);
+  border-color: var(--sv-accent);
 }
 </style>

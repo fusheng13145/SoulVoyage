@@ -1,0 +1,13 @@
+{
+  "note": "登出吊销当前会话",
+  "scenario": "auth-logout",
+  "steps": [
+    {
+      "name": "logout",
+      "request": {
+        "refreshToken": "<redacted>"
+      },
+      "response": null
+    }
+  ]
+}

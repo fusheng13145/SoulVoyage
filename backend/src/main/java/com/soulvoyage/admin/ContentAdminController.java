@@ -3,6 +3,12 @@ package com.soulvoyage.admin;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.soulvoyage.admin.dto.ContentAdminDtos.ContentVersionResp;
+import com.soulvoyage.admin.dto.ContentAdminDtos.ContentWriteResp;
+import com.soulvoyage.admin.dto.ContentAdminDtos.KgAuditNode;
+import com.soulvoyage.admin.dto.ContentAdminDtos.KgAuditRelation;
+import com.soulvoyage.admin.dto.ContentAdminDtos.KgGraphAuditResp;
+import com.soulvoyage.admin.dto.ContentAdminDtos.PreviewResp;
 import com.soulvoyage.audit.AuditService;
 import com.soulvoyage.auth.AuthPrincipal;
 import com.soulvoyage.common.api.ApiResponse;
@@ -75,14 +81,14 @@ public class ContentAdminController {
      * 本端点是运维主动动作（不进任何在线链路），也是内容批量改动或故障恢复后的验收手段。
      */
     @GetMapping("/kg/graph-audit")
-    public ApiResponse<Map<String, Object>> kgGraphAudit() {
+    public ApiResponse<KgGraphAuditResp> kgGraphAudit() {
         Neo4jKgService graph = neo4jKg.getIfAvailable();
         if (graph == null) {
-            return ApiResponse.ok(Map.of(
-                    "available", false,
-                    "reason", "图未启用（soulvoyage.neo4j.enabled=false）：KG 直接走 kg_node 表，不存在派生视图"));
+            return ApiResponse.ok(new KgGraphAuditResp(false,
+                    "图未启用（soulvoyage.neo4j.enabled=false）：KG 直接走 kg_node 表，不存在派生视图",
+                    null, null, null, null, null, null));
         }
-        return ApiResponse.ok(graph.audit());
+        return ApiResponse.ok(auditView(graph.audit()));
     }
 
     @GetMapping("/scenes")
@@ -98,8 +104,8 @@ public class ContentAdminController {
     // ---------------- 写（upsert + 版本 bump + 审计） ----------------
 
     @PutMapping("/kg/{code}")
-    public ApiResponse<Map<String, Object>> upsertKg(@AuthenticationPrincipal AuthPrincipal p,
-                                                     @PathVariable String code, @RequestBody KgBody body) {
+    public ApiResponse<ContentWriteResp> upsertKg(@AuthenticationPrincipal AuthPrincipal p,
+                                                  @PathVariable String code, @RequestBody KgBody body) {
         KgNodeEntity e = kgRepo.findByCode(code).orElseGet(() -> {
             if (body.type() == null || !KG_TYPES.contains(body.type()))
                 throw new BizException(ErrorCode.BAD_PARAMS, "新建知识节点需要合法 type");
@@ -122,8 +128,8 @@ public class ContentAdminController {
     }
 
     @PutMapping("/scenes/{code}")
-    public ApiResponse<Map<String, Object>> upsertScene(@AuthenticationPrincipal AuthPrincipal p,
-                                                        @PathVariable String code, @RequestBody SceneBody body) {
+    public ApiResponse<ContentWriteResp> upsertScene(@AuthenticationPrincipal AuthPrincipal p,
+                                                     @PathVariable String code, @RequestBody SceneBody body) {
         SceneCardEntity e = sceneRepo.findByCode(code).orElseGet(() -> {
             SceneCardEntity n = new SceneCardEntity();
             n.setCode(code);
@@ -154,8 +160,9 @@ public class ContentAdminController {
     }
 
     @PutMapping("/exercises/{code}")
-    public ApiResponse<Map<String, Object>> upsertExercise(@AuthenticationPrincipal AuthPrincipal p,
-                                                           @PathVariable String code, @RequestBody ExerciseBody body) {
+    public ApiResponse<ContentWriteResp> upsertExercise(@AuthenticationPrincipal AuthPrincipal p,
+                                                        @PathVariable String code,
+                                                        @RequestBody ExerciseBody body) {
         if (!code.startsWith("ex_")) throw new BizException(ErrorCode.BAD_PARAMS, "练习编码须为 ex_* 小写");
         ExerciseLibraryEntity e = exerciseRepo.findByCode(code).orElseGet(() -> {
             ExerciseLibraryEntity n = new ExerciseLibraryEntity();
@@ -175,10 +182,10 @@ public class ContentAdminController {
 
     /** 手动强制刷新（管理端改完库后校对用）；返回当前版本号 */
     @PostMapping("/refresh")
-    public ApiResponse<Map<String, Object>> refresh(@AuthenticationPrincipal AuthPrincipal p) {
+    public ApiResponse<ContentVersionResp> refresh(@AuthenticationPrincipal AuthPrincipal p) {
         long v = store.bump();
         audit.record(p.userId(), "CONTENT_REFRESH", "content:version", null);
-        return ApiResponse.ok(Map.of("contentVersion", v));
+        return ApiResponse.ok(new ContentVersionResp(v));
     }
 
     // ---------------- A3 预览试跑 ----------------
@@ -187,8 +194,8 @@ public class ContentAdminController {
 
     /** 预览试跑：模板存在性 + {{var}} 渲染 + 强制策略注入 + 一次模型调用（开发期即 Mock），全审计 */
     @PostMapping("/preview")
-    public ApiResponse<Map<String, Object>> preview(@AuthenticationPrincipal AuthPrincipal p,
-                                                    @RequestBody PreviewBody body) {
+    public ApiResponse<PreviewResp> preview(@AuthenticationPrincipal AuthPrincipal p,
+                                            @RequestBody PreviewBody body) {
         String tpl = body.template() == null ? "" : body.template().trim();
         if (!tpl.matches("[a-z0-9_]{1,32}") || body.user() == null || body.user().isBlank())
             throw new BizException(ErrorCode.BAD_PARAMS, "需要合法 template 与 user 文本");
@@ -201,18 +208,30 @@ public class ContentAdminController {
         }
         var resp = llm.chat(new LlmClient.LlmRequest(tpl, system, body.user(), 800));
         audit.record(p.userId(), "CONTENT_PREVIEW", "prompt:" + tpl, null);
-        Map<String, Object> m = new LinkedHashMap<>();
-        m.put("template", tpl);
-        m.put("system", system);
-        m.put("output", resp.content());
-        m.put("model", resp.model());
-        m.put("tokensIn", resp.tokensIn());
-        m.put("tokensOut", resp.tokensOut());
-        m.put("costMs", resp.costMs());
-        return ApiResponse.ok(m);
+        return ApiResponse.ok(new PreviewResp(
+                tpl, system, resp.content(), resp.model(),
+                resp.tokensIn(), resp.tokensOut(), resp.costMs()));
     }
 
-    // ---------------- internals ----------------
+    @SuppressWarnings("unchecked")
+    private static KgGraphAuditResp auditView(Map<String, Object> m) {
+        List<KgAuditNode> nodes = ((List<Map<String, Object>>) m.get("nodes")).stream()
+                .map(n -> new KgAuditNode(
+                        (String) n.get("label"), (String) n.get("kind"),
+                        ((Number) n.get("expect")).intValue(), ((Number) n.get("actual")).intValue(),
+                        (List<String>) n.get("missing"), (List<String>) n.get("extra"),
+                        (List<String>) n.get("reserved")))
+                .toList();
+        List<KgAuditRelation> relations = ((List<Map<String, Object>>) m.get("relations")).stream()
+                .map(r -> new KgAuditRelation(
+                        (String) r.get("type"), ((Number) r.get("expect")).longValue(),
+                        ((Number) r.get("actual")).longValue()))
+                .toList();
+        return new KgGraphAuditResp(true, null,
+                ((Number) m.get("contentVersion")).longValue(),
+                ((Number) m.get("syncedVersion")).longValue(),
+                Boolean.TRUE.equals(m.get("consistent")), nodes, relations, (String) m.get("note"));
+    }
 
     private JsonNode read(String json) {
         try {
@@ -222,9 +241,9 @@ public class ContentAdminController {
         }
     }
 
-    private ApiResponse<Map<String, Object>> published(AuthPrincipal p, String action, String code) {
+    private ApiResponse<ContentWriteResp> published(AuthPrincipal p, String action, String code) {
         long v = store.bump();
         audit.record(p.userId(), action, "content:" + code, null);
-        return ApiResponse.ok(Map.of("code", code, "contentVersion", v, "effective", true));
+        return ApiResponse.ok(new ContentWriteResp(code, v, true));
     }
 }

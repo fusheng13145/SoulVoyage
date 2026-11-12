@@ -1,5 +1,12 @@
 package com.soulvoyage.admin;
 
+import com.soulvoyage.admin.dto.AdminDtos.AgentStat;
+import com.soulvoyage.admin.dto.AdminDtos.LlmRejects;
+import com.soulvoyage.admin.dto.AdminDtos.MetricsOverviewResp;
+import com.soulvoyage.admin.dto.AdminDtos.RuntimeView;
+import com.soulvoyage.admin.dto.AdminDtos.TaskOverview;
+import com.soulvoyage.admin.dto.AdminDtos.TaskStats;
+import com.soulvoyage.admin.dto.AdminDtos.TokensByDay;
 import com.soulvoyage.common.api.ApiResponse;
 import com.soulvoyage.common.time.BusinessCalendar;
 import com.soulvoyage.domain.risk.RiskEventRepository;
@@ -47,25 +54,22 @@ public class AdminMetricsController {
     private final ObjectProvider<Neo4jKgService> neo4jKg;
 
     @GetMapping("/overview")
-    public ApiResponse<Map<String, Object>> overview(@RequestParam(defaultValue = "7") int days) {
+    public ApiResponse<MetricsOverviewResp> overview(@RequestParam(defaultValue = "7") int days) {
         int span = Math.min(Math.max(days, 1), 90);
         ZoneId zone = cal.zone();
         Instant windowFrom = LocalDate.now(zone).minusDays(span - 1L).atStartOfDay(zone).toInstant();
         Instant todayFrom = LocalDate.now(zone).atStartOfDay(zone).toInstant();
 
-        Map<String, Object> resp = new LinkedHashMap<>();
-        resp.put("windowDays", span);
-        resp.put("tasks", Map.of(
-                "today", taskStats(taskRepo.countByStatusSince(todayFrom)),
-                "window", taskStats(taskRepo.countByStatusSince(windowFrom))));
-        resp.put("riskEvents", riskStats(riskRepo.countByLevelSince(windowFrom)));
-
         List<Object[]> rows = stepRepo.costRowsSince(windowFrom);
-        resp.put("agents", agentStats(rows));
-        resp.put("tokensByDay", tokensByDay(rows, zone));
-        resp.put("reportFeedback", feedbackStats(reportRepo.countFeedbackSince(windowFrom)));
-        resp.put("runtime", runtimeSnapshot());
-        return ApiResponse.ok(resp);
+        return ApiResponse.ok(new MetricsOverviewResp(
+                span,
+                new TaskOverview(taskStats(taskRepo.countByStatusSince(todayFrom)),
+                        taskStats(taskRepo.countByStatusSince(windowFrom))),
+                riskStats(riskRepo.countByLevelSince(windowFrom)),
+                agentStats(rows),
+                tokensByDay(rows, zone),
+                feedbackStats(reportRepo.countFeedbackSince(windowFrom)),
+                runtimeSnapshot()));
     }
 
     // ---------------- DB 聚合 ----------------
@@ -77,7 +81,7 @@ public class AdminMetricsController {
         return m;
     }
 
-    private Map<String, Object> taskStats(List<Object[]> statusCounts) {
+    private TaskStats taskStats(List<Object[]> statusCounts) {
         Map<String, Long> byStatus = new TreeMap<>();
         for (Object[] r : statusCounts) byStatus.put((String) r[0], ((Number) r[1]).longValue());
         long finished = byStatus.getOrDefault("SUCCESS", 0L)
@@ -85,11 +89,8 @@ public class AdminMetricsController {
                 + byStatus.getOrDefault("FAILED", 0L);
         long success = byStatus.getOrDefault("SUCCESS", 0L)
                 + byStatus.getOrDefault("PARTIAL_SUCCESS", 0L);
-        Map<String, Object> m = new LinkedHashMap<>();
-        m.put("byStatus", byStatus);
-        m.put("finished", finished);
-        m.put("successRate", finished == 0 ? null : Math.round(success * 10000.0 / finished) / 100.0);
-        return m;
+        return new TaskStats(byStatus, finished,
+                finished == 0 ? null : Math.round(success * 10000.0 / finished) / 100.0);
     }
 
     private Map<String, Long> riskStats(List<Object[]> levelCounts) {
@@ -99,10 +100,10 @@ public class AdminMetricsController {
     }
 
     /** 按 Agent 分组：步骤数、成功数、costMs avg/p95/max、LLM 调用与 token 合计 */
-    private List<Map<String, Object>> agentStats(List<Object[]> rows) {
+    private List<AgentStat> agentStats(List<Object[]> rows) {
         Map<String, List<Object[]>> byAgent = new TreeMap<>();
         for (Object[] r : rows) byAgent.computeIfAbsent((String) r[0], k -> new ArrayList<>()).add(r);
-        List<Map<String, Object>> out = new ArrayList<>();
+        List<AgentStat> out = new ArrayList<>();
         for (var e : byAgent.entrySet()) {
             List<Integer> costs = new ArrayList<>();
             long llmCalls = 0, tokensIn = 0, tokensOut = 0;
@@ -113,21 +114,17 @@ public class AdminMetricsController {
                 tokensOut += num(r[4]);
             }
             costs.sort(Comparator.naturalOrder());
-            Map<String, Object> m = new LinkedHashMap<>();
-            m.put("agent", e.getKey());
-            m.put("steps", e.getValue().size());
-            m.put("avgMs", costs.isEmpty() ? null : Math.round(costs.stream().mapToInt(Integer::intValue).average().orElse(0)));
-            m.put("p95Ms", costs.isEmpty() ? null : costs.get(Math.max(0, (int) Math.ceil(costs.size() * 0.95) - 1)));
-            m.put("maxMs", costs.isEmpty() ? null : costs.get(costs.size() - 1));
-            m.put("llmCalls", llmCalls);
-            m.put("tokensIn", tokensIn);
-            m.put("tokensOut", tokensOut);
-            out.add(m);
+            out.add(new AgentStat(
+                    e.getKey(), e.getValue().size(),
+                    costs.isEmpty() ? null : Math.round(costs.stream().mapToInt(Integer::intValue).average().orElse(0)),
+                    costs.isEmpty() ? null : (long) costs.get(Math.max(0, (int) Math.ceil(costs.size() * 0.95) - 1)),
+                    costs.isEmpty() ? null : (long) costs.get(costs.size() - 1),
+                    llmCalls, tokensIn, tokensOut));
         }
         return out;
     }
 
-    private List<Map<String, Object>> tokensByDay(List<Object[]> rows, ZoneId zone) {
+    private List<TokensByDay> tokensByDay(List<Object[]> rows, ZoneId zone) {
         Map<LocalDate, long[]> byDay = new TreeMap<>();
         for (Object[] r : rows) {
             if (num(r[2]) == 0) continue;   // 无 LLM 调用的步骤不计成本
@@ -136,28 +133,28 @@ public class AdminMetricsController {
             acc[0] += num(r[3]);
             acc[1] += num(r[4]);
         }
-        List<Map<String, Object>> out = new ArrayList<>();
-        byDay.forEach((d, acc) -> out.add(Map.of("date", d.toString(), "tokensIn", acc[0], "tokensOut", acc[1])));
+        List<TokensByDay> out = new ArrayList<>();
+        byDay.forEach((d, acc) -> out.add(new TokensByDay(d.toString(), acc[0], acc[1])));
         return out;
     }
 
     // ---------------- registry 现值（进程内，重启清零） ----------------
 
-    private Map<String, Object> runtimeSnapshot() {
+    private RuntimeView runtimeSnapshot() {
         Neo4jKgService graph = neo4jKg.getIfAvailable();
-        return Map.of(
+        return new RuntimeView(
                 // M13：闸门跑在进程内还是跨节点 Redis，运维要能一眼看到（否则多节点限流"看不出来生没生效"）
-                "llmGate", com.soulvoyage.llm.LlmGuard.describe(),
+                com.soulvoyage.llm.LlmGuard.describe(),
                 // G8：KG 跑在图侧还是回落 kg_node 表，同样要能一眼看到（含熔断开关与已同步版本）
-                "kg", graph == null ? "kg=db(kg_node)" : graph.describe(),
-                "taskSubmitted", sumCounters("sv.task.submit"),
-                "llmCalls", (long) registry.find("sv.llm.call").timers().stream()
+                graph == null ? "kg=db(kg_node)" : graph.describe(),
+                sumCounters("sv.task.submit"),
+                (long) registry.find("sv.llm.call").timers().stream()
                         .mapToDouble(io.micrometer.core.instrument.Timer::count).sum(),
-                "tokensIn", sumCountersTagged("sv.llm.tokens", "dir", "in"),
-                "tokensOut", sumCountersTagged("sv.llm.tokens", "dir", "out"),
-                "llmRejects", Map.of(
-                        "rateLimited", sumCountersTagged("sv.llm.reject", "reason", "rate_limited"),
-                        "queueTimeout", sumCountersTagged("sv.llm.reject", "reason", "queue_timeout")));
+                sumCountersTagged("sv.llm.tokens", "dir", "in"),
+                sumCountersTagged("sv.llm.tokens", "dir", "out"),
+                new LlmRejects(
+                        sumCountersTagged("sv.llm.reject", "reason", "rate_limited"),
+                        sumCountersTagged("sv.llm.reject", "reason", "queue_timeout")));
     }
 
     private long sumCounters(String name) {

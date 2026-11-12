@@ -15,7 +15,7 @@ import { toastQueue } from '@/stores/ui'
 <style scoped>
 .sv-toast-host {
   position: absolute;
-  top: calc(var(--sv-safe-t) + 60px);
+  bottom: calc(var(--sv-safe-b) + 76px);
   left: 0;
   right: 0;
   display: flex;
@@ -26,26 +26,24 @@ import { toastQueue } from '@/stores/ui'
   pointer-events: none;
 }
 .bubble {
-  background: color-mix(in srgb, var(--sv-card) 90%, transparent);
-  backdrop-filter: var(--sv-blur);
-  -webkit-backdrop-filter: var(--sv-blur);
+  background: var(--sv-card);
   border: 1px solid var(--sv-sep);
-  padding: 10px 18px;
-  border-radius: var(--sv-r-pill);
-  font-size: var(--sv-fs-footnote);
+  padding: 9px 14px;
+  border-radius: var(--sv-r-ctl);
+  font-size: var(--sv-fs-subhead);
   color: var(--sv-label);
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
+  box-shadow: var(--sv-elev-1);
   max-width: 86%;
 }
 .toast-enter-active,
 .toast-leave-active {
   transition:
-    transform 0.4s var(--sv-ease),
-    opacity 0.3s;
+    transform 0.18s ease,
+    opacity 0.18s ease;
 }
 .toast-enter-from,
 .toast-leave-to {
-  transform: translateY(-80px);
+  transform: translateY(8px);
   opacity: 0;
 }
 </style>

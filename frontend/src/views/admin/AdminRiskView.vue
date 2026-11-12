@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
 import AdminShell from '@/components/AdminShell.vue'
 import SvCard from '@/components/ui/SvCard.vue'
@@ -105,9 +105,9 @@ const evidenceText = (ev: RevealResp) => {
       <span class="muted">{{ total }} 条</span>
     </div>
 
-    <p v-if="loading" class="muted center">加载中…</p>
+    <p v-if="loading" class="muted sv-center">加载中…</p>
     <SvCard v-else-if="!rows.length" class="empty">
-      <p class="muted center">队列清空了——没有等待复核的风险事件。</p>
+      <p class="muted sv-center">队列清空了——没有等待复核的风险事件。</p>
     </SvCard>
     <template v-else>
       <SvCard v-for="r in rows" :key="r.id">
@@ -176,10 +176,6 @@ const evidenceText = (ev: RevealResp) => {
   padding: 9px 10px;
   font-size: var(--sv-fs-footnote);
   font-family: inherit;
-}
-.center {
-  text-align: center;
-  padding: var(--sv-s4) 0;
 }
 .muted {
   color: var(--sv-label3);
@@ -274,7 +270,7 @@ const evidenceText = (ev: RevealResp) => {
   font-size: 10px;
   font-weight: 600;
   padding: 3px 8px;
-  border-radius: 999px;
+  border-radius: var(--sv-r-tag);
   flex: none;
 }
 .pill.ok {

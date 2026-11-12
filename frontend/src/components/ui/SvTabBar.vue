@@ -22,7 +22,7 @@ const tabs = [
       :class="{ on: $route.path.startsWith(t.to) }"
       :aria-current="$route.path.startsWith(t.to) ? 'page' : undefined"
     >
-      <SvIcon :name="t.icon" :size="26" tone="inherit" />
+      <SvIcon :name="t.icon" :size="22" tone="inherit" />
       <span>{{ t.label }}</span>
     </router-link>
   </nav>
@@ -31,31 +31,26 @@ const tabs = [
 <style scoped>
 .tabbar {
   display: flex;
-  background: color-mix(in srgb, var(--sv-bg) 78%, transparent);
-  backdrop-filter: var(--sv-blur);
-  -webkit-backdrop-filter: var(--sv-blur);
+  background: var(--sv-bg);
   border-top: 1px solid var(--sv-sep);
-  padding: 6px 8px calc(6px + var(--sv-safe-b));
+  min-height: 60px;
+  padding: 4px 8px calc(4px + var(--sv-safe-b));
 }
 .tab {
   flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
-  padding: 5px 0;
-  min-height: 44px;
-  font-size: 10.5px;
-  color: var(--sv-label2);
+  justify-content: center;
+  gap: 3px;
+  padding: 4px 0;
+  min-height: 48px;
+  font-size: var(--sv-fs-caption1);
+  color: var(--sv-label3);
   text-decoration: none;
-  transition:
-    color 0.2s,
-    transform 0.2s var(--sv-ease);
+  transition: color 0.18s;
 }
 .tab.on {
-  color: var(--sv-indigo);
-}
-.tab:active {
-  transform: scale(0.92);
+  color: var(--sv-accent);
 }
 </style>

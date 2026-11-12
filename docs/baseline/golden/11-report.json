@@ -1,0 +1,122 @@
+{
+  "note": "报告列表→详情→反馈→回读",
+  "scenario": "report",
+  "steps": [
+    {
+      "name": "list",
+      "response": {
+        "items": [
+          {
+            "createdAt": "<redacted>",
+            "feedback": null,
+            "id": "<redacted>",
+            "riskLevel": "LOW",
+            "starred": false,
+            "title": "沟通复盘 · 宿舍作息之争 · 2026-11-12",
+            "type": "SIMULATE"
+          },
+          {
+            "createdAt": "<redacted>",
+            "feedback": null,
+            "id": "<redacted>",
+            "riskLevel": "LOW",
+            "starred": false,
+            "title": "自助方案 · 平静 · 2026-11-12",
+            "type": "SUPPORT"
+          },
+          {
+            "createdAt": "<redacted>",
+            "feedback": null,
+            "id": "<redacted>",
+            "riskLevel": "LOW",
+            "starred": false,
+            "title": "情绪复盘 · 平静 · 2026-11-12",
+            "type": "TRACE"
+          }
+        ],
+        "total": 3
+      }
+    },
+    {
+      "name": "detail",
+      "response": {
+        "content": {
+          "keyMoments": [],
+          "overall": {
+            "avgScore": 75,
+            "strengths": [
+              "全程保持了表达意愿，没有中途离场"
+            ],
+            "weaknesses": [
+              "请求多为模糊提议，缺少可执行的时间与数字"
+            ]
+          },
+          "overallAdvice": "（mock）开场先复述对方一句再讲事实；把「你总是」换成「这周有 X 次」；每个诉求落在一个具体可执行的小请求上。",
+          "referenceCase": "cc_apology_repair",
+          "rewriteSuggestions": [],
+          "turnScores": [
+            {
+              "comment": "（mock）表达了自己的立场，观察/请求要素不完整",
+              "dimension": "BOUNDARY",
+              "grade": "B",
+              "turn": 1
+            }
+          ]
+        },
+        "createdAt": "<redacted>",
+        "feedback": "",
+        "feedbackAt": "",
+        "feedbackNote": "",
+        "id": "<redacted>",
+        "riskLevel": "LOW",
+        "starred": false,
+        "title": "沟通复盘 · 宿舍作息之争 · 2026-11-12",
+        "type": "SIMULATE"
+      }
+    },
+    {
+      "name": "feedback",
+      "response": {
+        "feedback": "USEFUL",
+        "id": "<redacted>"
+      }
+    },
+    {
+      "name": "detailAfter",
+      "response": {
+        "content": {
+          "keyMoments": [],
+          "overall": {
+            "avgScore": 75,
+            "strengths": [
+              "全程保持了表达意愿，没有中途离场"
+            ],
+            "weaknesses": [
+              "请求多为模糊提议，缺少可执行的时间与数字"
+            ]
+          },
+          "overallAdvice": "（mock）开场先复述对方一句再讲事实；把「你总是」换成「这周有 X 次」；每个诉求落在一个具体可执行的小请求上。",
+          "referenceCase": "cc_apology_repair",
+          "rewriteSuggestions": [],
+          "turnScores": [
+            {
+              "comment": "（mock）表达了自己的立场，观察/请求要素不完整",
+              "dimension": "BOUNDARY",
+              "grade": "B",
+              "turn": 1
+            }
+          ]
+        },
+        "createdAt": "<redacted>",
+        "feedback": "USEFUL",
+        "feedbackAt": "<redacted>",
+        "feedbackNote": "基线反馈",
+        "id": "<redacted>",
+        "riskLevel": "LOW",
+        "starred": false,
+        "title": "沟通复盘 · 宿舍作息之争 · 2026-11-12",
+        "type": "SIMULATE"
+      }
+    }
+  ]
+}

@@ -2,6 +2,11 @@ package com.soulvoyage;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.soulvoyage.admin.AdminBoardController;
+import com.soulvoyage.admin.dto.AdminDtos.BoardCheckIns;
+import com.soulvoyage.admin.dto.AdminDtos.BoardDayValence;
+import com.soulvoyage.admin.dto.AdminDtos.BoardDetailResp;
+import com.soulvoyage.admin.dto.AdminDtos.BoardMemberView;
+import com.soulvoyage.admin.dto.AdminDtos.BoardStatsResp;
 import com.soulvoyage.auth.AuthPrincipal;
 import com.soulvoyage.auth.RolePermissionEntity;
 import com.soulvoyage.auth.RolePermissionRepository;
@@ -96,8 +101,9 @@ class M12GroupBoardTest {
     }
 
     private long createGroup(String name) {
-        Map<String, Object> g = asAdmin(() -> board.create(adminP(), new AdminBoardController.GroupBody(name))).getData();
-        return ((Number) g.get("id")).longValue();
+        BoardDetailResp g = asAdmin(
+                () -> board.create(adminP(), new AdminBoardController.GroupBody(name))).getData();
+        return g.id();
     }
 
     private void consent(long uid) {
@@ -191,21 +197,20 @@ class M12GroupBoardTest {
         List<Long> ids = seedGroup(gid, 11, 10, 4);
         seedCheckIn(ids.get(10), LocalDate.now(), "angry", 1, 1);
 
-        Map<String, Object> stats = asAdmin(
+        BoardStatsResp stats = asAdmin(
                 () -> board.stats(adminP(), gid, 7)).getData();
-        assertEquals(false, stats.get("suppressed"));
-        Map<?, ?> checkIn = (Map<?, ?>) stats.get("checkIns");
-        assertEquals(10L, ((Number) checkIn.get("contributors")).longValue(), "未授权成员不得进人数");
-        assertEquals(10L, ((Number) checkIn.get("personDays")).longValue());
-        assertEquals(4.0, ((Number) checkIn.get("avgRating")).doubleValue(), 1e-9, "均值只由授权成员构成");
+        assertEquals(false, stats.suppressed());
+        BoardCheckIns checkIn = stats.checkIns();
+        assertEquals(10L, checkIn.contributors(), "未授权成员不得进人数");
+        assertEquals(10L, checkIn.personDays());
+        assertEquals(4.0, checkIn.avgRating(), 1e-9, "均值只由授权成员构成");
         // 情绪分布同样排除未授权者的 angry
-        assertTrue(((List<?>) checkIn.get("emotions")).stream()
-                .noneMatch(e -> "angry".equals(((Map<?, ?>) e).get("code"))));
+        assertTrue(checkIn.emotions().stream().noneMatch(e -> "angry".equals(e.code())));
 
         // 第 11 人转授权后立刻进池（授权即时生效，无需群体变动）
         consent(ids.get(10));
-        Map<?, ?> after = (Map<?, ?>) asAdmin(() -> board.stats(adminP(), gid, 7)).getData().get("checkIns");
-        assertEquals(11L, ((Number) after.get("contributors")).longValue());
+        BoardCheckIns after = asAdmin(() -> board.stats(adminP(), gid, 7)).getData().checkIns();
+        assertEquals(11L, after.contributors());
     }
 
     // ---------------- 闸门 3：阈值抑制（授权 <10 只回结论） ----------------
@@ -214,22 +219,21 @@ class M12GroupBoardTest {
     void smallCohortIsSuppressedWithoutAnyMetrics() {
         long gid = createGroup("m12-threshold-" + System.nanoTime());
         seedGroup(gid, 12, 9, 4);   // 12 名成员、9 人授权：人数够但授权不够
-        Map<String, Object> stats = asAdmin(() -> board.stats(adminP(), gid, 7)).getData();
-        assertEquals(true, stats.get("suppressed"));
-        assertEquals(9, ((Number) stats.get("consentedCount")).intValue());
-        assertEquals(10, ((Number) stats.get("threshold")).intValue());
-        assertFalse(stats.containsKey("checkIns"), "抑制态不得携带任何指标字段");
-        assertFalse(stats.containsKey("valenceByDay"));
-        assertFalse(stats.containsKey("riskEvents"));
-        assertTrue(((String) stats.get("reason")).contains("防个体反推"));
+        BoardStatsResp stats = asAdmin(() -> board.stats(adminP(), gid, 7)).getData();
+        assertEquals(true, stats.suppressed());
+        assertEquals(9, stats.consentedCount());
+        assertEquals(10, stats.threshold());
+        assertNull(stats.checkIns(), "抑制态不得携带任何指标字段");
+        assertNull(stats.valenceByDay());
+        assertNull(stats.riskEvents());
+        assertTrue(stats.reason().contains("防个体反推"));
 
         // 补到 10 人授权即解禁
-        List<?> pending = (List<?>) asAdmin(() -> board.detail(gid)).getData().get("members");
-        long toConsent = ((List<?>) pending).stream().map(m -> (Map<?, ?>) m)
-                .filter(m -> Boolean.FALSE.equals(m.get("consented")))
-                .findFirst().map(m -> ((Number) m.get("userId")).longValue()).orElseThrow();
+        List<BoardMemberView> pending = asAdmin(() -> board.detail(gid)).getData().members();
+        long toConsent = pending.stream().filter(m -> !m.consented())
+                .findFirst().map(BoardMemberView::userId).orElseThrow();
         consent(toConsent);
-        assertEquals(false, asAdmin(() -> board.stats(adminP(), gid, 7)).getData().get("suppressed"));
+        assertEquals(false, asAdmin(() -> board.stats(adminP(), gid, 7)).getData().suppressed());
     }
 
     // ---------------- 闸门 4：单日小样本不出均值 ----------------
@@ -245,15 +249,14 @@ class M12GroupBoardTest {
         seedTraj(ids.get(1), today.minusDays(2), "0.500");
         seedTraj(ids.get(2), today.minusDays(2), "0.700");
 
-        Map<String, Object> stats = asAdmin(() -> board.stats(adminP(), gid, 7)).getData();
-        @SuppressWarnings("unchecked")
-        List<Map<String, Object>> byDay = (List<Map<String, Object>>) stats.get("valenceByDay");
-        assertTrue(byDay.stream().noneMatch(d -> d.get("date").equals(today.minusDays(1).toString())),
+        BoardStatsResp stats = asAdmin(() -> board.stats(adminP(), gid, 7)).getData();
+        List<BoardDayValence> byDay = stats.valenceByDay();
+        assertTrue(byDay.stream().noneMatch(d -> d.date().equals(today.minusDays(1).toString())),
                 "单人贡献日不得出现在曲线里");
-        Map<String, Object> shared = byDay.stream()
-                .filter(d -> d.get("date").equals(today.minusDays(2).toString())).findFirst().orElseThrow();
-        assertEquals(0.5, ((Number) shared.get("avgValence")).doubleValue(), 1e-9);
-        assertTrue(((Number) stats.get("hiddenDays")).intValue() >= 1);
+        BoardDayValence shared = byDay.stream()
+                .filter(d -> d.date().equals(today.minusDays(2).toString())).findFirst().orElseThrow();
+        assertEquals(0.5, shared.avgValence(), 1e-9);
+        assertTrue(stats.hiddenDays() >= 1);
     }
 
     // ---------------- 载荷零个体 + 风险只出计数 ----------------
@@ -276,8 +279,8 @@ class M12GroupBoardTest {
         String json = mapper.writeValueAsString(asAdmin(() -> board.stats(adminP(), gid, 7)).getData());
         for (String n : names) assertFalse(json.contains(n), "载荷出现个体用户名: " + n);
         assertFalse(json.contains("userId"), "载荷不应出现任何个体主键");
-        Map<?, ?> risk = (Map<?, ?>) asAdmin(() -> board.stats(adminP(), gid, 7)).getData().get("riskEvents");
-        assertEquals(1L, ((Number) risk.get("HIGH")).longValue(), "风险只出级别计数");
+        Map<String, Long> risk = asAdmin(() -> board.stats(adminP(), gid, 7)).getData().riskEvents();
+        assertEquals(1L, risk.get("HIGH"), "风险只出级别计数");
     }
 
     // ---------------- 成员维护边界 ----------------

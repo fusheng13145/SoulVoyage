@@ -135,6 +135,8 @@ class M11VoiceDiaryTest {
                 "带参数的 MIME 主类型相同即放行");
         assertEquals(200, upload(a.jwt(), 1024, "Audio/MPEG", null).getStatusCode().value(),
                 "大小写不敏感");
+        assertEquals(2001, uploadBytes(a.jwt(), new byte[1024], "audio/webm", null),
+                "声明 audio/webm 但魔数不符应 2001（B-17）");
 
         // 匿名探测走无请求体的同路由请求：JDK 客户端在流式上传下读不到 401 响应体，
         // 而"这条路由整体在鉴权后"与请求体无关，GET 同样能把门守住。
@@ -243,13 +245,22 @@ class M11VoiceDiaryTest {
 
     /** multipart 上传一段"录音"：part 的 Content-Type 就是浏览器 MediaRecorder 给的那个 */
     private ResponseEntity<String> upload(String jwt, int bytes, String contentType, Long durationMs) {
+        return uploadEntity(jwt, sampleAudio(bytes, contentType), contentType, durationMs);
+    }
+
+    /** 直接投喂任意字节，用于验证魔数校验（B-17） */
+    private int uploadBytes(String jwt, byte[] bytes, String contentType, Long durationMs) throws Exception {
+        return codeOf(uploadEntity(jwt, bytes, contentType, durationMs));
+    }
+
+    private ResponseEntity<String> uploadEntity(String jwt, byte[] bytes, String contentType, Long durationMs) {
         HttpHeaders h = new HttpHeaders();
         if (jwt != null) h.setBearerAuth(jwt);
         h.setContentType(MediaType.MULTIPART_FORM_DATA);
 
         HttpHeaders partHeaders = new HttpHeaders();
         partHeaders.setContentType(MediaType.parseMediaType(contentType));
-        ByteArrayResource audio = new ByteArrayResource(new byte[Math.max(bytes, 0)]) {
+        ByteArrayResource audio = new ByteArrayResource(bytes) {
             @Override
             public String getFilename() {
                 return "voice.bin";
@@ -261,6 +272,25 @@ class M11VoiceDiaryTest {
 
         return rest.exchange("/api/v1/diaries/voice-transcriptions", HttpMethod.POST,
                 new HttpEntity<>(form, h), String.class);
+    }
+
+    /** 按声明类型生成带合法容器头的样例字节（大小仍由调用方指定） */
+    private static byte[] sampleAudio(int bytes, String contentType) {
+        int size = Math.max(bytes, 0);
+        byte[] b = new byte[size];
+        String t = contentType.split(";")[0].trim().toLowerCase();
+        byte[] sig = switch (t) {
+            case "audio/webm" -> new byte[]{0x1A, 0x45, (byte) 0xDF, (byte) 0xA3};
+            case "audio/ogg" -> new byte[]{'O', 'g', 'g', 'S'};
+            case "audio/wav", "audio/x-wav" ->
+                    new byte[]{'R', 'I', 'F', 'F', 0, 0, 0, 0, 'W', 'A', 'V', 'E'};
+            case "audio/mp4", "audio/x-m4a", "audio/m4a", "audio/mp4a-latm" ->
+                    new byte[]{0, 0, 0, 0, 'f', 't', 'y', 'p'};
+            case "audio/mpeg" -> new byte[]{'I', 'D', '3'};
+            default -> new byte[0];
+        };
+        System.arraycopy(sig, 0, b, 0, Math.min(sig.length, size));
+        return b;
     }
 
     private String submitDiary(Actor a, String text, String source, Long durationMs) throws Exception {

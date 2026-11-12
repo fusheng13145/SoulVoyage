@@ -172,10 +172,11 @@ class M9AdminConsoleTest {
                 .filter(m -> m.get("taskNo").equals(tf.getTaskNo())).findFirst().orElseThrow()
                 .get("userId")).longValue());
 
-        // 详情时间线含成本字段键
-        Map<String, Object> detail = as(admin, () -> adminTasks.detail(tf.getTaskNo())).getData();
-        assertEquals("FAILED", detail.get("status"));
-        assertTrue(((List<?>) detail.get("steps")).get(0) instanceof Map<?, ?> s && s.containsKey("costMs"));
+        // 详情时间线含成本字段
+        var detail = as(admin, () -> adminTasks.detail(tf.getTaskNo())).getData();
+        assertEquals("FAILED", detail.status());
+        assertFalse(detail.steps().isEmpty());
+        assertEquals(1, detail.steps().get(0).stepSeq());
 
         // 非 FAILED 不许重跑
         TaskInstanceEntity ok = taskRepo.save(taskOf(uid, "SUCCESS"));
@@ -235,7 +236,7 @@ class M9AdminConsoleTest {
         var revealed = as(admin, () -> adminRisk.reveal(admin, ef.getId(),
                 new AdminRiskController.RevealBody(PWD)));
         assertEquals("RISK_CRISIS", ((com.fasterxml.jackson.databind.JsonNode)
-                revealed.getData().get("evidence")).path("ruleCode").asText());
+                revealed.getData().evidence()).path("ruleCode").asText());
         assertTrue(auditRepo.findForAdmin(adminUid, "ADMIN_VIEW_RISK",
                 org.springframework.data.domain.PageRequest.of(0, 10)).getTotalElements() >= 1);
 
@@ -287,8 +288,8 @@ class M9AdminConsoleTest {
         // 校验动作本身也入链：第一次 verify 落 ADMIN_AUDIT_VERIFY，第二次才校验到非空链
         as(admin, () -> adminOps.verifyAudit(admin));
         var v = as(admin, () -> adminOps.verifyAudit(admin));
-        assertTrue((Boolean) v.getData().get("intact"), "M9 后审计链必须完整");
-        assertTrue(((Number) v.getData().get("checked")).longValue() > 0);
+        assertTrue(v.getData().intact(), "M9 后审计链必须完整");
+        assertTrue(v.getData().checked() > 0);
 
         // 产生过密文的用户必有 ACTIVE 密钥
         crypto.encryptUserField(uid, "for-keys-board");
@@ -317,9 +318,9 @@ class M9AdminConsoleTest {
 
         var r = as(admin, () -> adminContent.preview(admin,
                 new ContentAdminController.PreviewBody("support_v1", "最近两周很焦虑，睡不好。", Map.of())));
-        assertEquals("support_v1", r.getData().get("template"));
-        assertFalse(String.valueOf(r.getData().get("system")).isBlank());
-        assertFalse(String.valueOf(r.getData().get("output")).isBlank());
+        assertEquals("support_v1", r.getData().template());
+        assertFalse(String.valueOf(r.getData().system()).isBlank());
+        assertFalse(String.valueOf(r.getData().output()).isBlank());
         assertTrue(auditRepo.findForAdmin(uid, "CONTENT_PREVIEW",
                 org.springframework.data.domain.PageRequest.of(0, 10)).getTotalElements() >= 1);
     }
@@ -330,14 +331,16 @@ class M9AdminConsoleTest {
     void metricsOverviewShapeMatchesBoardContract() {
         long uid = newUser("ADMIN");
         var admin = new AuthPrincipal(uid, "ADMIN");
-        Map<String, Object> m = as(admin, () -> metrics.overview(7)).getData();
-        for (String k : List.of("windowDays", "tasks", "riskEvents", "agents", "tokensByDay", "runtime"))
-            assertTrue(m.containsKey(k), "看板缺字段: " + k);
-        assertEquals(7, ((Number) m.get("windowDays")).intValue());
-        Map<?, ?> tasks = (Map<?, ?>) m.get("tasks");
-        assertTrue(tasks.containsKey("today") && tasks.containsKey("window"));
+        var m = as(admin, () -> metrics.overview(7)).getData();
+        assertEquals(7, m.windowDays());
+        assertNotNull(m.tasks().today());
+        assertNotNull(m.tasks().window());
+        assertNotNull(m.riskEvents());
+        assertNotNull(m.agents());
+        assertNotNull(m.tokensByDay());
+        assertNotNull(m.runtime());
         // days 越界钳制而不是报错
-        assertEquals(90, ((Number) as(admin, () -> metrics.overview(999)).getData().get("windowDays")).intValue());
+        assertEquals(90, as(admin, () -> metrics.overview(999)).getData().windowDays());
     }
 
     private void awaitRunning(String taskNo) throws InterruptedException {

@@ -11,6 +11,7 @@ import com.soulvoyage.domain.risk.RiskEventEntity;
 import com.soulvoyage.domain.risk.RiskEventRepository;
 import com.soulvoyage.domain.user.UserEntity;
 import com.soulvoyage.domain.user.UserRepository;
+import com.soulvoyage.orchestrator.AgentCode;
 import com.soulvoyage.orchestrator.pipeline.StepSpec;
 import com.soulvoyage.orchestrator.agent.AgentRuntime;
 import com.soulvoyage.orchestrator.protocol.AgentMessage;
@@ -69,7 +70,7 @@ class M9DualTrackMatrixTest {
         var request = new AgentMessage(null, taskId, 4, "SUPPORT", "RISK_ARCHIVE",
                 AgentMessage.MsgType.REQUEST, payload, null, null);
         var rt = new AgentRuntime(taskId, uid, "DT-" + taskId,
-                new StepSpec("risk", "RISK_ARCHIVE", "archive_receipt.json"));
+                new StepSpec("risk", AgentCode.RISK_ARCHIVE, "archive_receipt.json"));
         return agent.run(request, rt);
     }
 

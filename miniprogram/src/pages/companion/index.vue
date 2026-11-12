@@ -254,19 +254,18 @@ async function scrollToLast() {
 }
 .bubble.user {
   align-self: flex-end;
-  background: var(--sv-indigo);
-  color: #fff;
+  background: var(--sv-accent);
+  border: 1px solid var(--sv-accent);
+  color: var(--sv-on-accent);
 }
 .bubble.ai {
   align-self: flex-start;
   background: var(--sv-card);
+  border: 1px solid var(--sv-sep);
   color: var(--sv-label);
 }
-.sv-dark .bubble.ai {
-  border: 1px solid var(--sv-sep);
-}
 .bubble.ai.crisis {
-  border: 1px solid var(--sv-red);
+  border: 1px solid var(--sv-danger);
 }
 .bubble.pending {
   color: var(--sv-label2);

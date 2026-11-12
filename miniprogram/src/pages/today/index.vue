@@ -185,7 +185,7 @@ function openCompanion() {
         <text class="sv-muted">{{ today }} · 心屿陪着你</text>
       </view>
       <view class="bell" @tap="go('/pages/notifications/index')">
-        <text class="bell-icon">✉</text>
+        <text class="bell-icon">通知</text>
         <text v-if="unread" class="bell-dot">{{ unread > 99 ? '99+' : unread }}</text>
       </view>
     </view>
@@ -209,9 +209,7 @@ function openCompanion() {
           :class="{ on: draft.emotion === e.code }"
           @tap="choose(e.code)"
         >
-          <view class="face-dot" :style="{ background: 'var(' + e.varName + ')' }">
-            <text class="face-glyph">{{ e.face }}</text>
-          </view>
+          <view class="face-dot" :style="{ background: 'var(' + e.varName + ')' }" />
           <text class="face-label">{{ e.label }}</text>
         </view>
       </view>
@@ -338,20 +336,20 @@ function openCompanion() {
   padding: var(--sv-s2);
 }
 .bell-icon {
-  font-size: 20px;
-  color: var(--sv-label2);
+  font-size: var(--sv-fs-caption1);
+  color: var(--sv-label3);
 }
 .bell-dot {
   position: absolute;
   top: 0;
   right: 0;
-  min-width: 18px;
-  padding: 0 5px;
-  border-radius: var(--sv-r-pill);
-  background: var(--sv-red);
-  color: #fff;
-  font-size: 11px;
-  line-height: 18px;
+  min-width: 16px;
+  padding: 0 4px;
+  border-radius: var(--sv-r-tag);
+  background: var(--sv-danger);
+  color: var(--sv-on-accent);
+  font-size: var(--sv-fs-caption2);
+  line-height: 16px;
   text-align: center;
 }
 .crisis {
@@ -360,8 +358,9 @@ function openCompanion() {
   gap: var(--sv-s1);
   margin-bottom: var(--sv-s3);
   padding: var(--sv-s4);
+  border: 1px solid var(--sv-danger);
   border-radius: var(--sv-r-card);
-  background: rgba(255, 69, 58, 0.12);
+  background: var(--sv-card);
 }
 .crisis-title {
   color: var(--sv-red);
@@ -400,28 +399,22 @@ function openCompanion() {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
+  gap: 6px;
   width: 25%;
   padding: var(--sv-s2) 0;
+  border: 1px solid transparent;
+  border-radius: var(--sv-r-ctl);
   opacity: 0.62;
 }
 .face.on {
   opacity: 1;
+  border-color: var(--sv-accent);
+  background: var(--sv-accent-soft);
 }
 .face-dot {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 44px;
-  height: 44px;
-  border: 3px solid transparent;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
-}
-.face.on .face-dot {
-  border-color: var(--sv-label);
-}
-.face-glyph {
-  font-size: 22px;
 }
 .face-label {
   font-size: var(--sv-fs-caption1);

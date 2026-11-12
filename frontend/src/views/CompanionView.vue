@@ -4,9 +4,10 @@ import SvNavBar from '@/components/ui/SvNavBar.vue'
 import SvCard from '@/components/ui/SvCard.vue'
 import SvBubble from '@/components/ui/SvBubble.vue'
 import SvIcon from '@/components/ui/SvIcon.vue'
+import SvPageBody from '@/components/ui/SvPageBody.vue'
 import SvDisclaimer from '@/components/ui/SvDisclaimer.vue'
 import CrisisReferral from '@/components/CrisisReferral.vue'
-import http, { type ApiResp } from '@/api/http'
+import { companionApi } from '@/api/domains/companion'
 
 /** 漫聊会话视图（后端 SessionView 的前端收窄） */
 interface CompanionSession {
@@ -55,12 +56,12 @@ const moodHint = computed(() =>
 async function open() {
   loading.value = true
   try {
-    const { data } = await http.post<ApiResp<CompanionSession>>('/companion/sessions', {})
-    sessionId.value = data.data.sessionId
-    segmentNo.value = data.data.segmentNo
-    ended.value = data.data.status !== 'ACTIVE'
+    const data = await companionApi.open<CompanionSession>()
+    sessionId.value = data.sessionId
+    segmentNo.value = data.segmentNo
+    ended.value = data.status !== 'ACTIVE'
     msgs.value = []
-    for (const t of data.data.turnList || []) {
+    for (const t of data.turnList || []) {
       msgs.value.push({ turnId: t.turnId, turnNo: t.turnNo, text: t.userText, noAnalyze: t.noAnalyze })
       msgs.value.push({
         turnId: t.turnId,
@@ -135,7 +136,7 @@ async function send() {
 async function hideFromAnalysis(turn: Turn) {
   if (!turn.turnId || turn.noAnalyze) return
   try {
-    await http.post(`/companion/turns/${turn.turnId}/no-analyze`, {})
+    await companionApi.noAnalyze(turn.turnId)
     turn.noAnalyze = true
     toast('好，这句只留在当下，不进分析')
   } catch (e) {
@@ -147,12 +148,9 @@ async function endChat() {
   if (!sessionId.value || sealed.value) return
   sealed.value = true
   try {
-    const { data } = await http.post<ApiResp<{ taskNo: string }>>(
-      `/companion/sessions/${sessionId.value}/end`,
-      {},
-    )
+    const { taskNo } = await companionApi.end(sessionId.value)
     msgs.value.push({
-      text: data.data.taskNo ? '收好啦。这段时间我会轻轻归档进你的情绪地图。' : '收好啦。想继续随时回来。',
+      text: taskNo ? '收好啦。这段时间我会轻轻归档进你的情绪地图。' : '收好啦。想继续随时回来。',
       ai: true,
     })
   } catch {
@@ -185,7 +183,7 @@ async function endChat() {
       </template>
     </SvNavBar>
 
-    <div class="body">
+    <SvPageBody class="chat-body">
       <p v-if="loading" class="sv-muted wait">树洞正在打开…</p>
 
       <SvCard v-if="crisis.crisisMode" :pad="false" class="care">
@@ -230,13 +228,12 @@ async function endChat() {
           <SvIcon name="i-send" :size="20" tone="inherit" />
         </button>
       </div>
-    </div>
+    </SvPageBody>
   </div>
 </template>
 
 <style scoped>
-.body {
-  padding: 0 var(--sv-s4);
+.chat-body {
   display: flex;
   flex-direction: column;
 }
@@ -252,9 +249,9 @@ async function endChat() {
   flex-direction: column;
   gap: 10px;
   background: var(--sv-bg);
+  border: 1px solid var(--sv-sep);
   border-radius: var(--sv-r-card);
   padding: var(--sv-s3);
-  box-shadow: inset 0 0 0 1px var(--sv-sep);
   min-height: 40vh;
   max-height: 52vh;
   overflow-y: auto;
@@ -265,7 +262,7 @@ async function endChat() {
   border: none;
   background: transparent;
   color: var(--sv-label3);
-  font-size: var(--sv-fs-caption2);
+  font-size: var(--sv-fs-caption1);
   cursor: pointer;
   text-decoration: underline;
   padding: 0;
@@ -274,7 +271,7 @@ async function endChat() {
 .hide.done {
   cursor: default;
   text-decoration: none;
-  color: var(--sv-mint);
+  color: var(--sv-ok);
 }
 .hint {
   text-align: center;
@@ -283,11 +280,12 @@ async function endChat() {
 .end-btn {
   display: grid;
   place-items: center;
-  width: 44px;
-  height: 44px;
-  border: none;
-  background: transparent;
-  color: var(--sv-indigo);
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--sv-sep);
+  border-radius: var(--sv-r-ctl);
+  background: var(--sv-card);
+  color: var(--sv-label2);
   cursor: pointer;
 }
 .input-row {
@@ -297,34 +295,31 @@ async function endChat() {
 }
 textarea {
   flex: 1;
-  border: 1px solid var(--sv-sep);
-  background: var(--sv-card);
-  border-radius: var(--sv-r-card);
-  padding: 12px 14px;
-  font-size: var(--sv-fs-subhead);
+  border: 1px solid var(--sv-line-strong);
+  background: var(--sv-card2);
+  border-radius: var(--sv-r-ctl);
+  padding: 10px 12px;
+  font-size: var(--sv-fs-body);
   font-family: inherit;
   resize: none;
   color: var(--sv-label);
   outline: none;
 }
 textarea:focus {
-  border-color: var(--sv-indigo);
+  border-color: var(--sv-accent);
+  box-shadow: 0 0 0 2px var(--sv-accent-soft);
 }
 .send {
-  width: 44px;
-  height: 44px;
+  width: 40px;
+  height: 40px;
   flex: none;
-  border-radius: 50%;
-  border: none;
+  border-radius: var(--sv-r-ctl);
+  border: 1px solid var(--sv-accent);
   cursor: pointer;
   display: grid;
   place-items: center;
-  background: var(--sv-indigo);
-  color: #fff;
-  transition: transform 0.12s var(--sv-ease);
-}
-.send:active {
-  transform: scale(0.92);
+  background: var(--sv-accent);
+  color: var(--sv-on-accent);
 }
 .send:disabled {
   opacity: 0.45;

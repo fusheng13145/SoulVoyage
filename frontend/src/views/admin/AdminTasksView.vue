@@ -1,9 +1,10 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import AdminShell from '@/components/AdminShell.vue'
 import SvCard from '@/components/ui/SvCard.vue'
 import SvIcon from '@/components/ui/SvIcon.vue'
 import { listTasks, getTask, retryTask, type TaskRow, type TaskDetail } from '@/api/admin'
+import { PIPELINES, PIPELINE_LABELS, TASK_STATUSES, TASK_STATUS_LABELS } from '@/constants/task'
 import { confirmDialog, toast } from '@/stores/ui'
 
 const rows = ref<TaskRow[]>([])
@@ -78,28 +79,18 @@ const fmt = (s: string) => (s ? s.replace('T', ' ').slice(0, 19) : '—')
     <div class="filters">
       <select v-model="pipeline" @change="load(0)">
         <option value="">全部管线</option>
-        <option value="DIARY_PIPELINE">日记</option>
-        <option value="SUPPORT_PIPELINE">陪伴</option>
-        <option value="COMPANION_PIPELINE">消化</option>
-        <option value="REVIEW_PIPELINE">复盘</option>
-        <option value="GROWTH_LETTER_PIPELINE">来信</option>
+        <option v-for="p in PIPELINES" :key="p" :value="p">{{ PIPELINE_LABELS[p] }}</option>
       </select>
       <select v-model="status" @change="load(0)">
         <option value="">全部状态</option>
-        <option
-          v-for="s in ['SUCCESS', 'PARTIAL_SUCCESS', 'FAILED', 'RUNNING', 'PENDING']"
-          :key="s"
-          :value="s"
-        >
-          {{ s }}
-        </option>
+        <option v-for="s in TASK_STATUSES" :key="s" :value="s">{{ TASK_STATUS_LABELS[s] }}</option>
       </select>
       <span class="muted">{{ total }} 条</span>
     </div>
 
-    <p v-if="loading" class="muted center">加载中…</p>
+    <p v-if="loading" class="muted sv-center">加载中…</p>
     <SvCard v-else-if="!rows.length" class="empty">
-      <p class="muted center">没有符合条件的任务。</p>
+      <p class="muted sv-center">没有符合条件的任务。</p>
     </SvCard>
     <template v-else>
       <SvCard v-for="t in rows" :key="t.taskNo" :pad="false">
@@ -180,10 +171,6 @@ const fmt = (s: string) => (s ? s.replace('T', ' ').slice(0, 19) : '—')
   font-size: var(--sv-fs-footnote);
   font-family: inherit;
 }
-.center {
-  text-align: center;
-  padding: var(--sv-s4) 0;
-}
 .muted {
   color: var(--sv-label3);
   font-size: var(--sv-fs-caption2);
@@ -224,7 +211,7 @@ const fmt = (s: string) => (s ? s.replace('T', ' ').slice(0, 19) : '—')
   font-size: 10px;
   font-weight: 600;
   padding: 3px 8px;
-  border-radius: 999px;
+  border-radius: var(--sv-r-tag);
   flex: none;
 }
 .pill.ok {

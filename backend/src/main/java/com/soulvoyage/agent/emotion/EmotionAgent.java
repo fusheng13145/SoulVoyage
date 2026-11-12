@@ -8,6 +8,7 @@ import com.soulvoyage.domain.emotion.EmotionTrajectoryRepository;
 import com.soulvoyage.llm.LlmClient;
 import com.soulvoyage.llm.OutputValidator;
 import com.soulvoyage.llm.PromptTemplates;
+import com.soulvoyage.orchestrator.AgentCode;
 import com.soulvoyage.orchestrator.agent.Agent;
 import com.soulvoyage.orchestrator.agent.AgentRuntime;
 import com.soulvoyage.orchestrator.protocol.AgentMessage;
@@ -30,7 +31,7 @@ public class EmotionAgent implements Agent {
     private final BusinessCalendar cal;
 
     @Override
-    public String code() { return "EMOTION"; }
+    public AgentCode code() { return AgentCode.EMOTION; }
 
     @Override
     public JsonNode run(AgentMessage request, AgentRuntime rt) {

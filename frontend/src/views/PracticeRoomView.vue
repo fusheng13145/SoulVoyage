@@ -3,8 +3,9 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRoute, onBeforeRouteLeave } from 'vue-router'
 import SvNavBar from '@/components/ui/SvNavBar.vue'
 import SvCard from '@/components/ui/SvCard.vue'
+import SvPageBody from '@/components/ui/SvPageBody.vue'
 import SvDisclaimer from '@/components/ui/SvDisclaimer.vue'
-import http, { type ApiResp } from '@/api/http'
+import { exerciseApi } from '@/api/domains/exercise'
 import { streamTask } from '@/api/sse'
 import { confirmDialog, toast } from '@/stores/ui'
 import { useContentStore, type ExerciseDef } from '@/stores/content'
@@ -72,8 +73,8 @@ onBeforeRouteLeave(async () => {
   })
   if (!ok) return false
   if (mode.value !== 'cbt') {
-    await http
-      .post('/exercise-records', {
+    await exerciseApi
+      .record({
         exerciseId: code,
         completed: false,
         planId,
@@ -90,7 +91,7 @@ async function report(star?: number, feedback?: string) {
   if (saving.value) return false
   saving.value = true
   try {
-    await http.post('/exercise-records', {
+    await exerciseApi.record({
       exerciseId: code,
       completed: true,
       planId,
@@ -204,7 +205,7 @@ async function submitCbt() {
   }
   cbtPhase.value = 'waiting'
   try {
-    const { data } = await http.post<ApiResp<{ taskNo: string }>>('/exercises/cognitive-writing', {
+    const { taskNo } = await exerciseApi.cognitiveWriting({
       situation: situation.trim(),
       autoThought: autoThought.trim(),
       alternativeThought: alternativeThought.trim(),
@@ -214,7 +215,7 @@ async function submitCbt() {
     })
     finished.value = true // 后端已自动完成该练习并回写计划
     await streamTask(
-      data.data.taskNo,
+      taskNo,
       e => {
         if (e.event === 'middle_result' && e.data.agent === 'TRACE') {
           cbtQuestions.value = e.data.payload?.socraticQuestions || []
@@ -284,7 +285,7 @@ async function finishSteps(completed: boolean) {
       :large="false"
     />
 
-    <div class="body">
+    <SvPageBody>
       <p v-if="loadError" class="sv-muted err">{{ loadError }}</p>
 
       <!-- ① 呼吸环 -->
@@ -314,7 +315,7 @@ async function finishSteps(completed: boolean) {
           <div class="acts">
             <button v-if="!breathOn && !breathDone" class="sv-btn" @click="startBreath">开始呼吸环</button>
             <button v-else-if="breathOn" class="sv-btn ghost" @click="stopBreath">暂停</button>
-            <button v-if="breathDone && !finished" class="sv-btn" @click="report()">做完 4 轮啦，打卡</button>
+            <button v-if="breathDone && !finished" class="sv-btn" @click="report()">完成 4 轮 · 记录</button>
           </div>
           <p v-if="breathDone && !finished" class="sv-cap hint2">四组 4-7-8 走完了——身体通常会先松一点。</p>
         </div>
@@ -342,7 +343,7 @@ async function finishSteps(completed: boolean) {
             </div>
           </template>
           <template v-else>
-            <p class="done-big">🌿 你把自己带回了此刻。</p>
+            <p class="done-big">你把自己带回了此刻。</p>
             <div class="acts">
               <button v-if="!finished" class="sv-btn" @click="report()">打卡这一分钟</button>
             </div>
@@ -463,7 +464,7 @@ async function finishSteps(completed: boolean) {
 
       <!-- 完成态 -->
       <SvCard v-if="finished" class="fin">
-        <p class="done-big">✅ 这一段时间是你的了。</p>
+        <p class="done-big">这一段时间是你的了。</p>
         <p class="sv-muted">
           进度已写进计划{{
             planId ? '，' : '（今天没挂计划，也算一次照顾）'
@@ -474,14 +475,11 @@ async function finishSteps(completed: boolean) {
           <button class="sv-btn plain" @click="$router.replace('/practice')">看全部计划</button>
         </div>
       </SvCard>
-    </div>
+    </SvPageBody>
   </div>
 </template>
 
 <style scoped>
-.body {
-  padding: 0 var(--sv-s4);
-}
 .err,
 .wait {
   text-align: center;
@@ -507,11 +505,8 @@ async function finishSteps(completed: boolean) {
   position: absolute;
   inset: 0;
   border-radius: 50%;
-  background: radial-gradient(
-    circle,
-    color-mix(in srgb, var(--sv-mint) 38%, transparent),
-    color-mix(in srgb, var(--sv-indigo) 22%, transparent) 70%
-  );
+  border: 1px solid var(--sv-accent);
+  background: transparent;
   transition-property: transform;
   transition-timing-function: ease-in-out;
   transform: scale(0.45);
@@ -524,12 +519,14 @@ async function finishSteps(completed: boolean) {
 }
 .ring-mid b {
   font-size: var(--sv-fs-title3);
+  font-weight: 500;
 }
 .ring-mid span {
-  font-size: 44px;
-  font-weight: 200;
+  font-family: var(--sv-num);
+  font-size: 40px;
+  font-weight: 300;
   font-variant-numeric: tabular-nums;
-  color: var(--sv-indigo);
+  color: var(--sv-accent);
 }
 .cyc {
   margin-top: var(--sv-s3);
@@ -538,10 +535,11 @@ async function finishSteps(completed: boolean) {
   padding: var(--sv-s4) 0;
 }
 .gnum {
-  font-size: 96px;
-  font-weight: 200;
+  font-family: var(--sv-num);
+  font-size: 80px;
+  font-weight: 300;
   line-height: 1;
-  color: var(--sv-indigo);
+  color: var(--sv-accent);
   font-variant-numeric: tabular-nums;
 }
 .grounding h3 {
@@ -580,22 +578,23 @@ async function finishSteps(completed: boolean) {
 }
 .field textarea {
   width: 100%;
-  border: 1px solid var(--sv-sep);
-  background: var(--sv-card);
+  border: 1px solid var(--sv-line-strong);
+  background: var(--sv-card2);
   border-radius: var(--sv-r-ctl);
   padding: 10px 12px;
-  font-size: var(--sv-fs-subhead);
+  font-size: var(--sv-fs-body);
   font-family: inherit;
   resize: vertical;
   color: var(--sv-label);
   outline: none;
 }
 .field textarea:focus {
-  border-color: var(--sv-indigo);
+  border-color: var(--sv-accent);
+  box-shadow: 0 0 0 2px var(--sv-accent-soft);
 }
 .field input[type='range'] {
   width: 100%;
-  accent-color: var(--sv-indigo);
+  accent-color: var(--sv-accent);
 }
 .disc {
   margin-top: var(--sv-s2);

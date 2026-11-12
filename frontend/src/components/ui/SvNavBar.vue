@@ -67,56 +67,57 @@ const showBack = computed(() => props.back !== undefined && props.back !== false
   z-index: 20;
   background: transparent;
   transition:
-    background 0.3s,
-    border-color 0.3s;
+    background 0.2s,
+    border-color 0.2s;
   border-bottom: 1px solid transparent;
 }
 .glass.show,
 .glass.flat {
-  background: color-mix(in srgb, var(--sv-bg) 72%, transparent);
-  backdrop-filter: var(--sv-blur);
-  -webkit-backdrop-filter: var(--sv-blur);
+  background: var(--sv-bg);
 }
 .glass.show {
   border-bottom-color: var(--sv-sep);
 }
 .bar {
   position: relative;
-  min-height: 44px;
-  padding: var(--sv-safe-t) 6px 0;
+  min-height: 52px;
+  padding: var(--sv-safe-t) var(--sv-s3) 0;
   display: flex;
   align-items: center;
   gap: 8px;
 }
 .large {
-  padding: calc(var(--sv-safe-t) + 8px) 6px 6px;
+  padding: calc(var(--sv-safe-t) + 12px) var(--sv-s5) 12px;
 }
 .large h1 {
+  font-family: var(--sv-serif);
   font-size: var(--sv-fs-largename);
-  font-weight: 700;
-  letter-spacing: 0.4px;
-  transition: opacity 0.3s;
-  line-height: 1.25;
+  font-weight: 600;
+  letter-spacing: 0;
+  transition: opacity 0.2s;
+  line-height: var(--sv-lh-tight);
 }
 .large h1 small {
   display: block;
+  font-family: var(--sv-font);
   font-size: var(--sv-fs-footnote);
   font-weight: 400;
   color: var(--sv-label2);
   letter-spacing: 0;
-  margin-top: 2px;
+  margin-top: 4px;
 }
 .back {
   border: none;
   background: transparent;
   cursor: pointer;
-  color: var(--sv-indigo);
-  font-size: var(--sv-fs-subhead);
+  color: var(--sv-accent);
+  font-size: var(--sv-fs-body);
   display: inline-flex;
   align-items: center;
   gap: 2px;
   padding: 8px 6px;
   min-height: 44px;
+  min-width: 44px;
   font-family: inherit;
 }
 .ctitle {
@@ -130,7 +131,7 @@ const showBack = computed(() => props.back !== undefined && props.back !== false
   text-overflow: ellipsis;
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.25s;
+  transition: opacity 0.2s;
 }
 .ctitle.show {
   opacity: 1;

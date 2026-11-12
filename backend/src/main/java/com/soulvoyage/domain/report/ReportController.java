@@ -6,6 +6,11 @@ import com.soulvoyage.common.api.ApiResponse;
 import com.soulvoyage.common.api.ErrorCode;
 import com.soulvoyage.common.exception.BizException;
 import com.soulvoyage.crypto.CryptoService;
+import com.soulvoyage.domain.report.dto.ReportDtos.FeedbackResp;
+import com.soulvoyage.domain.report.dto.ReportDtos.ReportDetailResp;
+import com.soulvoyage.domain.report.dto.ReportDtos.ReportListResp;
+import com.soulvoyage.domain.report.dto.ReportDtos.ReportMeta;
+import com.soulvoyage.domain.report.dto.ReportDtos.StarResp;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -38,11 +43,8 @@ public class ReportController {
     private final ObjectMapper mapper;
     private final com.soulvoyage.common.time.BusinessCalendar cal;
 
-    public record ReportMeta(Long id, String type, String title, String riskLevel, Boolean starred,
-                            String feedback, String createdAt) {}
-
     @GetMapping
-    public ApiResponse<Map<String, Object>> list(@AuthenticationPrincipal AuthPrincipal p,
+    public ApiResponse<ReportListResp> list(@AuthenticationPrincipal AuthPrincipal p,
                                                  @RequestParam(required = false) String type,
                                                  @RequestParam(required = false) String riskLevel,
                                                  @RequestParam(required = false) Boolean starred,
@@ -71,26 +73,24 @@ public class ReportController {
                         r.getStarred() != 0, r.getFeedback(),
                         r.getCreatedAt() == null ? null : r.getCreatedAt().toString()))
                 .toList();
-        return ApiResponse.ok(Map.of(
-                "items", items, "page", result.getNumber(), "size", result.getSize(),
-                "total", result.getTotalElements()));
+        return ApiResponse.ok(new ReportListResp(
+                items, result.getNumber(), result.getSize(), result.getTotalElements()));
     }
 
     @GetMapping("/{id}")
-    public ApiResponse<Map<String, Object>> detail(@AuthenticationPrincipal AuthPrincipal p,
-                                                   @PathVariable Long id) throws Exception {
+    public ApiResponse<ReportDetailResp> detail(@AuthenticationPrincipal AuthPrincipal p,
+                                                @PathVariable Long id) throws Exception {
         ReportEntity r = ownReport(p, id);
         String json = crypto.decryptUserField(p.userId(), r.getContentEnc());
-        return ApiResponse.ok(Map.of(
-                "id", r.getId(), "type", r.getType(), "title", r.getTitle(),
-                "riskLevel", r.getRiskLevel(),
-                "starred", r.getStarred() != 0,
-                "feedback", r.getFeedback() == null ? "" : r.getFeedback(),
-                "feedbackNote", r.getFeedbackNoteEnc() == null ? ""
+        return ApiResponse.ok(new ReportDetailResp(
+                r.getId(), r.getType(), r.getTitle(), r.getRiskLevel(),
+                r.getStarred() != 0,
+                r.getFeedback() == null ? "" : r.getFeedback(),
+                r.getFeedbackNoteEnc() == null ? ""
                         : crypto.decryptUserField(p.userId(), r.getFeedbackNoteEnc()),
-                "feedbackAt", r.getFeedbackAt() == null ? "" : r.getFeedbackAt().toString(),
-                "createdAt", r.getCreatedAt() == null ? "" : r.getCreatedAt().toString(),
-                "content", mapper.readTree(json)));
+                r.getFeedbackAt() == null ? "" : r.getFeedbackAt().toString(),
+                r.getCreatedAt() == null ? "" : r.getCreatedAt().toString(),
+                mapper.readTree(json)));
     }
 
     // ---------- L2 报表批注：收藏与反馈，只影响本账号 ----------
@@ -101,19 +101,19 @@ public class ReportController {
     public record FeedbackReq(String rating, @Size(max = 200) String note) {}
 
     @PostMapping("/{id}/star")
-    public ApiResponse<Map<String, Object>> star(@AuthenticationPrincipal AuthPrincipal p,
-                                                 @PathVariable Long id,
-                                                 @Valid @RequestBody StarReq req) {
+    public ApiResponse<StarResp> star(@AuthenticationPrincipal AuthPrincipal p,
+                                      @PathVariable Long id,
+                                      @Valid @RequestBody StarReq req) {
         ReportEntity r = ownReport(p, id);
         r.setStarred((short) (Boolean.TRUE.equals(req.starred()) ? 1 : 0));
         reportRepo.save(r);
-        return ApiResponse.ok(Map.of("id", r.getId(), "starred", r.getStarred() != 0));
+        return ApiResponse.ok(new StarResp(r.getId(), r.getStarred() != 0));
     }
 
     @PostMapping("/{id}/feedback")
-    public ApiResponse<Map<String, Object>> feedback(@AuthenticationPrincipal AuthPrincipal p,
-                                                     @PathVariable Long id,
-                                                     @Valid @RequestBody FeedbackReq req) {
+    public ApiResponse<FeedbackResp> feedback(@AuthenticationPrincipal AuthPrincipal p,
+                                              @PathVariable Long id,
+                                              @Valid @RequestBody FeedbackReq req) {
         ReportEntity r = ownReport(p, id);
         String rating = req.rating() == null || req.rating().isBlank()
                 ? null : req.rating().trim().toUpperCase();
@@ -125,7 +125,7 @@ public class ReportController {
                 ? null : crypto.encryptUserField(p.userId(), req.note().trim()));
         r.setFeedbackAt(rating == null ? null : Instant.now());
         reportRepo.save(r);
-        return ApiResponse.ok(Map.of("id", r.getId(), "feedback", rating == null ? "" : rating));
+        return ApiResponse.ok(new FeedbackResp(r.getId(), rating == null ? "" : rating));
     }
 
     /** 属主校验：他人报告与已删报告同样 404，不泄露存在性 */

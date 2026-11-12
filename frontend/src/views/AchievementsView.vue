@@ -2,8 +2,9 @@
 import { onMounted, ref } from 'vue'
 import SvNavBar from '@/components/ui/SvNavBar.vue'
 import SvCard from '@/components/ui/SvCard.vue'
+import SvPageBody from '@/components/ui/SvPageBody.vue'
 import SvDisclaimer from '@/components/ui/SvDisclaimer.vue'
-import http, { type ApiResp } from '@/api/http'
+import { achievementApi } from '@/api/domains/achievement'
 import { toast } from '@/stores/ui'
 
 interface Badge {
@@ -21,11 +22,14 @@ const loading = ref(true)
 
 onMounted(async () => {
   try {
-    const { data } =
-      await http.get<ApiResp<{ items: Badge[]; unlockedCount: number; totalCount: number }>>('/achievements')
-    items.value = data.data.items
-    unlockedCount.value = data.data.unlockedCount
-    totalCount.value = data.data.totalCount
+    const data = await achievementApi.wall<{
+      items: Badge[]
+      unlockedCount: number
+      totalCount: number
+    }>()
+    items.value = data.items
+    unlockedCount.value = data.unlockedCount
+    totalCount.value = data.totalCount
   } catch (e) {
     toast((e as Error).message || '成就墙没打开')
   } finally {
@@ -44,30 +48,23 @@ onMounted(async () => {
       :large="false"
     />
 
-    <div class="body">
-      <p v-if="loading" class="sv-muted center">正在点亮…</p>
+    <SvPageBody>
+      <p v-if="loading" class="sv-muted sv-center">正在点亮…</p>
       <div v-else class="wall">
         <SvCard v-for="b in items" :key="b.code" :class="{ locked: !b.unlocked }" class="badge-card">
-          <span class="medal" aria-hidden="true">{{ b.unlocked ? '🏅' : '🔒' }}</span>
+          <span class="mark" aria-hidden="true" />
           <b>{{ b.name }}</b>
           <small class="sv-muted">{{ b.desc }}</small>
           <em v-if="b.unlocked" class="at">{{ b.unlockedAt.slice(0, 10) }} 点亮</em>
-          <em v-else class="at hint">还没发生，不着急</em>
+          <em v-else class="at hint">尚未点亮</em>
         </SvCard>
       </div>
       <SvDisclaimer text="这里的每一枚都来自你照顾自己的时刻——没有排行榜，不和任何人比。" />
-    </div>
+    </SvPageBody>
   </div>
 </template>
 
 <style scoped>
-.body {
-  padding: 0 var(--sv-s4);
-}
-.center {
-  text-align: center;
-  padding: var(--sv-s4) 0;
-}
 .wall {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -75,32 +72,44 @@ onMounted(async () => {
   margin-bottom: var(--sv-s3);
 }
 .badge-card {
-  text-align: center;
+  text-align: left;
+  border-left: 1px solid transparent;
 }
 .badge-card.locked {
   opacity: 0.55;
 }
-.medal {
-  font-size: 30px;
+.mark {
   display: block;
-  margin-bottom: 6px;
+  width: 10px;
+  height: 10px;
+  margin-bottom: 8px;
+  border: 1px solid var(--sv-label3);
+  background: transparent;
+}
+.badge-card:not(.locked) {
+  border-left-color: var(--sv-accent);
+}
+.badge-card:not(.locked) .mark {
+  border-color: var(--sv-accent);
+  background: var(--sv-accent);
 }
 .badge-card b {
-  font-size: var(--sv-fs-subhead);
+  font-size: var(--sv-fs-body);
+  font-weight: 500;
   display: block;
 }
 .badge-card small {
   display: block;
   margin-top: 4px;
-  line-height: 1.55;
-  font-size: var(--sv-fs-caption1);
+  line-height: var(--sv-lh-body);
+  font-size: var(--sv-fs-footnote);
 }
 .at {
   font-style: normal;
   display: block;
   margin-top: 8px;
-  font-size: var(--sv-fs-caption2);
-  color: var(--sv-mint);
+  font-size: var(--sv-fs-caption1);
+  color: var(--sv-accent);
 }
 .at.hint {
   color: var(--sv-label3);

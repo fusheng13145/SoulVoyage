@@ -1,0 +1,21 @@
+{
+  "note": "refresh 轮换",
+  "scenario": "auth-refresh",
+  "steps": [
+    {
+      "name": "refresh",
+      "request": {
+        "refreshToken": "<redacted>"
+      },
+      "response": {
+        "accessToken": "<redacted>",
+        "deletionPending": false,
+        "expiresIn": 1800,
+        "nickname": "<redacted>",
+        "refreshToken": "<redacted>",
+        "role": "USER",
+        "userId": "<redacted>"
+      }
+    }
+  ]
+}

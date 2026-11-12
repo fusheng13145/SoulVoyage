@@ -1,5 +1,12 @@
 package com.soulvoyage.admin;
 
+import com.soulvoyage.admin.dto.AdminDtos.BoardCheckIns;
+import com.soulvoyage.admin.dto.AdminDtos.BoardDayValence;
+import com.soulvoyage.admin.dto.AdminDtos.BoardDetailResp;
+import com.soulvoyage.admin.dto.AdminDtos.BoardEmotion;
+import com.soulvoyage.admin.dto.AdminDtos.BoardMemberView;
+import com.soulvoyage.admin.dto.AdminDtos.BoardStatsResp;
+import com.soulvoyage.admin.dto.AdminDtos.RemoveMemberResp;
 import com.soulvoyage.audit.AuditService;
 import com.soulvoyage.auth.AuthPrincipal;
 import com.soulvoyage.common.api.ApiResponse;
@@ -36,44 +43,87 @@ public class AdminBoardController {
     }
 
     @PostMapping("/groups")
-    public ApiResponse<Map<String, Object>> create(@AuthenticationPrincipal AuthPrincipal p,
-                                                   @RequestBody GroupBody body) {
+    public ApiResponse<BoardDetailResp> create(@AuthenticationPrincipal AuthPrincipal p,
+                                               @RequestBody GroupBody body) {
         Map<String, Object> g = board.createGroup(body.name());
         audit.record(p.userId(), "BOARD_GROUP_CREATE", "support_group:" + g.get("id"), null);
-        return ApiResponse.ok(g);
+        return ApiResponse.ok(detailView(g));
     }
 
     @GetMapping("/groups/{id}")
-    public ApiResponse<Map<String, Object>> detail(@PathVariable Long id) {
-        return ApiResponse.ok(board.detail(id));
+    public ApiResponse<BoardDetailResp> detail(@PathVariable Long id) {
+        return ApiResponse.ok(detailView(board.detail(id)));
     }
 
     @PostMapping("/groups/{id}/members")
-    public ApiResponse<Map<String, Object>> addMembers(@AuthenticationPrincipal AuthPrincipal p,
-                                                      @PathVariable Long id,
-                                                      @RequestBody MembersBody body) {
+    public ApiResponse<BoardDetailResp> addMembers(@AuthenticationPrincipal AuthPrincipal p,
+                                                   @PathVariable Long id,
+                                                   @RequestBody MembersBody body) {
         Map<String, Object> g = board.addMembers(id, body.userIds());
         audit.record(p.userId(), "BOARD_MEMBER_ADD", "support_group:" + id, null);
-        return ApiResponse.ok(g);
+        return ApiResponse.ok(detailView(g));
     }
 
     @DeleteMapping("/groups/{id}/members/{userId}")
-    public ApiResponse<Map<String, Object>> removeMember(@AuthenticationPrincipal AuthPrincipal p,
-                                                         @PathVariable Long id,
-                                                         @PathVariable Long userId) {
+    public ApiResponse<RemoveMemberResp> removeMember(@AuthenticationPrincipal AuthPrincipal p,
+                                                      @PathVariable Long id,
+                                                      @PathVariable Long userId) {
         board.removeMember(id, userId);
         audit.record(p.userId(), "BOARD_MEMBER_REMOVE", "support_group:" + id + "+user:" + userId, null);
-        return ApiResponse.ok(Map.of("groupId", id, "userId", userId, "removed", true));
+        return ApiResponse.ok(new RemoveMemberResp(id, userId, true));
     }
 
     /** 聚合统计唯一读口；授权人数未达阈值时只有抑制结论，无任何指标字段 */
     @GetMapping("/groups/{id}/stats")
-    public ApiResponse<Map<String, Object>> stats(@AuthenticationPrincipal AuthPrincipal p,
-                                                  @PathVariable Long id,
-                                                  @RequestParam(defaultValue = "7") int days) {
+    public ApiResponse<BoardStatsResp> stats(@AuthenticationPrincipal AuthPrincipal p,
+                                             @PathVariable Long id,
+                                             @RequestParam(defaultValue = "7") int days) {
         Map<String, Object> resp = board.stats(id, days);
         audit.record(p.userId(), "ADMIN_VIEW_BOARD", "support_group:" + id
                 + (Boolean.TRUE.equals(resp.get("suppressed")) ? "+suppressed" : ""), null);
-        return ApiResponse.ok(resp);
+        return ApiResponse.ok(statsView(resp));
+    }
+
+    @SuppressWarnings("unchecked")
+    private static BoardDetailResp detailView(Map<String, Object> m) {
+        List<BoardMemberView> members = ((List<Map<String, Object>>) m.get("members")).stream()
+                .map(x -> new BoardMemberView(
+                        ((Number) x.get("userId")).longValue(), (String) x.get("username"),
+                        Boolean.TRUE.equals(x.get("consented"))))
+                .toList();
+        return new BoardDetailResp(
+                ((Number) m.get("id")).longValue(), (String) m.get("name"),
+                ((Number) m.get("status")).intValue(), ((Number) m.get("memberCount")).intValue(),
+                ((Number) m.get("consentedCount")).intValue(), members);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static BoardStatsResp statsView(Map<String, Object> m) {
+        BoardCheckIns checkIns = null;
+        if (m.get("checkIns") instanceof Map<?, ?> ci) {
+            Map<String, Object> c = (Map<String, Object>) ci;
+            List<BoardEmotion> emotions = ((List<Map<String, Object>>) c.get("emotions")).stream()
+                    .map(e -> new BoardEmotion((String) e.get("code"),
+                            ((Number) e.get("count")).longValue()))
+                    .toList();
+            checkIns = new BoardCheckIns(
+                    ((Number) c.get("contributors")).longValue(),
+                    ((Number) c.get("personDays")).longValue(),
+                    c.get("avgRating") == null ? null : ((Number) c.get("avgRating")).doubleValue(),
+                    c.get("avgEnergy") == null ? null : ((Number) c.get("avgEnergy")).doubleValue(),
+                    emotions);
+        }
+        List<BoardDayValence> days = m.get("valenceByDay") == null ? null
+                : ((List<Map<String, Object>>) m.get("valenceByDay")).stream()
+                .map(d -> new BoardDayValence((String) d.get("date"),
+                        ((Number) d.get("avgValence")).doubleValue()))
+                .toList();
+        return new BoardStatsResp(
+                ((Number) m.get("groupId")).longValue(), (String) m.get("groupName"),
+                ((Number) m.get("windowDays")).intValue(), ((Number) m.get("memberCount")).intValue(),
+                ((Number) m.get("consentedCount")).intValue(), ((Number) m.get("threshold")).intValue(),
+                Boolean.TRUE.equals(m.get("suppressed")), (String) m.get("reason"), checkIns, days,
+                m.get("hiddenDays") == null ? null : ((Number) m.get("hiddenDays")).intValue(),
+                (Map<String, Long>) m.get("riskEvents"));
     }
 }

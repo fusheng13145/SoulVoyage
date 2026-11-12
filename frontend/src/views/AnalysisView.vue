@@ -4,13 +4,14 @@ import { useRoute, useRouter } from 'vue-router'
 import SvNavBar from '@/components/ui/SvNavBar.vue'
 import SvCard from '@/components/ui/SvCard.vue'
 import SvIcon from '@/components/ui/SvIcon.vue'
+import SvPageBody from '@/components/ui/SvPageBody.vue'
 import SvTimeline, { type FlowStep } from '@/components/ui/SvTimeline.vue'
 import SvDisclaimer from '@/components/ui/SvDisclaimer.vue'
 import CrisisReferral from '@/components/CrisisReferral.vue'
 import { streamTask } from '@/api/sse'
 import type { Json } from '@/api/http'
 import { EMOTION_BY_LABEL } from '@/utils/emotions'
-import { useContentStore } from '@/stores/content'
+import { useContentStore, type ExerciseDef } from '@/stores/content'
 
 const route = useRoute()
 const router = useRouter()
@@ -31,7 +32,9 @@ const showCrisis = computed(
 )
 const emoMeta = computed(() => emotion.value && EMOTION_BY_LABEL[emotion.value.primaryEmotion])
 
-const exerciseNames = computed(() => Object.fromEntries((content.exercises ?? []).map(x => [x.id, x])))
+const exerciseNames = computed<Record<string, ExerciseDef>>(() =>
+  Object.fromEntries((content.exercises ?? []).map(x => [x.id, x])),
+)
 
 const REPORT_TITLES: Record<string, string> = {
   eventSummary: '事件',
@@ -116,7 +119,7 @@ onUnmounted(() => abort.abort())
       </template>
     </SvNavBar>
 
-    <div class="body">
+    <SvPageBody>
       <SvCard>
         <SvTimeline :steps="steps" @toggle="toggle" />
         <p v-if="running && !steps.length" class="sv-muted">正在排队，多 Agent 马上开工…</p>
@@ -127,8 +130,10 @@ onUnmounted(() => abort.abort())
       <SvCard v-if="emotion" id="block-EMOTION">
         <h3 class="t">
           今日情绪
-          <span class="emo" :style="{ color: `var(${emoMeta?.varName || '--e-numb'})` }">
-            {{ emoMeta?.face || '🙂' }} {{ emotion.primaryEmotion }}</span
+          <span class="emo">
+            <i class="edot" :style="{ background: `var(${emoMeta?.varName || '--e-numb'})` }" />{{
+              emotion.primaryEmotion
+            }}</span
           >
         </h3>
         <div class="bars">
@@ -179,7 +184,7 @@ onUnmounted(() => abort.abort())
           <div v-for="d in trace.cognitiveDistortions" :key="d.kgNodeId" class="dist">
             <b>{{ d.name }}</b>
             <p class="sv-muted">触发：{{ d.trigger }}</p>
-            <p class="q">🤔 {{ d.challengeQuestion }}</p>
+            <p class="q">{{ d.challengeQuestion }}</p>
           </div>
         </template>
 
@@ -191,13 +196,15 @@ onUnmounted(() => abort.abort())
         </template>
 
         <template v-if="trace.report">
-          <h4>事件-想法-情绪复盘</h4>
-          <dl class="report">
-            <template v-for="(v, k) in trace.report" :key="k">
-              <dt>{{ REPORT_TITLES[k as string] || k }}</dt>
-              <dd>{{ v }}</dd>
-            </template>
-          </dl>
+          <details class="fold">
+            <summary>事件 · 想法 · 情绪复盘</summary>
+            <dl class="report">
+              <template v-for="(v, k) in trace.report" :key="k">
+                <dt>{{ REPORT_TITLES[k as string] || k }}</dt>
+                <dd>{{ v }}</dd>
+              </template>
+            </dl>
+          </details>
         </template>
         <SvDisclaimer
           class="disc"
@@ -208,7 +215,7 @@ onUnmounted(() => abort.abort())
 
       <!-- ③ 疏导干预 -->
       <SvCard v-if="support" id="block-SUPPORT">
-        <h3 class="t">🌿 {{ support.planTitle }}</h3>
+        <h3 class="t">{{ support.planTitle }}</h3>
         <div v-for="m in support.matchedExercises" :key="m.exerciseId" class="plan-item">
           <div class="pi-head">
             <b>{{ exerciseNames[m.exerciseId]?.name || m.exerciseId }}</b>
@@ -216,7 +223,7 @@ onUnmounted(() => abort.abort())
           </div>
           <p>{{ m.reason }}</p>
           <small v-if="exerciseNames[m.exerciseId]">
-            {{ exerciseNames[m.exerciseId].steps.map((s: any) => s.step).join(' → ') }} · 约
+            {{ exerciseNames[m.exerciseId].steps.map(s => s.step).join(' → ') }} · 约
             {{ exerciseNames[m.exerciseId].durationMin }} 分钟</small
           >
         </div>
@@ -238,23 +245,20 @@ onUnmounted(() => abort.abort())
         <button class="sv-btn" @click="router.replace('/diaries')">回日记本看看</button>
         <button class="sv-btn plain" @click="router.push('/insights')">情绪洞察 →</button>
       </div>
-    </div>
+    </SvPageBody>
   </div>
 </template>
 
 <style scoped>
-.body {
-  padding: 0 var(--sv-s4);
-}
 .ic {
   display: grid;
   place-items: center;
   width: 44px;
   height: 44px;
-  color: var(--sv-indigo);
+  color: var(--sv-accent);
 }
 .err {
-  color: var(--sv-red);
+  color: var(--sv-danger);
   font-size: var(--sv-fs-footnote);
 }
 .t {
@@ -265,7 +269,18 @@ onUnmounted(() => abort.abort())
   gap: 8px;
 }
 .emo {
-  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--sv-fs-footnote);
+  font-weight: 400;
+  color: var(--sv-label2);
+}
+.edot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  display: inline-block;
 }
 .bars {
   display: flex;
@@ -286,24 +301,25 @@ onUnmounted(() => abort.abort())
 .bar b {
   font-variant-numeric: tabular-nums;
   color: var(--sv-label);
+  font-weight: 500;
 }
 .track {
   flex: 1;
-  height: 8px;
-  background: var(--sv-fill2);
-  border-radius: 4px;
+  height: 4px;
+  background: var(--sv-sep);
+  border-radius: 2px;
   overflow: hidden;
 }
 .fill {
   height: 100%;
-  border-radius: 4px;
-  background: var(--sv-amber);
+  border-radius: 2px;
+  background: var(--sv-accent);
 }
 .fill.pos {
-  background: var(--sv-mint);
+  background: var(--sv-ok);
 }
 .fill.neg {
-  background: var(--sv-amber);
+  background: var(--sv-warn);
 }
 .tags {
   display: flex;
@@ -312,26 +328,26 @@ onUnmounted(() => abort.abort())
 }
 .tag {
   font-size: var(--sv-fs-caption1);
-  background: var(--sv-indigo-soft);
-  color: var(--sv-indigo);
-  border-radius: var(--sv-r-pill);
-  padding: 4px 10px;
+  border: 1px solid var(--sv-sep);
+  color: var(--sv-label2);
+  border-radius: var(--sv-r-tag);
+  padding: 2px 6px;
 }
 .tag em {
   font-style: normal;
-  opacity: 0.75;
+  color: var(--sv-label3);
   margin-left: 4px;
 }
 h4 {
   margin: var(--sv-s4) 0 var(--sv-s2);
-  font-size: var(--sv-fs-footnote);
-  color: var(--sv-label2);
-  font-weight: 600;
+  font-size: var(--sv-fs-caption1);
+  color: var(--sv-label3);
+  font-weight: 500;
 }
 .stressors li {
   padding: 8px 0;
-  border-bottom: 1px dashed var(--sv-sep);
-  font-size: var(--sv-fs-subhead);
+  border-bottom: 1px solid var(--sv-sep);
+  font-size: var(--sv-fs-callout);
 }
 .stressors li:last-child {
   border-bottom: none;
@@ -340,36 +356,52 @@ h4 {
   font-style: normal;
   margin-left: 8px;
   font-size: var(--sv-fs-caption1);
-  color: var(--sv-indigo);
-  background: var(--sv-indigo-soft);
-  border-radius: var(--sv-r-pill);
-  padding: 1px 8px;
+  color: var(--sv-label2);
+  border: 1px solid var(--sv-sep);
+  border-radius: var(--sv-r-tag);
+  padding: 0 6px;
 }
 .ev {
   display: block;
   color: var(--sv-label2);
-  font-size: var(--sv-fs-caption1);
+  font-size: var(--sv-fs-footnote);
   margin-top: 2px;
 }
 .dist {
   border: 1px solid var(--sv-sep);
   border-radius: var(--sv-r-ctl);
-  padding: 10px 12px;
+  padding: 12px;
   margin-bottom: var(--sv-s2);
 }
 .dist .q {
   margin-top: 6px;
-  font-size: var(--sv-fs-subhead);
+  font-size: var(--sv-fs-callout);
+  line-height: var(--sv-lh-body);
 }
 .socratic {
   padding-left: 22px;
   list-style: decimal;
   color: var(--sv-label);
-  font-size: var(--sv-fs-subhead);
-  line-height: 1.8;
+  font-size: var(--sv-fs-callout);
+  line-height: var(--sv-lh-prose);
+}
+.fold {
+  border-top: 1px solid var(--sv-sep);
+  margin-top: var(--sv-s3);
+}
+.fold summary {
+  padding: 10px 0;
+  cursor: pointer;
+  font-size: var(--sv-fs-caption1);
+  color: var(--sv-label3);
+  list-style: none;
+}
+.fold summary::-webkit-details-marker {
+  display: none;
 }
 .report {
-  font-size: var(--sv-fs-subhead);
+  font-size: var(--sv-fs-callout);
+  line-height: var(--sv-lh-prose);
 }
 .report dt {
   float: left;
@@ -386,9 +418,9 @@ h4 {
 .plan-item {
   border: 1px solid var(--sv-sep);
   border-radius: var(--sv-r-ctl);
-  padding: 10px 12px;
+  padding: 12px;
   margin-bottom: var(--sv-s2);
-  font-size: var(--sv-fs-subhead);
+  font-size: var(--sv-fs-callout);
 }
 .pi-head {
   display: flex;
@@ -396,7 +428,8 @@ h4 {
   align-items: baseline;
 }
 .plan-item b {
-  color: var(--sv-mint);
+  color: var(--sv-label);
+  font-weight: 500;
 }
 .plan-item p {
   margin: 4px 0;
@@ -404,21 +437,21 @@ h4 {
 }
 .plan-item small {
   color: var(--sv-label2);
-  font-size: var(--sv-fs-caption1);
+  font-size: var(--sv-fs-footnote);
 }
 .when {
   font-style: normal;
   font-size: var(--sv-fs-caption1);
-  background: var(--sv-indigo-soft);
-  color: var(--sv-indigo);
-  border-radius: var(--sv-r-pill);
-  padding: 1px 8px;
+  border: 1px solid var(--sv-sep);
+  color: var(--sv-label2);
+  border-radius: var(--sv-r-tag);
+  padding: 0 6px;
 }
 .psy h4 {
   margin-bottom: 4px;
 }
 .psy p {
-  line-height: 1.7;
+  line-height: var(--sv-lh-prose);
 }
 .fin {
   display: flex;

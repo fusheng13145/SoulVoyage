@@ -32,11 +32,14 @@ public class JwtService {
     private final Duration accessTtl;
     private final Duration refreshTtl;
     private final StringRedisTemplate redis;
+    /** B-16：Redis 故障时读降级、写吊销失败即 503，不产生"已轮换但旧令牌未拉黑"的半状态 */
+    private final RedisGuard guard;
 
     public JwtService(@Value("${soulvoyage.security.jwt.secret}") String secret,
                       @Value("${soulvoyage.security.jwt.access-ttl}") Duration accessTtl,
                       @Value("${soulvoyage.security.jwt.refresh-ttl}") Duration refreshTtl,
-                      StringRedisTemplate redis) {
+                      StringRedisTemplate redis,
+                      RedisGuard guard) {
         if (secret.getBytes(StandardCharsets.UTF_8).length < 32) {
             throw new IllegalStateException("SV_JWT_SECRET must be >= 32 bytes");
         }
@@ -44,6 +47,7 @@ public class JwtService {
         this.accessTtl = accessTtl;
         this.refreshTtl = refreshTtl;
         this.redis = redis;
+        this.guard = guard;
     }
 
     public String issueAccessToken(long userId, String role) {
@@ -71,7 +75,8 @@ public class JwtService {
     /** 校验并返回 Claims（含黑名单+epoch 检查）；失败抛 BizException */
     public Claims verify(String token, String expectType) {
         Claims c = parse(token, expectType);
-        if (Boolean.TRUE.equals(redis.hasKey(BLACKLIST_PREFIX + c.getId()))) {
+        if (Boolean.TRUE.equals(guard.read("jwt.blacklist",
+                () -> redis.hasKey(BLACKLIST_PREFIX + c.getId())))) {
             throw new BizException(ErrorCode.UNAUTHORIZED, "token 已失效");
         }
         return c;
@@ -103,25 +108,32 @@ public class JwtService {
     }
 
     public boolean isBlacklisted(String jti) {
-        return Boolean.TRUE.equals(redis.hasKey(BLACKLIST_PREFIX + jti));
+        return Boolean.TRUE.equals(guard.read("jwt.blacklist",
+                () -> redis.hasKey(BLACKLIST_PREFIX + jti)));
     }
 
-    /** 轮换：旧 refresh 用后即拉黑 */
+    /** 轮换：旧 refresh 用后即拉黑（无法记录则 503，避免旧令牌可重复使用） */
     public void blacklist(Claims used) {
         Duration remain = Duration.between(Instant.now(), used.getExpiration().toInstant());
         if (remain.toSeconds() > 0) {
-            redis.opsForValue().set(BLACKLIST_PREFIX + used.getId(), "1", remain);
+            guard.writeRequired("jwt.blacklist", () -> {
+                redis.opsForValue().set(BLACKLIST_PREFIX + used.getId(), "1", remain);
+                return Boolean.TRUE;
+            });
         }
     }
 
     /** 全部吊销：以当前时刻为 epoch，iat 不晚于该时刻的令牌全部失效（注销/改密/重用检测时用） */
     public void revokeAll(long userId) {
-        redis.opsForValue().set(EPOCH_PREFIX + userId,
-                String.valueOf(Instant.now().toEpochMilli()), refreshTtl.plusDays(1));
+        guard.writeRequired("jwt.epoch", () -> {
+            redis.opsForValue().set(EPOCH_PREFIX + userId,
+                    String.valueOf(Instant.now().toEpochMilli()), refreshTtl.plusDays(1));
+            return Boolean.TRUE;
+        });
     }
 
     private long epochMillis(long userId) {
-        String v = redis.opsForValue().get(EPOCH_PREFIX + userId);
+        String v = guard.read("jwt.epoch", () -> redis.opsForValue().get(EPOCH_PREFIX + userId));
         return v == null ? 0L : Long.parseLong(v);
     }
 

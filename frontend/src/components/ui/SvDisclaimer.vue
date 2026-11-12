@@ -30,19 +30,17 @@ const open = ref(false)
 
 <style scoped>
 .disc {
-  background: color-mix(in srgb, var(--sv-amber) 14%, var(--sv-bg));
-  border: 1px solid color-mix(in srgb, var(--sv-amber) 40%, transparent);
-  font-size: var(--sv-fs-caption2);
-  padding: 8px 12px;
-  border-radius: 12px;
-  margin-top: 4px;
-  color: var(--sv-label);
+  border-top: 1px solid var(--sv-sep);
+  font-size: var(--sv-fs-footnote);
+  padding: 10px 0 0;
+  margin-top: var(--sv-s4);
+  color: var(--sv-label2);
 }
 .why {
   border: none;
   background: transparent;
   cursor: pointer;
-  color: var(--sv-indigo);
+  color: var(--sv-accent);
   font-size: inherit;
   font-family: inherit;
   padding: 2px 4px;
@@ -51,11 +49,11 @@ const open = ref(false)
   gap: 2px;
 }
 .why :deep(svg) {
-  transition: transform 0.25s var(--sv-ease);
+  transition: transform 0.18s ease;
 }
 .detail {
   margin-top: 6px;
-  line-height: 1.6;
+  line-height: 1.7;
   color: var(--sv-label2);
 }
 </style>

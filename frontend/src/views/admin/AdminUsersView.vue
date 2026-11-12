@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import AdminShell from '@/components/AdminShell.vue'
 import SvCard from '@/components/ui/SvCard.vue'
@@ -104,7 +104,7 @@ const fmt = (s?: string) => (s ? s.replace('T', ' ').slice(0, 19) : '—')
       <button class="btn" @click="load(0)">查</button>
     </div>
 
-    <p v-if="loading" class="muted center">加载中…</p>
+    <p v-if="loading" class="muted sv-center">加载中…</p>
     <template v-else-if="view === 'users'">
       <SvCard v-for="u in rows" :key="u.id">
         <div class="hd">
@@ -127,7 +127,7 @@ const fmt = (s?: string) => (s ? s.replace('T', ' ').slice(0, 19) : '—')
           </button>
         </div>
       </SvCard>
-      <p v-if="!rows.length" class="muted center">没有匹配的账户。</p>
+      <p v-if="!rows.length" class="muted sv-center">没有匹配的账户。</p>
       <div v-if="rows.length" class="pager">
         <button class="pg" :disabled="page === 0" @click="load(0)">首页</button>
         <span class="muted">{{ page + 1 }} / {{ pages() }} · 共 {{ total }} 人</span>
@@ -151,7 +151,7 @@ const fmt = (s?: string) => (s ? s.replace('T', ' ').slice(0, 19) : '—')
           </li>
         </ol>
       </SvCard>
-      <p v-if="!board.length" class="muted center">没有处于危机链路中的用户——这是好消息。</p>
+      <p v-if="!board.length" class="muted sv-center">没有处于危机链路中的用户——这是好消息。</p>
     </template>
   </AdminShell>
 </template>
@@ -166,7 +166,7 @@ const fmt = (s?: string) => (s ? s.replace('T', ' ').slice(0, 19) : '—')
   border: 1px solid var(--sv-sep);
   background: var(--sv-card);
   color: var(--sv-label2);
-  border-radius: 999px;
+  border-radius: var(--sv-r-tag);
   padding: 7px 14px;
   font-size: var(--sv-fs-footnote);
   cursor: pointer;
@@ -203,10 +203,6 @@ const fmt = (s?: string) => (s ? s.replace('T', ' ').slice(0, 19) : '—')
   padding: 9px 12px;
   font-size: var(--sv-fs-footnote);
   font-family: inherit;
-}
-.center {
-  text-align: center;
-  padding: var(--sv-s4) 0;
 }
 .muted {
   color: var(--sv-label3);
@@ -258,7 +254,7 @@ const fmt = (s?: string) => (s ? s.replace('T', ' ').slice(0, 19) : '—')
   font-size: 10px;
   font-weight: 600;
   padding: 3px 8px;
-  border-radius: 999px;
+  border-radius: var(--sv-r-tag);
 }
 .pill.ok {
   background: color-mix(in srgb, #30d158 18%, transparent);

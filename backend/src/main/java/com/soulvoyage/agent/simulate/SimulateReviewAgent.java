@@ -15,6 +15,7 @@ import com.soulvoyage.domain.simulate.SimulateTurnRepository;
 import com.soulvoyage.llm.LlmClient;
 import com.soulvoyage.llm.OutputValidator;
 import com.soulvoyage.llm.PromptTemplates;
+import com.soulvoyage.orchestrator.AgentCode;
 import com.soulvoyage.orchestrator.agent.Agent;
 import com.soulvoyage.orchestrator.agent.AgentRuntime;
 import com.soulvoyage.orchestrator.protocol.AgentMessage;
@@ -48,7 +49,7 @@ public class SimulateReviewAgent implements Agent {
     private final BusinessCalendar cal;
 
     @Override
-    public String code() { return "SIMULATE"; }
+    public AgentCode code() { return AgentCode.SIMULATE; }
 
     @Override
     public JsonNode run(AgentMessage request, AgentRuntime rt) {

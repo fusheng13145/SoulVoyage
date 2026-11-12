@@ -19,18 +19,14 @@ withDefaults(
 <style scoped>
 .sec {
   font-size: var(--sv-fs-caption1);
-  color: var(--sv-label2);
-  margin: 18px 6px 6px;
-  letter-spacing: 0.5px;
+  color: var(--sv-label3);
+  margin: 20px 6px 6px;
+  letter-spacing: 0;
 }
 .sv-list {
   background: var(--sv-card);
+  border: 1px solid var(--sv-sep);
   border-radius: var(--sv-r-card);
   overflow: hidden;
-  box-shadow: var(--sv-sh-1);
-}
-[data-theme='dark'] .sv-list {
-  border: 1px solid var(--sv-sep);
-  box-shadow: none;
 }
 </style>

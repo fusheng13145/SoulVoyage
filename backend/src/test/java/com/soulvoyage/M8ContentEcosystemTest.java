@@ -14,6 +14,7 @@ import com.soulvoyage.domain.content.ContentStore;
 import com.soulvoyage.domain.content.KgNodeRepository;
 import com.soulvoyage.domain.content.ReadingController;
 import com.soulvoyage.domain.content.ReadingService;
+import com.soulvoyage.domain.content.dto.ReadingDtos.TodayResp;
 import com.soulvoyage.domain.profile.EmotionProfileEntity;
 import com.soulvoyage.domain.profile.EmotionProfileRepository;
 import com.soulvoyage.domain.simulate.SimulateSessionEntity;
@@ -119,8 +120,8 @@ class M8ContentEcosystemTest {
         var r1 = asAdmin(adminPrincipal, () -> admin.upsertKg(adminPrincipal, code,
                 new ContentAdminController.KgBody("PSY_TOPIC", "热更新试验篇", payload, (short) 1)));
         assertEquals(0, r1.getCode());
-        assertEquals(v0 + 1, ((Number) r1.getData().get("contentVersion")).longValue());
-        assertTrue(r1.getData().get("effective") instanceof Boolean b && b);
+        assertEquals(v0 + 1, r1.getData().contentVersion());
+        assertTrue(r1.getData().effective());
 
         // 写成功即生效：同 JVM 快照立刻含新篇
         assertTrue(store.psyTopics().stream().anyMatch(p -> p.kgNodeId().equals(code)), "新增篇目应立即可见");
@@ -153,32 +154,32 @@ class M8ContentEcosystemTest {
         long uid = newUser();
         var p = new AuthPrincipal(uid, "USER");
 
-        var first = readingCtrl.today(p).getData();
+        TodayResp first = readingCtrl.today(p).getData();
         assertEquals(0, readingCtrl.today(p).getCode());
-        String kgNodeId = String.valueOf(first.get("kgNodeId"));
+        String kgNodeId = String.valueOf(first.kgNodeId());
         assertTrue(kgNodeId.startsWith("psy_"));
-        assertFalse(String.valueOf(first.get("title")).isBlank());
-        assertEquals(true, first.get("firstToday"));
-        assertEquals(false, first.get("favorited"));
+        assertFalse(String.valueOf(first.title()).isBlank());
+        assertEquals(true, first.firstToday());
+        assertEquals(false, first.favorited());
 
-        var second = readingCtrl.today(p).getData();
-        assertEquals(kgNodeId, second.get("kgNodeId"), "同日重复请求必须返回同一篇");
-        assertEquals(false, second.get("firstToday"));
+        TodayResp second = readingCtrl.today(p).getData();
+        assertEquals(kgNodeId, second.kgNodeId(), "同日重复请求必须返回同一篇");
+        assertEquals(false, second.firstToday());
 
         // 收藏开关 → 卡片与列表同步
         var on = readingCtrl.toggleFavorite(p,
                 new ReadingController.FavoriteReq(ReadingService.FAV_PSY, kgNodeId)).getData();
-        assertEquals(true, on.get("favorited"));
-        assertTrue((Boolean) readingCtrl.today(p).getData().get("favorited"));
+        assertEquals(true, on.favorited());
+        assertTrue(readingCtrl.today(p).getData().favorited());
         var favs = readingCtrl.favorites(p).getData();
         assertEquals(1, favs.size());
         assertEquals(kgNodeId, favs.get(0).get("refCode"));
-        assertEquals(first.get("title"), favs.get(0).get("title"));
+        assertEquals(first.title(), favs.get(0).get("title"));
 
         assertEquals(1, reading.favoritesForExport(uid).size(), "档案导出应含收藏");
         var off = readingCtrl.toggleFavorite(p,
                 new ReadingController.FavoriteReq(ReadingService.FAV_PSY, kgNodeId)).getData();
-        assertEquals(false, off.get("favorited"));
+        assertEquals(false, off.favorited());
         assertTrue(readingCtrl.favorites(p).getData().isEmpty());
     }
 

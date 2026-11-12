@@ -42,7 +42,7 @@ const tel = (v: string) => `tel:${v.replace(/[^0-9+]/g, '')}`
         <a
           v-for="r in resources"
           :key="r.name"
-          class="row sv-surface"
+          class="row"
           :href="r.type === 'PHONE' ? tel(r.value) : r.value"
           :aria-label="`${r.type === 'PHONE' ? '拨打' : '联系'} ${r.name} ${r.value}`"
         >
@@ -83,19 +83,18 @@ header {
   display: flex;
   align-items: center;
   gap: var(--sv-s3);
-  padding: calc(var(--sv-safe-t) + 8px) var(--sv-s4) 8px;
-  background: color-mix(in srgb, var(--sv-bg) 78%, transparent);
-  backdrop-filter: var(--sv-blur);
-  -webkit-backdrop-filter: var(--sv-blur);
+  min-height: 52px;
+  padding: var(--sv-safe-t) var(--sv-s5) 0;
+  background: var(--sv-bg);
   border-bottom: 1px solid var(--sv-sep);
 }
 .back {
   display: inline-flex;
   align-items: center;
   gap: 2px;
-  color: var(--sv-indigo);
+  color: var(--sv-accent);
   min-height: 44px;
-  font-size: var(--sv-fs-subhead);
+  font-size: var(--sv-fs-body);
 }
 .ct {
   margin: 0 auto;
@@ -105,31 +104,29 @@ header {
 main {
   max-width: 640px;
   margin: 0 auto;
-  padding: var(--sv-s4) var(--sv-s4) var(--sv-s7);
+  padding: var(--sv-s5) var(--sv-s5) var(--sv-s7);
 }
 .intro {
   color: var(--sv-label);
-  font-size: var(--sv-fs-subhead);
-  line-height: 1.9;
+  font-size: var(--sv-fs-callout);
+  line-height: var(--sv-lh-prose);
   margin-bottom: var(--sv-s5);
 }
 .row {
   display: flex;
   align-items: center;
   gap: var(--sv-s3);
-  padding: var(--sv-s4);
-  margin-bottom: 10px;
+  padding: var(--sv-s4) 0;
+  border-bottom: 1px solid var(--sv-sep);
   color: var(--sv-label);
 }
 .r-ico {
   display: grid;
   place-items: center;
-  width: 44px;
-  height: 44px;
+  width: 24px;
+  height: 24px;
   flex: none;
-  border-radius: 14px;
-  background: color-mix(in srgb, var(--sv-red) 12%, transparent);
-  color: var(--sv-red);
+  color: var(--sv-danger);
 }
 .r-mid {
   flex: 1 1 0;
@@ -137,7 +134,7 @@ main {
 }
 .rname {
   display: block;
-  font-size: var(--sv-fs-subhead);
+  font-size: var(--sv-fs-body);
 }
 .rnote {
   display: block;
@@ -147,26 +144,28 @@ main {
   flex: 0 1 auto;
   max-width: 52%;
   text-align: right;
-  line-height: 1.35;
-  font-size: var(--sv-fs-title2);
-  font-weight: 700;
-  color: var(--sv-red);
+  line-height: 1.3;
+  font-family: var(--sv-serif);
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--sv-danger);
   font-variant-numeric: tabular-nums;
 }
 .emergency {
   text-align: center;
-  margin: var(--sv-s5) 0 var(--sv-s3);
+  margin: var(--sv-s6) 0 var(--sv-s3);
   color: var(--sv-label2);
   font-size: var(--sv-fs-footnote);
 }
 .nums a {
-  color: var(--sv-red);
-  font-size: var(--sv-fs-title3);
-  font-weight: 700;
+  color: var(--sv-danger);
+  font-family: var(--sv-serif);
+  font-size: 24px;
+  font-weight: 600;
   text-decoration: none;
 }
 .boundary {
-  border-top: 1px dashed var(--sv-sep);
+  border-top: 1px solid var(--sv-sep);
   padding-top: var(--sv-s3);
   line-height: 1.7;
 }

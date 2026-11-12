@@ -1,5 +1,5 @@
 import { computed } from 'vue'
-import { useColorMode } from '@vueuse/core'
+import { useColorMode, usePreferredDark } from '@vueuse/core'
 
 export type ThemePref = 'system' | 'light' | 'dark'
 
@@ -12,11 +12,13 @@ const mode = useColorMode<ThemePref>({
   emitAuto: true,
 })
 
+const preferredDark = usePreferredDark()
+
 export const themePref = computed(() => mode.value as ThemePref)
 export const isDark = computed(() => {
   if (mode.value === 'dark') return true
   if (mode.value === 'light') return false
-  return window.matchMedia('(prefers-color-scheme: dark)').matches
+  return preferredDark.value
 })
 
 export function setTheme(pref: ThemePref) {

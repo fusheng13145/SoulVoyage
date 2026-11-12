@@ -9,6 +9,7 @@
     "dev:mp-weixin": "uni build -p mp-weixin --watch",
     "build:mp-weixin": "uni build -p mp-weixin",
     "typecheck": "vue-tsc --noEmit",
+    "test": "vitest run",
     "gen:api": "openapi-typescript ../backend/openapi/openapi.json -o src/api/schema.d.ts && prettier --write src/api/schema.d.ts",
     "lint": "eslint .",
     "format": "prettier --write src/",
@@ -38,6 +39,7 @@
     "typescript": "~5.6.3",
     "typescript-eslint": "^8.70.0",
     "vite": "5.2.8",
+    "vitest": "^2.1.9",
     "vue-tsc": "^2.1.6"
   }
 }

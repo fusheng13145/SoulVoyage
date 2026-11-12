@@ -57,6 +57,12 @@ public class SecurityConfig {
                 res.setContentType(MediaType.APPLICATION_JSON_VALUE);
                 res.setCharacterEncoding("UTF-8");
                 objectMapper.writeValue(res.getWriter(), ApiResponse.fail(ErrorCode.UNAUTHORIZED, null));
+            }).accessDeniedHandler((req, res, ex) -> {
+                // URL 级拒绝发生在 MVC 之前，必须在这里补统一信封，否则前端只能拿到 Spring 默认错误体
+                res.setStatus(HttpStatus.FORBIDDEN.value());
+                res.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                res.setCharacterEncoding("UTF-8");
+                objectMapper.writeValue(res.getWriter(), ApiResponse.fail(ErrorCode.FORBIDDEN, null));
             }))
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();

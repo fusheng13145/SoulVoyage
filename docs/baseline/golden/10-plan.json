@@ -1,0 +1,70 @@
+{
+  "note": "计划卡片与详情",
+  "scenario": "plan",
+  "steps": [
+    {
+      "name": "active",
+      "response": {
+        "plan": {
+          "days": 3,
+          "daysLeft": 3,
+          "doneCount": 0,
+          "endDate": "2026-11-14",
+          "items": [
+            {
+              "doneAt": null,
+              "durationMin": 10,
+              "exerciseId": "ex_cbt_write",
+              "exerciseName": "认知书写三栏表",
+              "feedback": null,
+              "guidance": "（mock）第 1 天：ex_cbt_write，做完就算赢。",
+              "scheduledDate": "2026-11-12",
+              "seq": 1
+            }
+          ],
+          "planId": "<redacted>",
+          "startDate": "2026-11-12",
+          "status": "ACTION",
+          "title": "平静·今日轻量自助小方案",
+          "totalCount": 2
+        }
+      }
+    },
+    {
+      "name": "detail",
+      "response": {
+        "days": 3,
+        "daysLeft": 3,
+        "doneCount": 0,
+        "endDate": "2026-11-14",
+        "items": [
+          {
+            "doneAt": null,
+            "durationMin": 10,
+            "exerciseId": "ex_cbt_write",
+            "exerciseName": "认知书写三栏表",
+            "feedback": null,
+            "guidance": "（mock）第 1 天：ex_cbt_write，做完就算赢。",
+            "scheduledDate": "2026-11-12",
+            "seq": 1
+          },
+          {
+            "doneAt": null,
+            "durationMin": 7,
+            "exerciseId": "ex_action",
+            "exerciseName": "行为激活清单",
+            "feedback": null,
+            "guidance": "（mock）第 2 天：ex_action，做完就算赢。",
+            "scheduledDate": "2026-11-13",
+            "seq": 2
+          }
+        ],
+        "planId": "<redacted>",
+        "startDate": "2026-11-12",
+        "status": "ACTION",
+        "title": "平静·今日轻量自助小方案",
+        "totalCount": 2
+      }
+    }
+  ]
+}

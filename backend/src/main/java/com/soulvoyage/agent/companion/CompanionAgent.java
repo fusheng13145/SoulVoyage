@@ -7,6 +7,7 @@ import com.soulvoyage.crypto.CryptoService;
 import com.soulvoyage.domain.companion.CompanionTurnEntity;
 import com.soulvoyage.domain.companion.CompanionTurnRepository;
 import com.soulvoyage.llm.OutputValidator;
+import com.soulvoyage.orchestrator.AgentCode;
 import com.soulvoyage.orchestrator.agent.Agent;
 import com.soulvoyage.orchestrator.agent.AgentRuntime;
 import com.soulvoyage.orchestrator.protocol.AgentMessage;
@@ -34,7 +35,7 @@ public class CompanionAgent implements Agent {
     private final ObjectMapper mapper;
 
     @Override
-    public String code() { return "COMPANION"; }
+    public AgentCode code() { return AgentCode.COMPANION; }
 
     @Override
     public JsonNode run(AgentMessage request, AgentRuntime rt) {

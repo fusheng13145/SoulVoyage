@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import SvNavBar from '@/components/ui/SvNavBar.vue'
@@ -6,8 +6,12 @@ import SvCard from '@/components/ui/SvCard.vue'
 import SvIcon from '@/components/ui/SvIcon.vue'
 import SvList from '@/components/ui/SvList.vue'
 import SvCell from '@/components/ui/SvCell.vue'
+import SvPageBody from '@/components/ui/SvPageBody.vue'
 import SvDisclaimer from '@/components/ui/SvDisclaimer.vue'
-import http, { type ApiResp, type Json } from '@/api/http'
+import type { Json } from '@/api/http'
+import { archiveApi } from '@/api/domains/archive'
+import { readingApi } from '@/api/domains/reading'
+import { reportApi } from '@/api/domains/report'
 import { confirmDialog, toast } from '@/stores/ui'
 
 interface Summary {
@@ -92,14 +96,14 @@ async function load() {
   loading.value = true
   try {
     const [s, r, fv] = await Promise.all([
-      http.get<ApiResp<Summary>>('/archive/summary'),
+      archiveApi.summary<Summary>(),
       fetchReports(0),
-      http.get<ApiResp<FavoriteView[]>>('/readings/favorites').catch(() => null), // N3 收藏加载失败不挡档案
+      readingApi.favorites<FavoriteView[]>().catch(() => null), // N3 收藏加载失败不挡档案
     ])
-    summary.value = s.data.data
-    allReports.value = r.data.data.items
-    repTotal.value = r.data.data.total
-    favorites.value = fv?.data.data ?? []
+    summary.value = s
+    allReports.value = r.items
+    repTotal.value = r.total
+    favorites.value = fv ?? []
   } catch (e) {
     toast((e as Error).message || '档案加载失败')
   } finally {
@@ -110,23 +114,25 @@ onMounted(load)
 
 /** C2 扩展过滤：starred=1 只看收藏；列表仍按时间倒序 */
 function fetchReports(page: number) {
-  return http.get<ApiResp<{ items: ReportMeta[]; total: number }>>('/reports', {
-    params: { page, size: 10, ...(onlyStarred.value ? { starred: true } : {}) },
+  return reportApi.list<{ items: ReportMeta[]; total: number }>({
+    page,
+    size: 10,
+    ...(onlyStarred.value ? { starred: true } : {}),
   })
 }
 
 async function moreReports() {
   repPage.value += 1
-  const { data } = await fetchReports(repPage.value)
-  allReports.value = [...allReports.value, ...data.data.items]
+  const data = await fetchReports(repPage.value)
+  allReports.value = [...allReports.value, ...data.items]
 }
 
 async function toggleStarredFilter() {
   onlyStarred.value = !onlyStarred.value
   repPage.value = 0
-  const { data } = await fetchReports(0)
-  allReports.value = data.data.items
-  repTotal.value = data.data.total
+  const data = await fetchReports(0)
+  allReports.value = data.items
+  repTotal.value = data.total
 }
 
 /** 导出：POST 领限时 fileId → GET 一次性领取快照 → 打印视图 */
@@ -140,9 +146,8 @@ async function exportArchive() {
   if (!ok) return
   exporting.value = true
   try {
-    const { data } = await http.post<ApiResp<{ fileId: string }>>('/archive/export', {})
-    const dl = await http.get<ApiResp<Snapshot>>(`/archive/export/${data.data.fileId}`)
-    snapshot.value = dl.data.data
+    const { fileId } = await archiveApi.createExport()
+    snapshot.value = await archiveApi.claimExport<Snapshot>(fileId)
   } catch (e) {
     toast((e as Error).message || '导出失败，链接限时 5 分钟且仅能领取一次')
   } finally {
@@ -165,7 +170,7 @@ function doPrint() {
       </template>
     </SvNavBar>
 
-    <div class="body">
+    <SvPageBody>
       <!-- 打印快照视图 -->
       <template v-if="snapshot">
         <div class="print-only title-page">
@@ -186,9 +191,9 @@ function doPrint() {
             </p>
             <template v-if="r.content && typeof r.content === 'object'">
               <p v-if="r.content.report?.insight" class="insight sv-muted">
-                💡 {{ r.content.report.insight }}
+                {{ r.content.report.insight }}
               </p>
-              <p v-if="r.content.planTitle" class="insight sv-muted">🌿 {{ r.content.planTitle }}</p>
+              <p v-if="r.content.planTitle" class="insight sv-muted">{{ r.content.planTitle }}</p>
               <p v-if="r.content.overall" class="insight sv-muted">沟通分 {{ r.content.overall.avgScore }}</p>
             </template>
           </div>
@@ -358,14 +363,11 @@ function doPrint() {
         <button class="sv-btn ghost" @click="router.back()">返回</button>
       </template>
       <p v-else class="sv-muted none">档案加载中…</p>
-    </div>
+    </SvPageBody>
   </div>
 </template>
 
 <style scoped>
-.body {
-  padding: 0 var(--sv-s4);
-}
 .ic {
   border: none;
   background: transparent;
@@ -390,7 +392,7 @@ function doPrint() {
 }
 .risk {
   font-size: var(--sv-fs-caption1);
-  border-radius: var(--sv-r-pill);
+  border-radius: var(--sv-r-tag);
   padding: 1px 8px;
 }
 .risk.low {
@@ -432,7 +434,7 @@ function doPrint() {
   border: 1px solid var(--sv-sep);
   background: var(--sv-card);
   color: var(--sv-label2);
-  border-radius: var(--sv-r-pill);
+  border-radius: var(--sv-r-tag);
   padding: 3px 10px;
   font-family: inherit;
   font-size: var(--sv-fs-caption1);

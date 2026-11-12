@@ -6,10 +6,12 @@ import SvCard from '@/components/ui/SvCard.vue'
 import SvBubble from '@/components/ui/SvBubble.vue'
 import SvChip from '@/components/ui/SvChip.vue'
 import SvIcon from '@/components/ui/SvIcon.vue'
+import SvPageBody from '@/components/ui/SvPageBody.vue'
 import SvTimeline, { type FlowStep } from '@/components/ui/SvTimeline.vue'
 import SvDisclaimer from '@/components/ui/SvDisclaimer.vue'
 import CrisisReferral from '@/components/CrisisReferral.vue'
-import http, { type ApiResp, type Json } from '@/api/http'
+import type { Json } from '@/api/http'
+import { simulationApi } from '@/api/domains/simulation'
 import { postSse, streamTask } from '@/api/sse'
 import { confirmDialog, toast } from '@/stores/ui'
 import { useContentStore, type Scene } from '@/stores/content'
@@ -87,16 +89,14 @@ const statsMap = ref<Record<string, SimStat>>({})
 
 async function loadExtras() {
   try {
-    const { data } = await http.get<ApiResp<{ items: SimItem[] }>>('/simulations', {
-      params: { status: 'INTERRUPTED', page: 0, size: 5 },
-    })
-    unfinished.value = data.data.items
+    const data = await simulationApi.list<{ items: SimItem[] }>({ page: 0, size: 5 })
+    unfinished.value = data.items
   } catch {
     /* 列表失败只影响续练提示 */
   }
   try {
-    const { data } = await http.get<ApiResp<SimStat[]>>('/simulations/stats')
-    statsMap.value = Object.fromEntries(data.data.map(s => [s.sceneCode, s]))
+    const stats = await simulationApi.stats<SimStat[]>()
+    statsMap.value = Object.fromEntries(stats.map(s => [s.sceneCode, s]))
   } catch {
     /* 无历史则不展示 best */
   }
@@ -122,8 +122,7 @@ interface SimDetail {
 async function resume(it: SimItem) {
   error.value = ''
   try {
-    const { data } = await http.get<ApiResp<SimDetail>>(`/simulations/${it.simulateId}`)
-    const t = data.data
+    const t = await simulationApi.detail<SimDetail>(it.simulateId)
     session.value = { simulateId: t.simulateId, title: t.sceneTitle, npcName: t.npcName }
     msgs.value = t.turns.flatMap(x => [
       { role: 'user' as const, text: x.userText },
@@ -149,7 +148,7 @@ onBeforeRouteLeave(async (_to, _from, next) => {
     confirmText: '退出并留档',
   })
   if (!ok) return next(false)
-  await http.post(`/simulations/${session.value.simulateId}/interrupt`, {}).catch(() => {
+  await simulationApi.interrupt(session.value.simulateId).catch(() => {
     /* 静默 */
   })
   next()
@@ -195,12 +194,12 @@ const TAG_LABELS: Record<string, string> = {
 async function start(s: Scene) {
   error.value = ''
   try {
-    const { data } = await http.post<ApiResp<SimSession>>('/simulations', {
+    const opened = await simulationApi.open<SimSession>({
       sceneCode: s.code,
       difficulty: picked.value[s.code],
     })
-    session.value = data.data
-    msgs.value = [{ role: 'npc', text: data.data.openingLine ?? '' }]
+    session.value = opened
+    msgs.value = [{ role: 'npc', text: opened.openingLine ?? '' }]
     mood.value = ''
     tension.value = 0
     lastTag.value = ''
@@ -287,11 +286,8 @@ async function finish() {
   review.value = null
   receipt.value = null
   try {
-    const { data } = await http.post<ApiResp<{ taskNo: string }>>(
-      `/simulations/${session.value.simulateId}/finish`,
-      {},
-    )
-    await streamTask(data.data.taskNo, e => {
+    const { taskNo } = await simulationApi.finish(String(session.value.simulateId))
+    await streamTask(taskNo, e => {
       if (e.event === 'step_started') markStep(e.data.agent, 'running')
       else if (e.event === 'middle_result') {
         if (e.data.agent === 'SIMULATE') review.value = e.data.payload
@@ -328,7 +324,7 @@ function restart() {
       :large="false"
     />
 
-    <div class="body">
+    <SvPageBody>
       <!-- ① 场景选择 -->
       <template v-if="stage === 'scenes'">
         <p class="tip sv-muted">
@@ -555,14 +551,11 @@ function restart() {
       </template>
 
       <p class="sv-cap foot">对话中的 NPC 为 AI 扮演，本内容为自助参考，不构成医学诊断。</p>
-    </div>
+    </SvPageBody>
   </div>
 </template>
 
 <style scoped>
-.body {
-  padding: 0 var(--sv-s4);
-}
 .tip {
   margin-bottom: var(--sv-s3);
   line-height: 1.7;
@@ -578,7 +571,7 @@ function restart() {
   align-items: center;
   gap: 4px;
   margin: 0 0 var(--sv-s3);
-  color: var(--sv-indigo);
+  color: var(--sv-accent);
 }
 .empty-tip {
   text-align: center;
@@ -588,19 +581,19 @@ function restart() {
   margin-left: auto;
   flex: none;
   align-self: flex-start;
-  background: var(--sv-indigo-soft);
-  color: var(--sv-indigo);
-  border-radius: var(--sv-r-pill);
-  padding: 2px 8px;
+  border: 1px solid var(--sv-accent);
+  color: var(--sv-accent);
+  border-radius: var(--sv-r-tag);
+  padding: 0 6px;
   font-size: var(--sv-fs-caption1);
 }
 .err {
-  color: var(--sv-red);
+  color: var(--sv-danger);
   font-size: var(--sv-fs-footnote);
   margin: var(--sv-s2) 0;
 }
 .scene {
-  padding: var(--sv-s4);
+  padding: var(--sv-s5);
 }
 .s-head {
   display: flex;
@@ -611,33 +604,35 @@ function restart() {
 .s-ico {
   display: grid;
   place-items: center;
-  width: 40px;
-  height: 40px;
+  width: 36px;
+  height: 36px;
   flex: none;
-  border-radius: 12px;
-  background: var(--sv-indigo-soft);
-  color: var(--sv-indigo);
+  border: 1px solid var(--sv-sep);
+  border-radius: var(--sv-r-ctl);
+  background: var(--sv-card2);
+  color: var(--sv-accent);
 }
 .s-head b {
-  font-size: var(--sv-fs-callout);
+  font-size: var(--sv-fs-body);
+  font-weight: 500;
   display: block;
 }
 .s-head small {
   color: var(--sv-label2);
-  font-size: var(--sv-fs-caption1);
+  font-size: var(--sv-fs-footnote);
 }
 .desc {
   font-size: var(--sv-fs-footnote);
-  line-height: 1.7;
+  line-height: var(--sv-lh-body);
   color: var(--sv-label);
 }
 .dims {
   margin: var(--sv-s2) 0;
 }
 .dim {
-  background: var(--sv-fill2);
-  border-radius: 6px;
-  padding: 1px 6px;
+  border: 1px solid var(--sv-sep);
+  border-radius: var(--sv-r-tag);
+  padding: 0 6px;
   margin: 0 0 0 4px;
   color: var(--sv-label2);
 }
@@ -654,47 +649,47 @@ function restart() {
   flex-wrap: wrap;
 }
 .mood {
-  border-radius: var(--sv-r-pill);
-  padding: 1px 10px;
+  border: 1px solid var(--sv-sep);
+  border-radius: var(--sv-r-tag);
+  padding: 0 6px;
   font-size: var(--sv-fs-caption1);
 }
 .m-neutral {
-  background: var(--sv-fill2);
-  color: var(--sv-label2);
+  color: var(--sv-label3);
 }
 .m-dissat {
-  background: color-mix(in srgb, var(--sv-amber) 18%, var(--sv-card));
-  color: var(--sv-amber);
+  color: var(--sv-warn);
+  border-color: var(--sv-warn);
 }
 .m-esc {
-  background: color-mix(in srgb, var(--sv-red) 16%, var(--sv-card));
-  color: var(--sv-red);
+  color: var(--sv-danger);
+  border-color: var(--sv-danger);
 }
 .m-soft {
-  background: color-mix(in srgb, var(--sv-mint) 16%, var(--sv-card));
-  color: var(--sv-mint);
+  color: var(--sv-ok);
+  border-color: var(--sv-ok);
 }
 .track {
   flex: 1;
   min-width: 80px;
-  height: 6px;
-  background: var(--sv-fill2);
-  border-radius: 3px;
+  height: 4px;
+  background: var(--sv-sep);
+  border-radius: 2px;
   overflow: hidden;
 }
 .fill {
   height: 100%;
-  border-radius: 3px;
-  transition: width 0.4s var(--sv-ease);
+  border-radius: 2px;
+  transition: width 0.18s ease;
 }
 .fill.cool {
-  background: var(--sv-mint);
+  background: var(--sv-ok);
 }
 .fill.warm {
-  background: var(--sv-amber);
+  background: var(--sv-warn);
 }
 .fill.hot {
-  background: var(--sv-red);
+  background: var(--sv-danger);
 }
 .tnum {
   font-variant-numeric: tabular-nums;
@@ -702,10 +697,10 @@ function restart() {
 .tagchip {
   margin-top: var(--sv-s2);
   display: inline-block;
-  background: var(--sv-indigo-soft);
-  color: var(--sv-indigo);
-  border-radius: var(--sv-r-pill);
-  padding: 2px 10px;
+  border: 1px solid var(--sv-sep);
+  color: var(--sv-label2);
+  border-radius: var(--sv-r-tag);
+  padding: 0 6px;
   font-size: var(--sv-fs-caption1);
 }
 .chat {
@@ -713,9 +708,9 @@ function restart() {
   flex-direction: column;
   gap: 10px;
   background: var(--sv-bg);
+  border: 1px solid var(--sv-sep);
   border-radius: var(--sv-r-card);
   padding: var(--sv-s3);
-  box-shadow: inset 0 0 0 1px var(--sv-sep);
   max-height: 48vh;
   overflow-y: auto;
   margin-bottom: var(--sv-s3);
@@ -732,18 +727,19 @@ function restart() {
 }
 textarea {
   flex: 1;
-  border: 1px solid var(--sv-sep);
-  background: var(--sv-card);
-  border-radius: var(--sv-r-card);
-  padding: 12px 14px;
-  font-size: var(--sv-fs-subhead);
+  border: 1px solid var(--sv-line-strong);
+  background: var(--sv-card2);
+  border-radius: var(--sv-r-ctl);
+  padding: 10px 12px;
+  font-size: var(--sv-fs-body);
   font-family: inherit;
   resize: none;
   color: var(--sv-label);
   outline: none;
 }
 textarea:focus {
-  border-color: var(--sv-indigo);
+  border-color: var(--sv-accent);
+  box-shadow: 0 0 0 2px var(--sv-accent-soft);
 }
 .input-btns {
   display: flex;
@@ -751,26 +747,23 @@ textarea:focus {
   gap: 8px;
 }
 .send {
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  border: none;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--sv-r-ctl);
+  border: 1px solid var(--sv-accent);
   cursor: pointer;
   display: grid;
   place-items: center;
-  background: var(--sv-indigo);
-  color: #fff;
-  transition: transform 0.12s var(--sv-ease);
-}
-.send:active {
-  transform: scale(0.92);
+  background: var(--sv-accent);
+  color: var(--sv-on-accent);
 }
 .send:disabled {
   opacity: 0.45;
   cursor: not-allowed;
 }
 .send.ghost {
-  background: var(--sv-fill2);
+  background: var(--sv-card);
+  border-color: var(--sv-sep);
   color: var(--sv-label2);
 }
 .typing-hint {
@@ -783,9 +776,10 @@ textarea:focus {
   gap: var(--sv-s3);
 }
 .avg {
-  font-size: 44px;
-  font-weight: 700;
-  color: var(--sv-indigo);
+  font-family: var(--sv-num);
+  font-size: 40px;
+  font-weight: 600;
+  color: var(--sv-accent);
   font-variant-numeric: tabular-nums;
 }
 .score-line small {
@@ -793,15 +787,15 @@ textarea:focus {
 }
 .advice {
   color: var(--sv-label);
-  font-size: var(--sv-fs-subhead);
+  font-size: var(--sv-fs-callout);
   margin: var(--sv-s2) 0 var(--sv-s3);
-  line-height: 1.7;
+  line-height: var(--sv-lh-prose);
 }
 h4 {
   margin: var(--sv-s4) 0 var(--sv-s2);
-  font-size: var(--sv-fs-footnote);
-  color: var(--sv-label2);
-  font-weight: 600;
+  font-size: var(--sv-fs-caption1);
+  color: var(--sv-label3);
+  font-weight: 500;
 }
 .sw {
   display: grid;
@@ -813,7 +807,7 @@ h4 {
   padding-left: 16px;
   list-style: disc;
   color: var(--sv-label);
-  line-height: 1.7;
+  line-height: var(--sv-lh-body);
   margin-top: 4px;
 }
 .tscore {
@@ -832,22 +826,22 @@ h4 {
   height: 22px;
   line-height: 22px;
   text-align: center;
-  border-radius: 6px;
-  color: #fff;
-  font-weight: 700;
-  font-size: var(--sv-fs-footnote);
+  border-radius: var(--sv-r-tag);
+  color: var(--sv-on-accent);
+  font-weight: 600;
+  font-size: var(--sv-fs-caption1);
 }
 .g-a {
-  background: var(--sv-mint);
+  background: var(--sv-ok);
 }
 .g-b {
-  background: var(--sv-blue);
+  background: var(--sv-label3);
 }
 .g-c {
-  background: var(--sv-amber);
+  background: var(--sv-warn);
 }
 .g-d {
-  background: var(--sv-red);
+  background: var(--sv-danger);
 }
 .q {
   margin: 6px 0 2px;
@@ -855,32 +849,31 @@ h4 {
 .moment {
   font-size: var(--sv-fs-footnote);
   background: var(--sv-fill3);
-  border-radius: var(--sv-r-ctl);
+  border-radius: var(--sv-r-tag);
   padding: 8px 10px;
   margin-bottom: 6px;
 }
 .moment span {
-  color: var(--sv-amber);
+  color: var(--sv-warn);
   margin-right: 6px;
 }
 .rewrite {
   border-radius: var(--sv-r-ctl);
   padding: 10px 12px;
   margin-bottom: var(--sv-s2);
-  background: color-mix(in srgb, var(--sv-mint) 8%, var(--sv-card));
+  background: var(--sv-fill3);
   font-size: var(--sv-fs-footnote);
 }
 .rewrite .from {
   text-decoration: line-through;
 }
 .rewrite .to {
-  color: var(--sv-mint);
+  color: var(--sv-ok);
   margin-top: 4px;
 }
 .resume {
   padding: var(--sv-s3) var(--sv-s4);
   margin-bottom: var(--sv-s3);
-  background: color-mix(in srgb, var(--sv-indigo) 6%, var(--sv-card));
 }
 .r-row {
   display: flex;
@@ -894,11 +887,12 @@ h4 {
 }
 .r-txt b {
   display: block;
-  font-size: var(--sv-fs-footnote);
+  font-size: var(--sv-fs-body);
+  font-weight: 500;
 }
 .r-txt small {
   color: var(--sv-label2);
-  font-size: var(--sv-fs-caption1);
+  font-size: var(--sv-fs-footnote);
 }
 .refcase {
   border-radius: var(--sv-r-ctl);
@@ -908,14 +902,15 @@ h4 {
   font-size: var(--sv-fs-footnote);
 }
 .refcase b {
-  font-size: var(--sv-fs-subhead);
+  font-size: var(--sv-fs-body);
+  font-weight: 500;
 }
 .refcase .from {
   color: var(--sv-label2);
   margin-top: 6px;
 }
 .refcase .to {
-  color: var(--sv-mint);
+  color: var(--sv-ok);
   margin-top: 4px;
 }
 .fin {

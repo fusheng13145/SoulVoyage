@@ -3,10 +3,11 @@ import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import SvNavBar from '@/components/ui/SvNavBar.vue'
 import SvIcon from '@/components/ui/SvIcon.vue'
+import SvPageBody from '@/components/ui/SvPageBody.vue'
 import SvSwipeActions from '@/components/ui/SvSwipeActions.vue'
-import http, { type ApiResp } from '@/api/http'
+import { diaryApi } from '@/api/domains/diary'
 import { confirmDialog, toast } from '@/stores/ui'
-
+import { displayMonthDay } from '@/utils/date'
 interface DiaryItem {
   id: number
   recordDate: string
@@ -24,7 +25,13 @@ const size = 20
 const q = ref('')
 const loading = ref(false)
 
-const MOOD_FACE: Record<number, string> = { 1: '😖', 2: '😞', 3: '😐', 4: '🙂', 5: '😄' }
+const MOOD_TONE: Record<number, string> = {
+  1: 'var(--sv-danger)',
+  2: 'var(--sv-warn)',
+  3: 'var(--sv-label3)',
+  4: 'color-mix(in srgb, var(--sv-ok) 60%, var(--sv-label3))',
+  5: 'var(--sv-ok)',
+}
 
 /** 按自然月分组的时间线 */
 const months = computed(() => {
@@ -37,20 +44,23 @@ const months = computed(() => {
   return [...map.entries()]
 })
 
-async function load(reset = true) {
+async function load(reset = true, target = 0) {
   if (loading.value) return
   loading.value = true
   try {
     if (reset) {
-      page.value = 0
       items.value = []
       total.value = 0
     }
-    const { data } = await http.get<ApiResp<{ items: DiaryItem[]; total: number }>>('/diaries', {
-      params: { q: q.value || undefined, page: page.value, size },
+    const next = reset ? 0 : target
+    const data = await diaryApi.list<{ items: DiaryItem[]; total: number }>({
+      q: q.value || undefined,
+      page: next,
+      size,
     })
-    items.value = [...items.value, ...data.data.items]
-    total.value = data.data.total
+    items.value = reset ? data.items : [...items.value, ...data.items]
+    total.value = data.total
+    page.value = next
   } catch (e) {
     toast((e as Error).message || '加载失败')
   } finally {
@@ -59,8 +69,7 @@ async function load(reset = true) {
 }
 
 function more() {
-  page.value += 1
-  load(false)
+  load(false, page.value + 1)
 }
 
 let searchTimer: number | undefined
@@ -78,7 +87,7 @@ async function remove(it: DiaryItem) {
   })
   if (!ok) return
   try {
-    await http.delete(`/diaries/${it.id}`)
+    await diaryApi.remove(it.id)
     toast('已删除')
     await load(true)
   } catch (e) {
@@ -99,36 +108,35 @@ onMounted(() => load(true))
       </template>
     </SvNavBar>
 
-    <div class="body">
+    <SvPageBody>
       <label class="search">
         <SvIcon name="i-search" :size="16" tone="label2" />
         <input v-model="q" placeholder="搜索日记内容…" aria-label="搜索日记内容" @input="onSearch" />
       </label>
 
       <p v-if="!items.length && !loading" class="empty sv-muted">
-        还没有日记。点右上角 ✎ 写一篇，心屿会帮你加密保存。
+        还没有日记。点右上角写一篇，心屿会帮你加密保存。
       </p>
 
       <section v-for="[month, list] in months" :key="month" class="month">
         <h3>{{ month.slice(0, 4) }} 年 {{ Number(month.slice(5, 7)) }} 月</h3>
         <SvSwipeActions v-for="it in list" :key="it.id" class="entry-wrap" @confirm="remove(it)">
-          <article class="entry sv-surface" @click="router.push(`/diaries/${it.id}`)">
+          <article class="entry" @click="router.push(`/diaries/${it.id}`)">
             <div class="entry-head">
-              <time class="date">{{ it.recordDate.slice(5).replace('-', '/') }}</time>
+              <time class="date">{{ displayMonthDay(it.recordDate) }}</time>
               <span class="flags">
                 <span
                   v-if="it.moodSelfRating"
-                  class="mood"
+                  class="mood-dot"
+                  :style="{ background: MOOD_TONE[it.moodSelfRating] }"
                   :aria-label="`当日心情 ${it.moodSelfRating} 分`"
-                  >{{ MOOD_FACE[it.moodSelfRating] }}</span
-                >
+                />
                 <span v-if="it.source === 'VOICE'" class="src" title="语音转写" aria-label="语音转写的日记">
                   <SvIcon name="i-mic" :size="14" tone="label2" />
                 </span>
               </span>
             </div>
             <p class="preview">{{ it.preview }}</p>
-            <span class="stripe" :style="{ background: 'var(--sv-indigo-soft)' }" aria-hidden="true" />
           </article>
         </SvSwipeActions>
       </section>
@@ -139,27 +147,26 @@ onMounted(() => load(true))
       <p v-if="loading" class="sv-cap loading" role="status">加载中…</p>
 
       <p class="sv-cap foot">日记原文与报告均以信封加密存储，仅你本人可见。</p>
-    </div>
+    </SvPageBody>
   </div>
 </template>
 
 <style scoped>
-.body {
-  padding: 0 var(--sv-s4);
-}
 .pen {
   display: grid;
   place-items: center;
   width: 44px;
   height: 44px;
-  color: var(--sv-indigo);
+  color: var(--sv-accent);
 }
 .search {
   display: flex;
   align-items: center;
   gap: 8px;
+  min-height: 40px;
   margin-bottom: var(--sv-s3);
-  background: var(--sv-card);
+  background: var(--sv-card2);
+  border: 1px solid var(--sv-line-strong);
   border-radius: var(--sv-r-ctl);
   padding: 0 12px;
 }
@@ -168,30 +175,32 @@ onMounted(() => load(true))
   border: none;
   background: transparent;
   outline: none;
-  padding: 12px 0;
-  font-size: var(--sv-fs-subhead);
+  padding: 8px 0;
+  font-size: var(--sv-fs-body);
   color: var(--sv-label);
   font-family: inherit;
+}
+.search input::placeholder {
+  color: var(--sv-label3);
 }
 .month {
   margin-bottom: var(--sv-s2);
 }
 .month h3 {
-  color: var(--sv-label2);
+  color: var(--sv-label3);
   font-size: var(--sv-fs-caption1);
-  font-weight: 600;
-  margin: var(--sv-s4) 6px var(--sv-s2);
+  font-weight: 400;
+  margin: var(--sv-s5) 0 var(--sv-s1);
 }
 .entry-wrap {
-  border-radius: var(--sv-r-card);
+  border-radius: 0;
   overflow: hidden;
-  margin-bottom: 10px;
 }
 .entry {
   position: relative;
-  padding: 14px 16px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--sv-sep);
   cursor: pointer;
-  overflow: hidden;
 }
 .entry-head {
   display: flex;
@@ -199,38 +208,35 @@ onMounted(() => load(true))
   align-items: center;
 }
 .date {
-  color: var(--sv-label2);
+  color: var(--sv-label3);
+  font-family: var(--sv-serif);
   font-size: var(--sv-fs-footnote);
   font-variant-numeric: tabular-nums;
 }
-.mood {
-  font-size: 18px;
+.mood-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  display: inline-block;
 }
 .flags {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
 }
 .src {
   display: inline-flex;
-  color: var(--sv-label2);
+  color: var(--sv-label3);
 }
 .preview {
   margin: 6px 0 0;
   color: var(--sv-label);
-  font-size: var(--sv-fs-subhead);
-  line-height: 1.6;
+  font-size: var(--sv-fs-body);
+  line-height: var(--sv-lh-body);
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-}
-.stripe {
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 3px;
 }
 .empty {
   text-align: center;

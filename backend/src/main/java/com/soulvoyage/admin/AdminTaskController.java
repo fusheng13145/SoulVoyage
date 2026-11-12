@@ -1,5 +1,8 @@
 package com.soulvoyage.admin;
 
+import com.soulvoyage.admin.dto.AdminDtos.RetryResp;
+import com.soulvoyage.admin.dto.AdminDtos.TaskDetailResp;
+import com.soulvoyage.admin.dto.AdminDtos.TaskStepView;
 import com.soulvoyage.audit.AuditService;
 import com.soulvoyage.auth.AuthPrincipal;
 import com.soulvoyage.common.api.ApiResponse;
@@ -56,45 +59,32 @@ public class AdminTaskController {
 
     /** 任务详情 + 步骤时间线（含成本回填字段），全状态可见 */
     @GetMapping("/{taskNo}")
-    public ApiResponse<Map<String, Object>> detail(@PathVariable String taskNo) {
+    public ApiResponse<TaskDetailResp> detail(@PathVariable String taskNo) {
         TaskInstanceEntity t = orchestrator.byNo(taskNo);
-        Map<String, Object> m = new LinkedHashMap<>();
-        m.put("taskNo", t.getTaskNo());
-        m.put("userId", t.getUserId());
-        m.put("pipelineCode", t.getPipelineCode());
-        m.put("status", t.getStatus());
-        m.put("clientReqId", t.getClientReqId());
-        m.put("errorMsg", t.getErrorMsg());
-        m.put("createdAt", t.getCreatedAt() == null ? "" : t.getCreatedAt().toString());
-        m.put("startedAt", t.getStartedAt() == null ? "" : t.getStartedAt().toString());
-        m.put("finishedAt", t.getFinishedAt() == null ? "" : t.getFinishedAt().toString());
-        m.put("steps", steps.findByTaskIdOrderByStepSeqAscIdAsc(t.getId()).stream().map(s -> {
-            Map<String, Object> x = new LinkedHashMap<String, Object>();
-            x.put("stepSeq", s.getStepSeq());
-            x.put("agentCode", s.getAgentCode());
-            x.put("stepCode", s.getStepCode());
-            x.put("status", s.getStatus());
-            x.put("attempt", s.getAttempt());
-            x.put("costMs", s.getCostMs());
-            x.put("llmCalls", s.getLlmCalls());
-            x.put("tokensIn", s.getTokensIn());
-            x.put("tokensOut", s.getTokensOut());
-            x.put("model", s.getModel());
-            x.put("errorMsg", s.getErrorMsg());
-            x.put("createdAt", s.getCreatedAt() == null ? "" : s.getCreatedAt().toString());
-            return x;
-        }).toList());
-        return ApiResponse.ok(m);
+        return ApiResponse.ok(new TaskDetailResp(
+                t.getTaskNo(), t.getUserId(), t.getPipelineCode(), t.getStatus(),
+                t.getClientReqId(), t.getErrorMsg(),
+                t.getCreatedAt() == null ? "" : t.getCreatedAt().toString(),
+                t.getStartedAt() == null ? "" : t.getStartedAt().toString(),
+                t.getFinishedAt() == null ? "" : t.getFinishedAt().toString(),
+                steps.findByTaskIdOrderByStepSeqAscIdAsc(t.getId()).stream()
+                        .map(s -> new TaskStepView(
+                                s.getStepSeq(), s.getAgentCode(), s.getStepCode(), s.getStatus(),
+                                s.getAttempt().intValue(), s.getCostMs(),
+                                s.getLlmCalls() == null ? null : s.getLlmCalls().intValue(),
+                                s.getTokensIn(), s.getTokensOut(), s.getModel(), s.getErrorMsg(),
+                                s.getCreatedAt() == null ? "" : s.getCreatedAt().toString()))
+                        .toList()));
     }
 
     /** 手动重跑：仅 FAILED 任务，从首个失败步续跑复用已落库中间产物；动作全审计 */
     @PostMapping("/{taskNo}/retry")
-    public ApiResponse<Map<String, Object>> retry(@AuthenticationPrincipal AuthPrincipal p,
-                                                  @PathVariable String taskNo) {
+    public ApiResponse<RetryResp> retry(@AuthenticationPrincipal AuthPrincipal p,
+                                        @PathVariable String taskNo) {
         TaskInstanceEntity t = orchestrator.byNo(taskNo);
         orchestrator.retry(t);
         audit.record(p.userId(), "ADMIN_RETRY", "task:" + t.getTaskNo(), null);
-        return ApiResponse.ok(Map.of("taskNo", t.getTaskNo(), "status", "RUNNING"));
+        return ApiResponse.ok(new RetryResp(t.getTaskNo(), "RUNNING"));
     }
 
     private static String blankToNull(String s) {

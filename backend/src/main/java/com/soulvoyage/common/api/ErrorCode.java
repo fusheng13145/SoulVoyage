@@ -1,6 +1,6 @@
 package com.soulvoyage.common.api;
 
-/** 错误码分段：10xx 认证 / 20xx 参数 / 30xx 任务 / 40xx 模型网关（推理与转写）/ 50xx 风控 */
+/** 错误码分段：10xx 认证 / 20xx 参数 / 30xx 任务 / 40xx 模型网关（推理与转写）/ 50xx 风控与内部 */
 public enum ErrorCode {
     UNAUTHORIZED(1001, "未登录或凭证失效"),
     FORBIDDEN(1002, "无权访问该资源"),
@@ -12,6 +12,8 @@ public enum ErrorCode {
     WX_BIND_EXPIRED(1006, "绑定已过期，请重新用微信登录一次"),
     BAD_PARAMS(2001, "参数不合法"),
     NOT_FOUND(2002, "资源不存在"),
+    /** B-09：乐观锁冲突（多端同时修改同一聚合），HTTP 409，客户端刷新后重试。 */
+    CONFLICT(2003, "数据已被更新，请刷新后重试"),
     TASK_NOT_FOUND(3001, "任务不存在"),
     PIPELINE_NOT_ALLOWED(3002, "流水线不允许"),
     TASK_CONCURRENCY_LIMIT(3003, "并发任务超限"),
@@ -19,7 +21,11 @@ public enum ErrorCode {
     LLM_RATE_LIMIT(4002, "请求过于频繁"),
     LLM_OUTPUT_INVALID(4003, "模型输出校验失败"),
     ASR_FAILED(4004, "语音转写失败，请稍后再试"),
-    CRISIS_MODE_RESTRICTED(5001, "当前处于关怀模式，功能受限");
+    /** 未知异常兜底：HTTP 500，不再冒充参数错误（A-12/B-19）。 */
+    INTERNAL_ERROR(5000, "服务内部错误"),
+    CRISIS_MODE_RESTRICTED(5001, "当前处于关怀模式，功能受限"),
+    /** 数据库/Redis 等依赖不可达：HTTP 503，前端可提示稍后重试。 */
+    DEPENDENCY_UNAVAILABLE(5002, "依赖服务暂不可用");
 
     private final int code;
     private final String defaultMsg;

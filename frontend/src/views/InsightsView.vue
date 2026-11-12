@@ -6,13 +6,18 @@ import { GridComponent, TooltipComponent, LegendComponent, MarkLineComponent } f
 import { CanvasRenderer } from 'echarts/renderers'
 import SvNavBar from '@/components/ui/SvNavBar.vue'
 import SvCard from '@/components/ui/SvCard.vue'
+import SvPageBody from '@/components/ui/SvPageBody.vue'
 import SvSegmented from '@/components/ui/SvSegmented.vue'
 import SvDisclaimer from '@/components/ui/SvDisclaimer.vue'
 import CrisisReferral from '@/components/CrisisReferral.vue'
-import http, { type ApiResp, type Json } from '@/api/http'
+import type { Json } from '@/api/http'
+import { emotionApi } from '@/api/domains/emotion'
+import { reportApi } from '@/api/domains/report'
 import { isDark } from '@/composables/theme'
 import { toast } from '@/stores/ui'
 import { useCrisisStore } from '@/stores/crisis'
+import { addBusinessDays, businessDate } from '@/utils/date'
+import type { EmotionPointView, WeekProfileView } from '@/types/domain'
 
 echarts.use([
   LineChart,
@@ -27,25 +32,10 @@ echarts.use([
 ])
 type Chart = ReturnType<typeof echarts.init>
 
-interface Point {
-  date: string
-  emotion: string
-  valence: string
-  intensity: string
-  sourceType: string
-}
-interface Week {
-  statWeek: string
-  avgValence: string | number
-  riskLevel: string
-  stressorTop: { name: string; count: number }[]
-  distortionTop: { name: string; count: number }[]
-}
-
 const crisis = useCrisisStore()
 const range = ref<number>(30)
-const weeks = computed(() => crisis.weeks as Week[])
-const points = ref<Point[]>([])
+const weeks = computed(() => crisis.weeks as WeekProfileView[])
+const points = ref<EmotionPointView[]>([])
 const empty = computed(() => points.value.length === 0)
 
 const curveEl = ref<HTMLElement | null>(null)
@@ -62,28 +52,23 @@ const DIM_LABELS: Record<string, string> = {
 }
 const radarData = ref<{ name: string; value: number }[] | null>(null)
 
-const today = () => new Date().toLocaleDateString('en-CA')
-function fmt(d: Date) {
-  return d.toLocaleDateString('en-CA')
-}
+const today = () => businessDate()
 
 async function load() {
-  const from = fmt(new Date(Date.now() - (range.value - 1) * 86400000))
+  const from = businessDate(addBusinessDays(new Date(), -(range.value - 1)))
   const [traj] = await Promise.all([
-    http.get<ApiResp<{ points: Point[] }>>('/emotions/trajectory', { params: { from, to: today() } }),
+    emotionApi.trajectory<{ points: EmotionPointView[] }>({ from, to: today() }),
     crisis.refreshProfile().catch(() => {
       /* 画像失败仍可看曲线 */
     }),
   ])
-  points.value = traj.data.data.points
+  points.value = traj.points
   try {
-    const { data } = await http.get<ApiResp<{ items: { id: number; type: string }[] }>>('/reports', {
-      params: { page: 0, size: 20 },
-    })
-    const sim = data.data.items.find(i => i.type === 'SIMULATE' || i.type === 'SIMULATE_REVIEW')
+    const list = await reportApi.list<{ items: { id: number; type: string }[] }>({ page: 0, size: 20 })
+    const sim = list.items.find(i => i.type === 'SIMULATE' || i.type === 'SIMULATE_REVIEW')
     if (sim) {
-      const d = await http.get<ApiResp<{ content: Json }>>(`/reports/${sim.id}`)
-      const ts: Json[] = d.data.data.content?.turnScores ?? []
+      const d = await reportApi.detail<{ content: Json }>(sim.id)
+      const ts: Json[] = d.content?.turnScores ?? []
       const agg = new Map<string, number[]>()
       const G: Record<string, number> = { A: 4, B: 3, C: 2, D: 1 }
       for (const t of ts) {
@@ -114,12 +99,22 @@ function ensureChart(el: HTMLElement | null): Chart | undefined {
 }
 
 function baseOpt() {
-  const label2 = cssVar('--sv-label2') || '#8a93b5'
-  const sep = cssVar('--sv-sep') || '#eef1fa'
+  const label3 = cssVar('--sv-label3') || '#6f6659'
+  const sep = cssVar('--sv-sep') || '#ddd3c2'
   return {
-    textStyle: { color: label2, fontFamily: 'inherit' },
-    axisLabel: label2,
+    textStyle: { color: label3, fontFamily: 'inherit', fontSize: 11 },
+    axisLabel: label3,
     splitLine: sep,
+  }
+}
+
+function tooltipOpt() {
+  return {
+    backgroundColor: cssVar('--sv-card'),
+    borderColor: cssVar('--sv-sep'),
+    borderWidth: 1,
+    textStyle: { color: cssVar('--sv-label'), fontSize: 11, fontFamily: 'inherit' },
+    extraCssText: 'box-shadow:none;border-radius:4px;',
   }
 }
 
@@ -142,6 +137,7 @@ function render() {
     {
       grid: { left: 36, right: 12, top: 34, bottom: 24 },
       tooltip: {
+        ...tooltipOpt(),
         trigger: 'axis',
         formatter: (params: unknown) => {
           const d = (params as { axisValue: string }[])[0].axisValue
@@ -164,7 +160,7 @@ function render() {
           min: -1,
           max: 1,
           axisLabel: { color: b.axisLabel },
-          splitLine: { lineStyle: { color: b.splitLine } },
+          splitLine: { lineStyle: { color: b.splitLine, type: 'dashed', width: 1 } },
         },
         { type: 'value', min: 0, max: 1, show: false },
       ],
@@ -174,16 +170,17 @@ function render() {
           type: 'line',
           smooth: true,
           data: avg('valence'),
-          lineStyle: { color: indigo },
+          lineStyle: { color: indigo, width: 1.5 },
           itemStyle: { color: indigo },
-          areaStyle: { color: 'color-mix(in srgb,' + indigo + ' 10%, transparent)' },
+          symbolSize: 3,
+          areaStyle: { color: 'color-mix(in srgb,' + indigo + ' 8%, transparent)' },
           connectNulls: true,
           markLine: {
             silent: true,
             symbol: 'none',
             label: { show: false },
             data: [{ yAxis: 0 }],
-            lineStyle: { color: b.splitLine },
+            lineStyle: { color: b.splitLine, width: 1 },
           },
         },
         {
@@ -192,7 +189,8 @@ function render() {
           yAxisIndex: 1,
           data: avg('intensity'),
           itemStyle: {
-            color: 'color-mix(in srgb,' + (cssVar('--sv-amber') || '#f0a35e') + ' 55%, transparent)',
+            color: cssVar('--sv-label3') || '#6f6659',
+            borderRadius: 0,
           },
           barMaxWidth: 10,
         },
@@ -209,8 +207,9 @@ function render() {
   const top = [...stressor.entries()].sort((a, b2) => b2[1] - a[1]).slice(0, 6)
   charts.value[1]?.setOption(
     {
-      tooltip: { trigger: 'item' },
-      legend: { bottom: 0, textStyle: { color: b.axisLabel }, itemWidth: 10 },
+      color: [indigo, cssVar('--sv-label3'), cssVar('--sv-warn'), cssVar('--sv-ok')],
+      tooltip: { ...tooltipOpt(), trigger: 'item' },
+      legend: { bottom: 0, textStyle: { color: b.axisLabel, fontSize: 11 }, itemWidth: 10 },
       series: [
         {
           type: 'pie',
@@ -230,13 +229,13 @@ function render() {
   charts.value[2]?.setOption(
     {
       grid: { left: 30, right: 12, top: 18, bottom: 24 },
-      tooltip: { trigger: 'axis' },
+      tooltip: { ...tooltipOpt(), trigger: 'axis' },
       xAxis: { type: 'category', data: ws.map(w => w.statWeek.slice(5)), axisLabel: { color: b.axisLabel } },
       yAxis: {
         type: 'value',
         minInterval: 1,
         axisLabel: { color: b.axisLabel },
-        splitLine: { lineStyle: { color: b.splitLine } },
+        splitLine: { lineStyle: { color: b.splitLine, type: 'dashed', width: 1 } },
       },
       series: [
         {
@@ -244,9 +243,10 @@ function render() {
           type: 'line',
           smooth: true,
           connectNulls: true,
+          symbolSize: 3,
           data: ws.map(w => (w.distortionTop || []).reduce((s, d) => s + d.count, 0)),
-          lineStyle: { color: cssVar('--sv-amber') || '#f0a35e' },
-          itemStyle: { color: cssVar('--sv-amber') || '#f0a35e' },
+          lineStyle: { color: indigo, width: 1.5 },
+          itemStyle: { color: indigo },
         },
       ],
     },
@@ -256,22 +256,23 @@ function render() {
   // ④ 沟通四维雷达（最新一次模拟复盘）
   charts.value[3]?.setOption(
     {
-      tooltip: {},
+      tooltip: { ...tooltipOpt() },
       radar: {
         indicator: (radarData.value || []).map(d => ({ name: d.name, max: 4 })),
         radius: '65%',
         axisName: { color: b.axisLabel, fontSize: 11 },
-        splitLine: { lineStyle: { color: b.splitLine } },
+        splitLine: { lineStyle: { color: b.splitLine, width: 1 } },
         splitArea: { show: false },
-        axisLine: { lineStyle: { color: b.splitLine } },
+        axisLine: { lineStyle: { color: b.splitLine, width: 1 } },
       },
       series: [
         {
           type: 'radar',
           data: [{ value: (radarData.value || []).map(d => d.value), name: 'NVO 沟通分' }],
-          areaStyle: { color: 'color-mix(in srgb,' + indigo + ' 22%, transparent)' },
-          lineStyle: { color: indigo },
+          areaStyle: { color: 'color-mix(in srgb,' + indigo + ' 8%, transparent)' },
+          lineStyle: { color: indigo, width: 1.5 },
           itemStyle: { color: indigo },
+          symbolSize: 3,
         },
       ],
     },
@@ -281,6 +282,11 @@ function render() {
 
 function onResize() {
   charts.value.forEach(c => c.resize())
+}
+
+async function onFoldToggle() {
+  await nextTick()
+  render()
 }
 onMounted(async () => {
   await load().catch(() => toast('洞察加载失败'))
@@ -314,7 +320,7 @@ watch(range, () => load())
       </template>
     </SvNavBar>
 
-    <div class="body">
+    <SvPageBody>
       <CrisisReferral
         v-if="crisis.crisisMode"
         level="HIGH"
@@ -341,16 +347,20 @@ watch(range, () => load())
       </SvCard>
 
       <SvCard v-if="weeks.some(w => w.distortionTop?.length)">
-        <h2 class="t">思维误区线索趋势</h2>
-        <p class="sv-muted">
-          每周溯源中被识别到的认知误区线索次数——起伏本身不是坏消息，看见它就是改变的开始。
-        </p>
-        <div ref="trendEl" class="chart sm" role="img" aria-label="思维误区线索按周趋势线图" />
+        <details class="fold" @toggle="onFoldToggle">
+          <summary>思维误区线索趋势</summary>
+          <p class="sv-muted">
+            每周溯源中被识别到的认知误区线索次数——起伏本身不是坏消息，看见它就是改变的开始。
+          </p>
+          <div ref="trendEl" class="chart sm" role="img" aria-label="思维误区线索按周趋势线图" />
+        </details>
       </SvCard>
 
       <SvCard v-if="radarData">
-        <h2 class="t">沟通四维 · 最近一次模拟</h2>
-        <div ref="radarEl" class="chart" role="img" aria-label="倾听、边界表达、共情、让步四维雷达图" />
+        <details class="fold" @toggle="onFoldToggle">
+          <summary>沟通四维 · 最近一次模拟</summary>
+          <div ref="radarEl" class="chart" role="img" aria-label="倾听、边界表达、共情、让步四维雷达图" />
+        </details>
       </SvCard>
 
       <SvCard>
@@ -383,14 +393,11 @@ watch(range, () => load())
         text="趋势仅供参考，不构成任何诊断。如需专业帮助请拨打 12356。"
         reason="所有数据点来自你自己的日记、模拟与打卡记录（含 SELF_RATING），没有外部数据。"
       />
-    </div>
+    </SvPageBody>
   </div>
 </template>
 
 <style scoped>
-.body {
-  padding: 0 var(--sv-s4);
-}
 .range-seg {
   min-width: 170px;
 }
@@ -411,9 +418,9 @@ watch(range, () => load())
   padding: var(--sv-s4) 0;
 }
 .week {
-  border-top: 1px dashed var(--sv-sep);
-  padding: 10px 0;
-  font-size: var(--sv-fs-subhead);
+  border-top: 1px solid var(--sv-sep);
+  padding: 12px 0;
+  font-size: var(--sv-fs-body);
 }
 .week:first-of-type {
   border-top: none;
@@ -425,20 +432,21 @@ watch(range, () => load())
 }
 .risk {
   font-size: var(--sv-fs-caption1);
-  border-radius: var(--sv-r-pill);
-  padding: 1px 8px;
+  border: 1px solid var(--sv-sep);
+  border-radius: var(--sv-r-tag);
+  padding: 0 6px;
 }
 .risk.low {
-  background: color-mix(in srgb, var(--sv-mint) 14%, var(--sv-card));
-  color: var(--sv-mint);
+  color: var(--sv-ok);
+  border-color: var(--sv-ok);
 }
 .risk.medium {
-  background: color-mix(in srgb, var(--sv-amber) 16%, var(--sv-card));
-  color: var(--sv-amber);
+  color: var(--sv-warn);
+  border-color: var(--sv-warn);
 }
 .risk.high {
-  background: color-mix(in srgb, var(--sv-red) 14%, var(--sv-card));
-  color: var(--sv-red);
+  color: var(--sv-danger);
+  border-color: var(--sv-danger);
 }
 .line {
   margin: 6px 0 0;
@@ -449,13 +457,32 @@ watch(range, () => load())
   display: inline-block;
   margin: 0 4px 2px 0;
   font-size: var(--sv-fs-caption1);
-  background: var(--sv-fill2);
+  border: 1px solid var(--sv-sep);
   color: var(--sv-label2);
-  border-radius: var(--sv-r-pill);
-  padding: 2px 8px;
+  border-radius: var(--sv-r-tag);
+  padding: 0 6px;
 }
 .warm {
-  background: color-mix(in srgb, var(--sv-amber) 14%, transparent);
-  color: var(--sv-amber);
+  color: var(--sv-warn);
+  border-color: var(--sv-warn);
+}
+.fold summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  list-style: none;
+  font-size: var(--sv-fs-title3);
+  color: var(--sv-label);
+  padding-bottom: var(--sv-s2);
+}
+.fold summary::-webkit-details-marker {
+  display: none;
+}
+.fold[open] summary {
+  border-bottom: 1px solid var(--sv-sep);
+}
+.fold .chart {
+  margin-top: var(--sv-s3);
 }
 </style>

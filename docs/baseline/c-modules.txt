@@ -1,0 +1,39 @@
+# C 类禁止改动模块清单（依据 Spec §3.4；供 deploy/tools/check_c_guard.mjs 读取）
+# 格式：每行一个路径；以 / 结尾表示目录前缀，否则为精确文件路径。
+# 变更流程：提出方案 → 影响分析（安全/合规/数据）→ 用户书面批准 → 单独分支/单独测试 → 双人复核。
+# 注意：本清单仅约束“改动范围”，不改变 Spec §3.4 的允许外部动作（新增测试/外部观察）。
+
+# C-01 信封加密、DEK 生命周期、密钥销毁
+backend/src/main/java/com/soulvoyage/crypto/
+
+# C-02 高危句式确定性规则（100% 召回红线）
+backend/src/main/java/com/soulvoyage/agent/risk/RiskRules.java
+backend/src/main/resources/risk/rules.json
+
+# C-03 危机状态机、7 天窗口、降级判据、append-only 留痕
+backend/src/main/java/com/soulvoyage/domain/crisis/
+
+# C-04 诊断词表、闭集 Schema、免责声明注入
+backend/src/main/java/com/soulvoyage/llm/OutputValidator.java
+backend/src/main/resources/schemas/
+backend/src/main/java/com/soulvoyage/llm/PromptTemplates.java
+
+# C-05 审计哈希链算法与字段
+backend/src/main/java/com/soulvoyage/audit/
+
+# C-06 表结构唯一事实源（只允许新增迁移文件，不得改历史语义）
+deploy/sql/schema.sql
+
+# C-07 群体看板隐私三闸
+backend/src/main/java/com/soulvoyage/domain/board/GroupBoardService.java
+
+# C-08 注销冷静期 / 密钥销毁语义
+backend/src/main/java/com/soulvoyage/account/AccountService.java
+
+# C-09 微信绑定一次性票语义
+backend/src/main/java/com/soulvoyage/wechat/WxBindTicketStore.java
+
+# C-10 产品边界、危机话术与转介资源
+docs/项目手册.md
+frontend/src/components/CrisisReferral.vue
+frontend/src/views/CrisisView.vue

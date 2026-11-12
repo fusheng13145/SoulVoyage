@@ -2,8 +2,9 @@
 import { onMounted, ref } from 'vue'
 import SvNavBar from '@/components/ui/SvNavBar.vue'
 import SvCard from '@/components/ui/SvCard.vue'
+import SvPageBody from '@/components/ui/SvPageBody.vue'
 import SvDisclaimer from '@/components/ui/SvDisclaimer.vue'
-import http, { type ApiResp } from '@/api/http'
+import { letterApi } from '@/api/domains/letter'
 import { toast } from '@/stores/ui'
 
 interface Letter {
@@ -19,8 +20,8 @@ const loading = ref(true)
 
 onMounted(async () => {
   try {
-    const { data } = await http.get<ApiResp<{ items: Letter[]; total: number }>>('/letters')
-    items.value = data.data.items
+    const data = await letterApi.list<{ items: Letter[]; total: number }>()
+    items.value = data.items
   } catch (e) {
     toast((e as Error).message || '来信没取到')
   } finally {
@@ -44,12 +45,11 @@ const weekCn = (w: string) => {
       :large="false"
     />
 
-    <div class="body">
-      <p v-if="loading" class="sv-muted center">展开信封中…</p>
+    <SvPageBody>
+      <p v-if="loading" class="sv-muted sv-center">展开信封中…</p>
       <template v-else-if="items.length">
         <SvCard v-for="l in items" :key="l.id" class="mail">
           <div class="m-head">
-            <span class="stamp" aria-hidden="true">✉️</span>
             <div>
               <b>{{ weekCn(l.statWeek) }}</b>
               <small v-if="l.weekGlow" class="glow">{{ l.weekGlow }}</small>
@@ -62,25 +62,18 @@ const weekCn = (w: string) => {
         </SvCard>
       </template>
       <SvCard v-else class="empty">
-        <p class="sv-muted center">
+        <p class="sv-muted sv-center">
           还没有来信。第一封会在下周一早上抵达——只要上周你有过打卡或日记，心屿就会写。
         </p>
       </SvCard>
       <SvDisclaimer
         text="来信由 AI 基于你上周的记录写成，引用只来自你自己的原话与统计数字；它记得的，都是你愿意让它记得的。"
       />
-    </div>
+    </SvPageBody>
   </div>
 </template>
 
 <style scoped>
-.body {
-  padding: 0 var(--sv-s4);
-}
-.center {
-  text-align: center;
-  padding: var(--sv-s4) 0;
-}
 .mail {
   margin-bottom: var(--sv-s3);
 }
@@ -90,29 +83,26 @@ const weekCn = (w: string) => {
   gap: 12px;
   margin-bottom: var(--sv-s3);
 }
-.stamp {
-  display: grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--sv-amber) 16%, var(--sv-card));
-  font-size: 22px;
-}
 .m-head b {
-  font-size: var(--sv-fs-subhead);
   display: block;
+  font-family: var(--sv-serif);
+  font-size: var(--sv-fs-footnote);
+  font-weight: 400;
+  color: var(--sv-label3);
+  letter-spacing: 0.4px;
 }
 .glow {
   display: block;
-  color: var(--sv-mint);
+  color: var(--sv-ok);
   font-size: var(--sv-fs-caption1);
-  margin-top: 2px;
+  margin-top: 4px;
 }
 .m-body {
   white-space: pre-wrap;
-  line-height: 1.9;
-  font-size: var(--sv-fs-subhead);
+  font-family: var(--sv-serif);
+  font-size: var(--sv-fs-prose);
+  line-height: var(--sv-lh-prose);
+  max-width: 68ch;
 }
 .m-foot {
   margin-top: var(--sv-s3);

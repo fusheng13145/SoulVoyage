@@ -22,7 +22,7 @@ async function submit() {
   try {
     if (mode.value === 'login') await auth.login(username.value, password.value)
     else await auth.register(username.value, password.value, nickname.value)
-    toast(mode.value === 'login' ? '欢迎回到心屿' : '登岛成功，从这里开始漫行')
+    toast(mode.value === 'login' ? '已登录' : '已注册')
     router.replace('/today')
   } catch (e) {
     error.value = (e as Error).message ?? '操作失败'
@@ -35,7 +35,7 @@ async function submit() {
 <template>
   <div class="login">
     <div class="brand">
-      <span class="logo"><SvIcon name="i-island" :size="56" tone="inherit" /></span>
+      <span class="logo" aria-hidden="true"><SvIcon name="i-island" :size="28" tone="inherit" /></span>
       <h1>心屿漫行</h1>
       <p class="sv-muted">多 Agent 青年心理自助成长平台</p>
     </div>
@@ -64,12 +64,13 @@ async function submit() {
 
       <label
         >用户名
-        <input v-model="username" autocomplete="username" maxlength="32" required />
+        <input v-model="username" class="sv-input" autocomplete="username" maxlength="32" required />
       </label>
       <label
         >密码
         <input
           v-model="password"
+          class="sv-input"
           type="password"
           autocomplete="current-password"
           placeholder="≥ 8 位"
@@ -79,12 +80,12 @@ async function submit() {
       </label>
       <label v-if="mode === 'register'"
         >昵称（可选）
-        <input v-model="nickname" maxlength="32" />
+        <input v-model="nickname" class="sv-input" maxlength="32" />
       </label>
 
       <p v-if="error" class="err" role="alert">{{ error }}</p>
       <button class="sv-btn" type="submit" :disabled="loading || !username || !password">
-        {{ loading ? '请稍候…' : mode === 'login' ? '进入心屿' : '注册并进入' }}
+        {{ loading ? '请稍候…' : mode === 'login' ? '登录' : '注册并进入' }}
       </button>
     </form>
 
@@ -98,7 +99,7 @@ async function submit() {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: calc(var(--sv-safe-t) + 64px) var(--sv-s5) var(--sv-s6);
+  padding: calc(var(--sv-safe-t) + 56px) var(--sv-s5) var(--sv-s6);
 }
 .brand {
   text-align: center;
@@ -107,51 +108,55 @@ async function submit() {
 .logo {
   display: grid;
   place-items: center;
-  width: 88px;
-  height: 88px;
+  width: 44px;
+  height: 44px;
   margin: 0 auto var(--sv-s3);
-  border-radius: 28px;
-  background: linear-gradient(160deg, var(--sv-indigo), var(--sv-blue));
-  color: #fff;
-  box-shadow: var(--sv-sh-2);
+  border: 1px solid var(--sv-sep);
+  border-radius: var(--sv-r-card);
+  color: var(--sv-accent);
+  background: var(--sv-card);
 }
 h1 {
+  font-family: var(--sv-serif);
   font-size: var(--sv-fs-title1);
   letter-spacing: 2px;
+  font-weight: 600;
 }
 .brand .sv-muted {
-  margin-top: 4px;
+  margin-top: 6px;
 }
 .card {
   width: 100%;
   max-width: 380px;
-  padding: var(--sv-s5);
+  padding: var(--sv-s6) var(--sv-s5);
   display: flex;
   flex-direction: column;
   gap: var(--sv-s4);
 }
 .seg {
   display: flex;
-  padding: 2px;
-  gap: 2px;
-  background: var(--sv-fill2);
-  border-radius: 10px;
+  gap: var(--sv-s4);
+  border-bottom: 1px solid var(--sv-sep);
+  margin-bottom: 4px;
 }
 .seg button {
-  flex: 1;
-  min-height: 32px;
+  flex: 0 0 auto;
+  min-height: 36px;
   border: none;
-  border-radius: 8px;
+  border-bottom: 1px solid transparent;
+  border-radius: 0;
   background: transparent;
   cursor: pointer;
-  font-size: var(--sv-fs-subhead);
-  color: var(--sv-label);
+  font-size: var(--sv-fs-body);
+  color: var(--sv-label2);
   font-family: inherit;
+  padding: 0 2px;
+  margin-bottom: -1px;
 }
 .seg button.on {
-  background: var(--sv-card);
-  font-weight: 600;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+  color: var(--sv-accent);
+  border-bottom-color: var(--sv-accent);
+  font-weight: 500;
 }
 label {
   display: flex;
@@ -160,21 +165,8 @@ label {
   font-size: var(--sv-fs-footnote);
   color: var(--sv-label2);
 }
-input {
-  border: 1px solid var(--sv-sep);
-  background: var(--sv-bg);
-  border-radius: var(--sv-r-ctl);
-  padding: 12px 14px;
-  font-size: var(--sv-fs-subhead);
-  color: var(--sv-label);
-  outline: none;
-  font-family: inherit;
-}
-input:focus {
-  border-color: var(--sv-indigo);
-}
 .err {
-  color: var(--sv-red);
+  color: var(--sv-danger);
   font-size: var(--sv-fs-footnote);
 }
 .help {
@@ -184,7 +176,7 @@ input:focus {
 .policy {
   text-align: center;
   margin-top: var(--sv-s2);
-  line-height: 1.6;
+  line-height: 1.7;
   max-width: 320px;
 }
 </style>

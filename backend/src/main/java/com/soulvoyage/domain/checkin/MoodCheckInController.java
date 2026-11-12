@@ -2,6 +2,7 @@ package com.soulvoyage.domain.checkin;
 
 import com.soulvoyage.auth.AuthPrincipal;
 import com.soulvoyage.common.api.ApiResponse;
+import com.soulvoyage.domain.checkin.dto.CheckInDtos.MonthResp;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -34,8 +35,8 @@ public class MoodCheckInController {
 
     /** month=YYYY-MM；返回当月打卡数据 + 今天是否已打 */
     @GetMapping
-    public ApiResponse<Map<String, Object>> month(@AuthenticationPrincipal AuthPrincipal p,
-                                                  @RequestParam String month) {
+    public ApiResponse<MonthResp> month(@AuthenticationPrincipal AuthPrincipal p,
+                                        @RequestParam String month) {
         int y, m;
         try {
             String[] parts = month.split("-");
@@ -45,10 +46,8 @@ public class MoodCheckInController {
             throw new com.soulvoyage.common.exception.BizException(
                     com.soulvoyage.common.api.ErrorCode.BAD_PARAMS, "month 格式应为 YYYY-MM");
         }
-        Map<String, Object> out = new java.util.HashMap<>();
-        out.put("items", checkIn.month(p.userId(), y, m));
-        out.put("today", checkIn.today(p.userId()));
-        return ApiResponse.ok(out);
+        return ApiResponse.ok(new MonthResp(
+                checkIn.month(p.userId(), y, m), checkIn.today(p.userId())));
     }
 
     @GetMapping("/streak")

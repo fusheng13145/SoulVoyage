@@ -1,17 +1,9 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import http, { type ApiResp } from '@/api/http'
+import { emotionApi } from '@/api/domains/emotion'
+import { riskApi, type RefResource, type Referral } from '@/api/domains/risk'
 
-export interface RefResource {
-  name: string
-  value: string
-  type: string
-  note: string
-}
-export interface Referral {
-  boundary: string
-  resources: RefResource[]
-}
+export type { RefResource, Referral } from '@/api/domains/risk'
 
 /** 危机资源全站一份（CrisisCard/危机页/转介卡共用），失败时降级静态兜底 */
 export const useCrisisStore = defineStore('crisis', () => {
@@ -40,10 +32,10 @@ export const useCrisisStore = defineStore('crisis', () => {
 
   async function ensure() {
     if (referral.value) return
-    inflight ??= http
-      .get<ApiResp<Referral>>('/risk/resources')
-      .then(({ data }) => {
-        referral.value = data.data
+    inflight ??= riskApi
+      .resources()
+      .then(r => {
+        referral.value = r
       })
       .catch(() => {
         referral.value = FALLBACK
@@ -62,10 +54,9 @@ export const useCrisisStore = defineStore('crisis', () => {
 
   /** 画像一次拉取全站共享（危机横幅 + 洞察周画像） */
   async function refreshProfile() {
-    const { data } =
-      await http.get<ApiResp<{ crisisMode: boolean; weeks: typeof weeks.value }>>('/emotions/profile')
-    crisisMode.value = !!data.data.crisisMode
-    weeks.value = data.data.weeks ?? []
+    const p = await emotionApi.profile<{ crisisMode: boolean; weeks: typeof weeks.value }>()
+    crisisMode.value = !!p.crisisMode
+    weeks.value = p.weeks ?? []
   }
 
   return { referral, crisisMode, weeks, ensure, resources, refreshProfile }

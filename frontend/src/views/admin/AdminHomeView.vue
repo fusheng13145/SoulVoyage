@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import AdminShell from '@/components/AdminShell.vue'
 import SvCard from '@/components/ui/SvCard.vue'
@@ -86,7 +86,7 @@ const fmt = (n: number | null | undefined) => (n == null ? '—' : n.toLocaleStr
       </button>
     </div>
 
-    <p v-if="loading" class="muted center">加载中…</p>
+    <p v-if="loading" class="muted sv-center">加载中…</p>
     <template v-else-if="data">
       <div class="grid">
         <SvCard v-for="c in taskCards" :key="c.label" class="stat">
@@ -165,7 +165,7 @@ const fmt = (n: number | null | undefined) => (n == null ? '—' : n.toLocaleStr
   border: 1px solid var(--sv-sep);
   background: var(--sv-card);
   color: var(--sv-label2);
-  border-radius: 999px;
+  border-radius: var(--sv-r-tag);
   padding: 6px 12px;
   font-size: var(--sv-fs-footnote);
   cursor: pointer;
@@ -208,10 +208,6 @@ const fmt = (n: number | null | undefined) => (n == null ? '—' : n.toLocaleStr
   color: var(--sv-label2);
   line-height: 1.7;
   margin: 0;
-}
-.center {
-  text-align: center;
-  padding: var(--sv-s4) 0;
 }
 .muted {
   color: var(--sv-label3);

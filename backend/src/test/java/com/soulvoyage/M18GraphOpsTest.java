@@ -2,6 +2,9 @@ package com.soulvoyage;
 
 import com.soulvoyage.admin.AdminMetricsController;
 import com.soulvoyage.admin.ContentAdminController;
+import com.soulvoyage.admin.dto.AdminDtos.MetricsOverviewResp;
+import com.soulvoyage.admin.dto.AdminDtos.RuntimeView;
+import com.soulvoyage.admin.dto.ContentAdminDtos.KgGraphAuditResp;
 import com.soulvoyage.auth.AuthPrincipal;
 import com.soulvoyage.common.api.ApiResponse;
 import org.junit.jupiter.api.Test;
@@ -50,21 +53,20 @@ class M18GraphOpsTest {
 
     @Test
     void runtimeSnapshotReportsDbProviderWhenGraphDisabled() {
-        Map<String, Object> data = as(ADMIN, () -> metrics.overview(7)).getData();
-        @SuppressWarnings("unchecked")
-        Map<String, Object> runtime = (Map<String, Object>) data.get("runtime");
+        MetricsOverviewResp data = as(ADMIN, () -> metrics.overview(7)).getData();
+        RuntimeView runtime = data.runtime();
 
-        assertEquals("kg=db(kg_node)", runtime.get("kg"),
+        assertEquals("kg=db(kg_node)", runtime.kg(),
                 "图未启用时必须标明 KG 跑在 kg_node 表本身，不能谎称图口径");
-        assertNotNull(runtime.get("llmGate"), "既有 llmGate 口径不应被本次改动影响");
+        assertNotNull(runtime.llmGate(), "既有 llmGate 口径不应被本次改动影响");
     }
 
     @Test
     void auditEndpointReportsNoDerivedViewWhenGraphDisabled() {
-        ApiResponse<Map<String, Object>> resp = as(ADMIN, () -> adminContent.kgGraphAudit());
+        ApiResponse<KgGraphAuditResp> resp = as(ADMIN, () -> adminContent.kgGraphAudit());
 
-        assertEquals(Boolean.FALSE, resp.getData().get("available"));
-        assertTrue(String.valueOf(resp.getData().get("reason")).contains("未启用"),
+        assertEquals(Boolean.FALSE, resp.getData().available());
+        assertTrue(String.valueOf(resp.getData().reason()).contains("未启用"),
                 "图未启用时对账须如实说明无派生视图，而不是假装一致");
     }
 }

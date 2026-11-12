@@ -7,8 +7,10 @@ import SvList from '@/components/ui/SvList.vue'
 import SvCell from '@/components/ui/SvCell.vue'
 import SvIcon from '@/components/ui/SvIcon.vue'
 import SvSkeleton from '@/components/ui/SvSkeleton.vue'
+import SvPageBody from '@/components/ui/SvPageBody.vue'
 import SvDisclaimer from '@/components/ui/SvDisclaimer.vue'
-import http, { type ApiResp } from '@/api/http'
+import { diaryApi } from '@/api/domains/diary'
+import { taskApi } from '@/api/domains/task'
 import { confirmDialog, toast } from '@/stores/ui'
 import { EMOTION_BY_LABEL } from '@/utils/emotions'
 
@@ -52,7 +54,13 @@ const editText = ref('')
 const busy = ref('') // '' | 'saving' | 'reanalyzing'
 let pollTimer: number | undefined
 
-const MOOD_FACE: Record<number, string> = { 1: '😖', 2: '😞', 3: '😐', 4: '🙂', 5: '😄' }
+const MOOD_TONE: Record<number, string> = {
+  1: 'var(--sv-danger)',
+  2: 'var(--sv-warn)',
+  3: 'var(--sv-label3)',
+  4: 'color-mix(in srgb, var(--sv-ok) 60%, var(--sv-label3))',
+  5: 'var(--sv-ok)',
+}
 const REPORT_TITLES: Record<string, string> = {
   DIARY_TRACE: '溯源复盘',
   DIARY_REPORT: '复盘报告',
@@ -66,8 +74,7 @@ const emoMeta = (label: string) => EMOTION_BY_LABEL[label]
 async function open() {
   loading.value = true
   try {
-    const { data } = await http.get<ApiResp<DiaryDetail>>(`/diaries/${route.params.id}`)
-    detail.value = data.data
+    detail.value = await diaryApi.detail<DiaryDetail>(String(route.params.id))
   } catch (e) {
     toast((e as Error).message || '打开失败')
   } finally {
@@ -82,7 +89,7 @@ async function saveEdit() {
   if (!d || !editText.value.trim()) return
   busy.value = 'saving'
   try {
-    await http.put(`/diaries/${d.id}`, { content: editText.value, moodSelfRating: d.moodSelfRating })
+    await diaryApi.update(d.id, { content: editText.value, moodSelfRating: d.moodSelfRating })
     await open()
     editing.value = false
     toast('已保存，旧报告已标记待更新')
@@ -104,7 +111,7 @@ async function remove() {
   })
   if (!ok) return
   try {
-    await http.delete(`/diaries/${d.id}`)
+    await diaryApi.remove(d.id)
     toast('已删除')
     router.replace('/diaries')
   } catch (e) {
@@ -118,8 +125,8 @@ async function reanalyze() {
   if (!d || busy.value) return
   busy.value = 'reanalyzing'
   try {
-    const { data } = await http.post<ApiResp<{ taskNo: string }>>(`/diaries/${d.id}/reanalyze`)
-    pollTask(data.data.taskNo)
+    const { taskNo } = await diaryApi.reanalyze(d.id)
+    pollTask(taskNo)
   } catch (e) {
     toast((e as Error).message || '提交重新分析失败')
     busy.value = ''
@@ -129,8 +136,7 @@ async function reanalyze() {
 function pollTask(taskNo: string) {
   const tick = async () => {
     try {
-      const { data } = await http.get<ApiResp<{ status: string }>>(`/tasks/${taskNo}`)
-      const st = data.data.status
+      const { status: st } = await taskApi.get<{ status: string }>(taskNo)
       if (st === 'SUCCESS' || st === 'PARTIAL_SUCCESS') {
         stopPoll()
         busy.value = ''
@@ -158,7 +164,7 @@ function stopPoll() {
   }
 }
 
-const riskTone = (r: string) => ({ HIGH: 'var(--sv-red)', MEDIUM: 'var(--sv-amber)' })[r] || 'var(--sv-mint)'
+const riskTone = (r: string) => ({ HIGH: 'var(--sv-danger)', MEDIUM: 'var(--sv-warn)' })[r] || 'var(--sv-ok)'
 </script>
 
 <template>
@@ -171,11 +177,17 @@ const riskTone = (r: string) => ({ HIGH: 'var(--sv-red)', MEDIUM: 'var(--sv-ambe
       </template>
     </SvNavBar>
 
-    <div v-if="detail" class="body">
+    <SvPageBody v-if="detail">
       <SvCard>
         <div class="head">
           <time>{{ detail.recordDate }}</time>
-          <span v-if="detail.moodSelfRating" class="mood">{{ MOOD_FACE[detail.moodSelfRating] }}</span>
+          <span v-if="detail.moodSelfRating" class="mood">
+            <i
+              class="mood-dot"
+              :style="{ background: MOOD_TONE[detail.moodSelfRating] }"
+              aria-hidden="true"
+            />{{ detail.moodSelfRating }}/5
+          </span>
           <span
             v-if="detail.source === 'VOICE'"
             class="src"
@@ -213,7 +225,7 @@ const riskTone = (r: string) => ({ HIGH: 'var(--sv-red)', MEDIUM: 'var(--sv-ambe
           v-for="(p, i) in detail.emotions"
           :key="i"
           :chevron="false"
-          :label="`${emoMeta(p.emotion)?.face || '🙂'} ${p.emotion}`"
+          :label="p.emotion"
           :hint="`${srcLabel(p.sourceType)} · 强度 ${Math.round(p.intensity * 100)}% · 效价 ${p.valence}`"
         >
           <template #icon>
@@ -246,21 +258,18 @@ const riskTone = (r: string) => ({ HIGH: 'var(--sv-red)', MEDIUM: 'var(--sv-ambe
       </p>
 
       <SvDisclaimer text="日记以信封加密存储，删除为软删除；导出数据同样仅你可见" />
-    </div>
+    </SvPageBody>
 
-    <div v-else-if="!loading" class="body"><p class="sv-muted">日记不存在或已删除。</p></div>
-    <div v-else class="body"><SvSkeleton :h="120" /><SvSkeleton :h="80" w="70%" /></div>
+    <SvPageBody v-else-if="!loading"><p class="sv-muted">日记不存在或已删除。</p></SvPageBody>
+    <SvPageBody v-else><SvSkeleton :h="120" /><SvSkeleton :h="80" w="70%" /></SvPageBody>
   </div>
 </template>
 
 <style scoped>
-.body {
-  padding: 0 var(--sv-s4);
-}
 .ic {
   border: none;
   background: transparent;
-  color: var(--sv-red);
+  color: var(--sv-danger);
   cursor: pointer;
   width: 44px;
   height: 44px;
@@ -274,18 +283,30 @@ const riskTone = (r: string) => ({ HIGH: 'var(--sv-red)', MEDIUM: 'var(--sv-ambe
   margin-bottom: var(--sv-s3);
 }
 .head time {
-  color: var(--sv-label2);
+  color: var(--sv-label3);
+  font-family: var(--sv-serif);
   font-size: var(--sv-fs-footnote);
   font-variant-numeric: tabular-nums;
 }
 .mood {
-  font-size: 18px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--sv-label3);
+  font-size: var(--sv-fs-caption1);
+  font-variant-numeric: tabular-nums;
+}
+.mood-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  display: inline-block;
 }
 .src {
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  color: var(--sv-label2);
+  color: var(--sv-label3);
   font-size: var(--sv-fs-footnote);
   font-variant-numeric: tabular-nums;
 }
@@ -295,35 +316,37 @@ const riskTone = (r: string) => ({ HIGH: 'var(--sv-red)', MEDIUM: 'var(--sv-ambe
   gap: 6px;
 }
 .op {
-  border: none;
-  background: var(--sv-fill2);
-  color: var(--sv-indigo);
-  border-radius: var(--sv-r-pill);
-  padding: 6px 14px;
+  border: 1px solid var(--sv-sep);
+  background: var(--sv-card);
+  color: var(--sv-label2);
+  border-radius: var(--sv-r-ctl);
+  padding: 4px 10px;
   font-size: var(--sv-fs-footnote);
   cursor: pointer;
-  min-height: 30px;
+  min-height: 32px;
   font-family: inherit;
 }
 .op:disabled {
-  opacity: 0.5;
+  opacity: 0.45;
 }
 .busy {
   margin-bottom: var(--sv-s2);
 }
 .content {
   white-space: pre-wrap;
-  font-size: var(--sv-fs-body);
-  line-height: 1.8;
+  font-family: var(--sv-serif);
+  font-size: var(--sv-fs-prose);
+  line-height: var(--sv-lh-prose);
 }
 textarea {
   width: 100%;
-  border: 1px solid var(--sv-sep);
-  background: var(--sv-bg);
+  border: 1px solid var(--sv-line-strong);
+  background: var(--sv-card2);
   border-radius: var(--sv-r-ctl);
-  padding: 12px 14px;
-  font-size: var(--sv-fs-subhead);
-  font-family: inherit;
+  padding: 12px;
+  font-size: var(--sv-fs-callout);
+  line-height: var(--sv-lh-prose);
+  font-family: var(--sv-serif);
   resize: vertical;
   color: var(--sv-label);
   outline: none;
@@ -335,8 +358,8 @@ textarea {
   margin-top: var(--sv-s2);
 }
 .dot {
-  width: 14px;
-  height: 14px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
 }
 .tags {
@@ -346,11 +369,11 @@ textarea {
   justify-content: flex-end;
 }
 .tag {
-  font-size: var(--sv-fs-caption2);
-  background: var(--sv-fill2);
+  font-size: var(--sv-fs-caption1);
+  border: 1px solid var(--sv-sep);
   color: var(--sv-label2);
-  border-radius: var(--sv-r-pill);
-  padding: 2px 8px;
+  border-radius: var(--sv-r-tag);
+  padding: 1px 6px;
 }
 .none {
   text-align: center;

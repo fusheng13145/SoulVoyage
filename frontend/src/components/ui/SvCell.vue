@@ -25,8 +25,8 @@ withDefaults(
     :class="{ danger }"
     :style="to ? { color: 'inherit' } : {}"
   >
-    <span v-if="icon || $slots.icon" class="ico" :style="tone ? { background: tone } : {}">
-      <slot name="icon"><SvIcon :name="icon || 'i-sparkle'" :size="16" tone="inherit" /></slot>
+    <span v-if="icon || $slots.icon" class="ico">
+      <slot name="icon"><SvIcon :name="icon || 'i-sparkle'" :size="20" tone="inherit" /></slot>
     </span>
     <span class="body">
       <b>{{ label }}</b>
@@ -45,10 +45,10 @@ withDefaults(
   display: flex;
   align-items: center;
   gap: 12px;
-  min-height: 48px;
-  padding: 11px 16px;
+  min-height: 56px;
+  padding: 12px 16px;
   border-bottom: 1px solid var(--sv-sep);
-  font-size: var(--sv-fs-callout);
+  font-size: var(--sv-fs-body);
   color: var(--sv-label);
   transition: background 0.15s;
 }
@@ -56,14 +56,13 @@ withDefaults(
   border-bottom: none;
 }
 .ico {
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
+  width: 24px;
+  height: 24px;
   flex: none;
   display: grid;
   place-items: center;
-  color: #fff;
-  background: var(--sv-indigo);
+  color: var(--sv-accent);
+  background: transparent;
 }
 .body {
   flex: 1;
@@ -75,11 +74,11 @@ withDefaults(
 .body small {
   display: block;
   color: var(--sv-label2);
-  font-size: var(--sv-fs-caption1);
+  font-size: var(--sv-fs-footnote);
 }
 .danger {
-  color: var(--sv-red);
-  font-weight: 600;
+  color: var(--sv-danger);
+  font-weight: 500;
 }
 .arr {
   margin-left: auto;

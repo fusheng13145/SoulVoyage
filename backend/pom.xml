@@ -27,6 +27,11 @@
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-web</artifactId>
     </dependency>
+    <!-- B-05/B-06：包外切面（审计链锁/调度锁）需要 Spring AOP -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-aop</artifactId>
+    </dependency>
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-security</artifactId>
@@ -56,6 +61,16 @@
     <dependency>
       <groupId>com.mysql</groupId>
       <artifactId>mysql-connector-j</artifactId>
+      <scope>runtime</scope>
+    </dependency>
+    <!-- B-10：Flyway 迁移基线——schema.sql 保留为初始快照，变更一律新增版本化迁移 -->
+    <dependency>
+      <groupId>org.flywaydb</groupId>
+      <artifactId>flyway-core</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.flywaydb</groupId>
+      <artifactId>flyway-mysql</artifactId>
       <scope>runtime</scope>
     </dependency>
     <!-- M16：Neo4j 知识图谱——KgSearchService 的图实现；soulvoyage.neo4j.enabled=false 时不装配 -->
@@ -116,6 +131,13 @@
     <dependency>
       <groupId>com.h2database</groupId>
       <artifactId>h2</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <!-- B-18：架构守卫（测试期依赖，不进入运行时） -->
+    <dependency>
+      <groupId>com.tngtech.archunit</groupId>
+      <artifactId>archunit-junit5</artifactId>
+      <version>1.3.0</version>
       <scope>test</scope>
     </dependency>
   </dependencies>

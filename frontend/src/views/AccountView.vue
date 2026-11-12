@@ -6,9 +6,11 @@ import SvCard from '@/components/ui/SvCard.vue'
 import SvList from '@/components/ui/SvList.vue'
 import SvCell from '@/components/ui/SvCell.vue'
 import SvIcon from '@/components/ui/SvIcon.vue'
-import http, { type ApiResp } from '@/api/http'
+import SvPageBody from '@/components/ui/SvPageBody.vue'
+import { accountApi } from '@/api/domains/account'
 import { useAuthStore } from '@/stores/auth'
 import { confirmDialog, toast } from '@/stores/ui'
+import { businessDate } from '@/utils/date'
 
 const router = useRouter()
 const auth = useAuthStore()
@@ -31,7 +33,7 @@ async function cancelDeletion() {
   err.value = ''
   msg.value = ''
   try {
-    await http.post('/users/me/delete/cancel')
+    await accountApi.cancelDeletion()
     msg.value = '已撤回注销申请，账号恢复正常。'
     sessionStorage.removeItem('sv_del_pending')
     await auth.fetchMe(true)
@@ -48,7 +50,7 @@ async function changePassword() {
     return
   }
   try {
-    await http.put('/users/me/password', { oldPassword: pw.value.old, newPassword: pw.value.next })
+    await accountApi.changePassword(pw.value.old, pw.value.next)
     // 后端已吊销全部旧会话，本地一并下线重登
     auth.clear()
     router.replace('/login')
@@ -72,12 +74,12 @@ async function exportData() {
   if (!ok) return
   exporting.value = true
   try {
-    const { data } = await http.get<ApiResp<{ fileId: string }>>('/users/me/data-export')
-    const r = await http.post<ApiResp<Record<string, unknown>>>(`/users/me/data-export/${data.data.fileId}`)
-    const blob = new Blob([JSON.stringify(r.data.data, null, 2)], { type: 'application/json' })
+    const { fileId } = await accountApi.createDataExport()
+    const data = await accountApi.consumeDataExport(fileId)
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
     const a = document.createElement('a')
     a.href = URL.createObjectURL(blob)
-    a.download = `心屿漫行-我的数据-${new Date().toLocaleDateString('en-CA')}.json`
+    a.download = `心屿漫行-我的数据-${businessDate()}.json`
     a.click()
     URL.revokeObjectURL(a.href)
     msg.value = '数据包已开始下载（本链接已作废，导出请重新申请）。'
@@ -102,7 +104,7 @@ async function requestDeletion() {
   })
   if (!ok) return
   try {
-    await http.post('/users/me/delete', { password: delPassword.value })
+    await accountApi.requestDeletion(delPassword.value)
     auth.clear()
     router.replace('/login')
     toast('注销申请已提交，7 天内重新登录可撤回')
@@ -116,7 +118,7 @@ async function requestDeletion() {
   <div class="account">
     <SvNavBar title="隐私中心" back="返回" :large="false" />
 
-    <div v-if="me" class="body">
+    <SvPageBody v-if="me">
       <p v-if="err" class="err" role="alert">{{ err }}</p>
       <p v-if="msg" class="ok" role="status">{{ msg }}</p>
 
@@ -207,23 +209,20 @@ async function requestDeletion() {
       </SvList>
 
       <p class="sv-cap note">心屿漫行对全部内容做信封加密，服务端无法读取明文；注销即遗忘。</p>
-    </div>
+    </SvPageBody>
   </div>
 </template>
 
 <style scoped>
-.body {
-  padding: 0 var(--sv-s4);
-}
 .err {
-  color: var(--sv-red);
+  color: var(--sv-danger);
   font-size: var(--sv-fs-footnote);
   margin-bottom: var(--sv-s2);
 }
 .ok {
-  color: var(--sv-mint);
+  color: var(--sv-ok);
   font-size: var(--sv-fs-footnote);
-  background: color-mix(in srgb, var(--sv-mint) 10%, var(--sv-card));
+  border: 1px solid var(--sv-ok);
   border-radius: var(--sv-r-ctl);
   padding: 10px 14px;
   margin-bottom: var(--sv-s2);
@@ -236,33 +235,34 @@ async function requestDeletion() {
   font-size: var(--sv-fs-footnote);
 }
 .notice b {
-  font-weight: 700;
+  font-weight: 600;
 }
 .notice .sv-btn {
   margin-left: auto;
 }
 .danger-title {
-  color: var(--sv-red);
+  color: var(--sv-danger);
 }
 .cell-pad {
   padding: 12px 16px;
 }
 .fin {
   width: 140px;
-  border: 1px solid var(--sv-sep);
-  background: var(--sv-bg);
-  border-radius: 10px;
-  padding: 9px 12px;
+  min-height: 36px;
+  border: 1px solid var(--sv-line-strong);
+  background: var(--sv-card2);
+  border-radius: var(--sv-r-ctl);
+  padding: 6px 10px;
   font-size: var(--sv-fs-footnote);
   color: var(--sv-label);
   outline: none;
   font-family: inherit;
 }
 .fin:focus {
-  border-color: var(--sv-indigo);
+  border-color: var(--sv-accent);
 }
 .danger-input:focus {
-  border-color: var(--sv-red);
+  border-color: var(--sv-danger);
 }
 .note {
   text-align: center;

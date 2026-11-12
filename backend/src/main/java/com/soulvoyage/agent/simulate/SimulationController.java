@@ -1,9 +1,14 @@
 package com.soulvoyage.agent.simulate;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.soulvoyage.agent.simulate.dto.SimulationDtos.InterruptResp;
+import com.soulvoyage.agent.simulate.dto.SimulationDtos.OpenSceneResp;
+import com.soulvoyage.agent.simulate.dto.SimulationDtos.SimulationListItem;
+import com.soulvoyage.agent.simulate.dto.SimulationDtos.SimulationListResp;
 import com.soulvoyage.auth.AuthPrincipal;
 import com.soulvoyage.common.api.ApiResponse;
 import com.soulvoyage.common.exception.BizException;
+import com.soulvoyage.orchestrator.api.TaskDtos.TaskNoResp;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import lombok.RequiredArgsConstructor;
@@ -47,15 +52,14 @@ public class SimulationController {
     }
 
     @PostMapping("/simulations")
-    public ApiResponse<Map<String, Object>> open(@AuthenticationPrincipal AuthPrincipal p,
-                                                 @Valid @RequestBody OpenReq req) {
+    public ApiResponse<OpenSceneResp> open(@AuthenticationPrincipal AuthPrincipal p,
+                                           @Valid @RequestBody OpenReq req) {
         var o = service.open(p.userId(), req.sceneCode(), req.difficulty());
-        return ApiResponse.ok(Map.of(
-                "simulateId", o.simulateId(), "sceneCode", o.sceneCode(), "title", o.title(),
-                "background", o.background(), "npcName", o.npcName(), "relation", o.relation(),
-                "difficulty", req.difficulty() == null || req.difficulty().isBlank() ? "NORMAL" : req.difficulty(),
-                "openingLine", o.openingLine(), "maxTurns", o.maxTurns(),
-                "goalDimensions", o.goalDimensions()));
+        return ApiResponse.ok(new OpenSceneResp(
+                o.simulateId(), o.sceneCode(), o.title(), o.background(),
+                o.npcName(), o.relation(),
+                req.difficulty() == null || req.difficulty().isBlank() ? "NORMAL" : req.difficulty(),
+                o.openingLine(), o.maxTurns(), o.goalDimensions()));
     }
 
     @GetMapping("/simulations/{id}")
@@ -117,11 +121,24 @@ public class SimulationController {
 
     /** C3 会话列表：?status=INTERRUPTED 可单独捞"上次没练完" */
     @GetMapping("/simulations")
-    public ApiResponse<Map<String, Object>> list(@AuthenticationPrincipal AuthPrincipal p,
-                                                 @RequestParam(required = false) String status,
-                                                 @RequestParam(defaultValue = "0") int page,
-                                                 @RequestParam(defaultValue = "10") int size) {
-        return ApiResponse.ok(service.list(p.userId(), status, page, size));
+    @SuppressWarnings("unchecked")
+    public ApiResponse<SimulationListResp> list(@AuthenticationPrincipal AuthPrincipal p,
+                                                @RequestParam(required = false) String status,
+                                                @RequestParam(defaultValue = "0") int page,
+                                                @RequestParam(defaultValue = "10") int size) {
+        Map<String, Object> m = service.list(p.userId(), status, page, size);
+        List<SimulationListItem> items = ((List<Map<String, Object>>) m.get("items")).stream()
+                .map(x -> new SimulationListItem(
+                        ((Number) x.get("simulateId")).longValue(), (String) x.get("sceneCode"),
+                        (String) x.get("sceneTitle"), (String) x.get("difficulty"),
+                        (String) x.get("status"), ((Number) x.get("totalTurns")).intValue(),
+                        (java.math.BigDecimal) x.get("avgScore"), x.get("dimensionScores"),
+                        (String) x.get("startedAt"), (String) x.get("finishedAt"),
+                        (String) x.get("reportId")))
+                .toList();
+        return ApiResponse.ok(new SimulationListResp(
+                items, ((Number) m.get("page")).intValue(),
+                ((Number) m.get("size")).intValue(), ((Number) m.get("total")).longValue()));
     }
 
     /** C3 训练历史卡：每场景 best/avg/上次四维雷达 */
@@ -131,16 +148,16 @@ public class SimulationController {
     }
 
     @PostMapping("/simulations/{id}/finish")
-    public ResponseEntity<ApiResponse<Map<String, String>>> finish(
+    public ResponseEntity<ApiResponse<TaskNoResp>> finish(
             @AuthenticationPrincipal AuthPrincipal p, @PathVariable Long id) {
         String taskNo = service.finish(p.userId(), id);
-        return ResponseEntity.accepted().body(ApiResponse.ok(Map.of("taskNo", taskNo)));
+        return ResponseEntity.accepted().body(ApiResponse.ok(new TaskNoResp(taskNo)));
     }
 
     /** C3 中途退出：留档 INTERRUPTED（可续练/可复盘），下一轮发言自动回到进行中 */
     @PostMapping("/simulations/{id}/interrupt")
-    public ApiResponse<Map<String, String>> interrupt(@AuthenticationPrincipal AuthPrincipal p,
-                                                      @PathVariable Long id) {
-        return ApiResponse.ok(Map.of("status", service.interrupt(p.userId(), id)));
+    public ApiResponse<InterruptResp> interrupt(@AuthenticationPrincipal AuthPrincipal p,
+                                                @PathVariable Long id) {
+        return ApiResponse.ok(new InterruptResp(service.interrupt(p.userId(), id)));
     }
 }

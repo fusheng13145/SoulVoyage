@@ -1,6 +1,8 @@
 package com.soulvoyage.admin;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.soulvoyage.admin.dto.AdminDtos.RiskReviewResp;
+import com.soulvoyage.admin.dto.AdminDtos.RiskRevealResp;
 import com.soulvoyage.audit.AuditService;
 import com.soulvoyage.auth.AuthPrincipal;
 import com.soulvoyage.common.api.ApiResponse;
@@ -74,9 +76,9 @@ public class AdminRiskController {
 
     /** 二次授权解密：管理员口令重验通过才回证据明文，动作（含失败）全审计 */
     @PostMapping("/{id}/reveal")
-    public ApiResponse<Map<String, Object>> reveal(@AuthenticationPrincipal AuthPrincipal p,
-                                                   @PathVariable Long id,
-                                                   @RequestBody RevealBody body) {
+    public ApiResponse<RiskRevealResp> reveal(@AuthenticationPrincipal AuthPrincipal p,
+                                              @PathVariable Long id,
+                                              @RequestBody RevealBody body) {
         verifyAdminPassword(p, id, body.password());
         RiskEventEntity e = event(id);
         Object evidence;
@@ -87,18 +89,14 @@ public class AdminRiskController {
             evidence = Map.of("error", "证据解密失败");
         }
         audit.record(p.userId(), "ADMIN_VIEW_RISK", "risk_event:" + id, null);
-        Map<String, Object> resp = new LinkedHashMap<>();
-        resp.put("riskEventId", id);
-        resp.put("userId", e.getUserId());
-        resp.put("evidence", evidence);
-        return ApiResponse.ok(resp);
+        return ApiResponse.ok(new RiskRevealResp(id, e.getUserId(), evidence));
     }
 
     /** 复核结案：标记已复核；closeCrisis=true 时联动解除危机态（内部另有 ADMIN_CLOSE_CRISIS 审计） */
     @PostMapping("/{id}/review")
-    public ApiResponse<Map<String, Object>> review(@AuthenticationPrincipal AuthPrincipal p,
-                                                   @PathVariable Long id,
-                                                   @RequestBody ReviewBody body) {
+    public ApiResponse<RiskReviewResp> review(@AuthenticationPrincipal AuthPrincipal p,
+                                              @PathVariable Long id,
+                                              @RequestBody ReviewBody body) {
         RiskEventEntity e = event(id);
         e.setReviewed((short) 1);
         events.save(e);
@@ -106,7 +104,7 @@ public class AdminRiskController {
         if (closed) crisis.adminClose(e.getUserId(), p.userId(), e.getId());
         audit.record(p.userId(), "ADMIN_REVIEW_RISK",
                 "risk_event:" + id + (closed ? "+close_crisis" : ""), null);
-        return ApiResponse.ok(Map.of("riskEventId", id, "reviewed", true, "crisisClosed", closed));
+        return ApiResponse.ok(new RiskReviewResp(id, true, closed));
     }
 
     // ---------------- internals ----------------

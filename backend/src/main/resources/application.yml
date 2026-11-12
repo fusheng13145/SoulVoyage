@@ -16,10 +16,16 @@ spring:
       maximum-pool-size: 16
   jpa:
     hibernate:
-      ddl-auto: none   # 表结构以 deploy/sql/schema.sql 为唯一事实源
+      ddl-auto: none   # 表结构以 db/migration 为唯一事实源（V1 = schema.sql 初始快照）
     open-in-view: false
     properties:
       hibernate.jdbc.time_zone: UTC
+  flyway:
+    # B-10：既有库首次启动只做 baseline（V1 视为已应用，不重放）；空库执行 V1 建库
+    baseline-on-migrate: true
+    baseline-version: 1
+    locations: classpath:db/migration
+    validate-on-migrate: true
   data:
     redis:
       host: ${SV_REDIS_HOST:127.0.0.1}   # 本机 Redis（D:\Redis）
@@ -39,6 +45,8 @@ spring:
 soulvoyage:
   business-zone: ${SV_BUSINESS_ZONE:Asia/Shanghai}   # O1：业务日期归属时区
   distributed: ${SV_DISTRIBUTED:false}               # M13：true=跨节点状态（LLM 闸门/滑动窗/事件流/导出快照）下 Redis
+  lock:
+    enabled: ${SV_LOCK_ENABLED:true}                 # B-05/B-06：审计链与 @Scheduled 的跨节点互斥；false=回到单节点语义
   crisis:                                            # 下篇·S1 危机生命周期
     cooldown: 7d                                     # CRISIS 强干预窗口
     downgrade-threshold: -0.3                        # 冷却自动解除：周画像 avgValence 阈值

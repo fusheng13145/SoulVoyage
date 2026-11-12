@@ -1,5 +1,6 @@
 package com.soulvoyage.admin;
 
+import com.soulvoyage.admin.dto.AdminDtos.UserStatusResp;
 import com.soulvoyage.audit.AuditService;
 import com.soulvoyage.auth.AuthPrincipal;
 import com.soulvoyage.auth.JwtService;
@@ -65,26 +66,26 @@ public class AdminSupportController {
     }
 
     @PostMapping("/{id}/freeze")
-    public ApiResponse<Map<String, Object>> freeze(@AuthenticationPrincipal AuthPrincipal p,
-                                                   @PathVariable Long id) {
+    public ApiResponse<UserStatusResp> freeze(@AuthenticationPrincipal AuthPrincipal p,
+                                              @PathVariable Long id) {
         UserEntity u = managed(p, id);
         if (u.getStatus() != 1) throw new BizException(ErrorCode.BAD_PARAMS, "仅正常用户可冻结");
         u.setStatus((short) 2);
         users.save(u);
         jwt.revokeAll(id);   // 冻结即时断会话：旧令牌全部拉黑
         audit.record(p.userId(), "ADMIN_FREEZE", "user:" + id, null);
-        return ApiResponse.ok(Map.of("userId", id, "status", 2));
+        return ApiResponse.ok(new UserStatusResp(id, 2));
     }
 
     @PostMapping("/{id}/unfreeze")
-    public ApiResponse<Map<String, Object>> unfreeze(@AuthenticationPrincipal AuthPrincipal p,
-                                                     @PathVariable Long id) {
+    public ApiResponse<UserStatusResp> unfreeze(@AuthenticationPrincipal AuthPrincipal p,
+                                                @PathVariable Long id) {
         UserEntity u = user(id);
         if (u.getStatus() != 2) throw new BizException(ErrorCode.BAD_PARAMS, "仅冻结用户可解冻");
         u.setStatus((short) 1);
         users.save(u);
         audit.record(p.userId(), "ADMIN_UNFREEZE", "user:" + id, null);
-        return ApiResponse.ok(Map.of("userId", id, "status", 1));
+        return ApiResponse.ok(new UserStatusResp(id, 1));
     }
 
     // ---------------- internals ----------------

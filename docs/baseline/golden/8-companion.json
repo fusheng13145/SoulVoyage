@@ -1,0 +1,45 @@
+{
+  "note": "漫聊开会话→一轮→收段→任务终态",
+  "scenario": "companion",
+  "steps": [
+    {
+      "name": "open",
+      "response": {
+        "sessionId": "<redacted>",
+        "status": "ACTIVE"
+      }
+    },
+    {
+      "name": "turn",
+      "response": {
+        "events": 5,
+        "turnDone": {
+          "aiText": "你来啦。上次你说的「日常」那摊事，后来怎么样了？",
+          "crisis": false,
+          "guidanceShown": false,
+          "moodTag": "LOW_ENERGY",
+          "remainingToday": 199,
+          "turnId": "<redacted>",
+          "turnNo": 1
+        }
+      }
+    },
+    {
+      "name": "end",
+      "response": {
+        "taskNo": "<redacted>"
+      }
+    },
+    {
+      "name": "task",
+      "response": {
+        "finalAgents": [
+          "COMPANION",
+          "EMOTION",
+          "RISK_ARCHIVE"
+        ],
+        "status": "SUCCESS"
+      }
+    }
+  ]
+}

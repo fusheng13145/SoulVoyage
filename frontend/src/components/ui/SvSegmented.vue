@@ -25,31 +25,34 @@ const emit = defineEmits<{ 'update:modelValue': [string | number] }>()
 <style scoped>
 .seg {
   display: flex;
-  padding: 2px;
-  gap: 2px;
-  background: var(--sv-fill2);
-  border-radius: 10px;
+  gap: var(--sv-s4);
+  background: transparent;
+  border-bottom: 1px solid var(--sv-sep);
 }
 .opt {
-  flex: 1;
+  flex: 0 0 auto;
   min-height: 32px;
   border: none;
   cursor: pointer;
   background: transparent;
-  border-radius: 8px;
+  border-bottom: 1px solid transparent;
+  margin-bottom: -1px;
   font-size: var(--sv-fs-subhead);
-  font-weight: 500;
-  color: var(--sv-label);
+  font-weight: 400;
+  color: var(--sv-label2);
   font-family: inherit;
-  transition: background 0.25s var(--sv-ease);
+  transition:
+    color 0.18s,
+    border-color 0.18s;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 4px;
+  padding: 0 2px;
 }
 .opt.on {
-  background: var(--sv-card);
-  font-weight: 600;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+  color: var(--sv-accent);
+  border-bottom-color: var(--sv-accent);
+  font-weight: 500;
 }
 </style>

@@ -8,7 +8,7 @@ const props = withDefaults(
     stroke?: number
     color?: string
   }>(),
-  { size: 64, stroke: 6, color: 'var(--sv-indigo)' },
+  { size: 64, stroke: 4, color: 'var(--sv-accent)' },
 )
 
 const r = computed(() => (props.size - props.stroke) / 2)
@@ -24,7 +24,7 @@ const c = computed(() => 2 * Math.PI * r.value)
         :r="r"
         fill="none"
         :stroke-width="stroke"
-        stroke="var(--sv-fill2)"
+        stroke="var(--sv-sep)"
       />
       <circle
         :cx="size / 2"
@@ -36,7 +36,7 @@ const c = computed(() => 2 * Math.PI * r.value)
         stroke-linecap="round"
         :stroke-dasharray="c"
         :stroke-dashoffset="c * (1 - Math.min(1, Math.max(0, progress)))"
-        style="transition: stroke-dashoffset 0.5s cubic-bezier(0.32, 0.72, 0, 1)"
+        style="transition: stroke-dashoffset 0.18s ease"
       />
     </svg>
     <span class="center"><slot /></span>
@@ -56,8 +56,10 @@ svg {
   inset: 0;
   display: grid;
   place-items: center;
+  font-family: var(--sv-num);
   font-size: var(--sv-fs-footnote);
-  font-weight: 600;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
   color: var(--sv-label2);
 }
 </style>

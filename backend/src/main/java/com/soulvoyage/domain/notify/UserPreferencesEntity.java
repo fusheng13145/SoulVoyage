@@ -50,6 +50,11 @@ public class UserPreferencesEntity {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
+    /** B-09 乐观锁：主题/提醒/授权并发保存时防丢更新 */
+    @Version
+    @Column(name = "version", nullable = false)
+    private Long version;
+
     @PrePersist
     @PreUpdate
     void touch() {

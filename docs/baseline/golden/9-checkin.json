@@ -1,0 +1,85 @@
+{
+  "note": "打卡→补签→streak",
+  "scenario": "checkin",
+  "steps": [
+    {
+      "name": "checkin",
+      "request": {
+        "emotion": "JOY",
+        "energy": 4,
+        "note": "基线打卡：傍晚绕湖走了一圈",
+        "rating": 4
+      },
+      "response": {
+        "date": "2026-11-12",
+        "emotionCode": "JOY",
+        "energy": 4,
+        "madeUp": false,
+        "note": "基线打卡：傍晚绕湖走了一圈",
+        "rating": 4,
+        "valence": 0.8
+      }
+    },
+    {
+      "name": "makeup",
+      "request": {
+        "date": "2026-11-09",
+        "emotion": "CALM",
+        "energy": 3,
+        "note": "基线补签"
+      },
+      "response": {
+        "date": "2026-11-09",
+        "emotionCode": "CALM",
+        "energy": 3,
+        "madeUp": true,
+        "note": "基线补签",
+        "rating": null,
+        "valence": 0.5
+      }
+    },
+    {
+      "name": "streak",
+      "response": {
+        "current": 1,
+        "longest": 1,
+        "makeupAvailable": false,
+        "totalDays": 2
+      }
+    },
+    {
+      "name": "month",
+      "response": {
+        "items": [
+          {
+            "date": "2026-11-09",
+            "emotionCode": "CALM",
+            "energy": 3,
+            "madeUp": true,
+            "note": "基线补签",
+            "rating": null,
+            "valence": 0.5
+          },
+          {
+            "date": "2026-11-12",
+            "emotionCode": "JOY",
+            "energy": 4,
+            "madeUp": false,
+            "note": "基线打卡：傍晚绕湖走了一圈",
+            "rating": 4,
+            "valence": 0.8
+          }
+        ],
+        "today": {
+          "date": "2026-11-12",
+          "emotionCode": "JOY",
+          "energy": 4,
+          "madeUp": false,
+          "note": "基线打卡：傍晚绕湖走了一圈",
+          "rating": 4,
+          "valence": 0.8
+        }
+      }
+    }
+  ]
+}

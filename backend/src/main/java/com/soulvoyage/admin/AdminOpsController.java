@@ -1,5 +1,6 @@
 package com.soulvoyage.admin;
 
+import com.soulvoyage.admin.dto.AdminDtos.VerifyAuditResp;
 import com.soulvoyage.audit.AuditService;
 import com.soulvoyage.auth.AuthPrincipal;
 import com.soulvoyage.common.api.ApiResponse;
@@ -59,14 +60,10 @@ public class AdminOpsController {
 
     /** 审计链校验：重放全链重算 hash，只回结论不回内容 */
     @PostMapping("/audit/verify")
-    public ApiResponse<Map<String, Object>> verifyAudit(@AuthenticationPrincipal AuthPrincipal p) {
+    public ApiResponse<VerifyAuditResp> verifyAudit(@AuthenticationPrincipal AuthPrincipal p) {
         AuditService.VerifyResult r = audit.verifyChain();
         audit.record(p.userId(), "ADMIN_AUDIT_VERIFY", "audit_log:chain", null);
-        Map<String, Object> m = new LinkedHashMap<>();
-        m.put("intact", r.intact());
-        m.put("checked", r.checked());
-        m.put("brokenAtId", r.brokenAtId());
-        return ApiResponse.ok(m);
+        return ApiResponse.ok(new VerifyAuditResp(r.intact(), r.checked(), r.brokenAtId()));
     }
 
     /** 密钥版本看板：按状态聚合的 DEK 计数与最大版本号（1=启用/2=仅解密/3=已销毁） */

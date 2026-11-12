@@ -1,6 +1,9 @@
 package com.soulvoyage.orchestrator.pipeline;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.soulvoyage.domain.crisis.CrisisState;
+import com.soulvoyage.orchestrator.AgentCode;
+import com.soulvoyage.orchestrator.PipelineCode;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -16,19 +19,24 @@ import java.util.List;
 public class DiaryPipeline implements TaskDefinition {
 
     @Override
-    public String code() { return "DIARY_PIPELINE"; }
+    public PipelineCode code() { return PipelineCode.DIARY_PIPELINE; }
+
+    @Override
+    public void validatePayload(JsonNode payload) {
+        PipelinePayloads.requireTextIfPresent(PipelinePayloads.requireObject(payload), "diaryText");
+    }
 
     @Override
     public List<StepSpec> steps(TaskContext ctx) {
         if (ctx.crisisState() == CrisisState.CRISIS) {
             return List.of(
-                    new StepSpec("emotion", "EMOTION", "emotion_result.json"),
-                    new StepSpec("risk", "RISK_ARCHIVE", "archive_receipt.json"));
+                    new StepSpec("emotion", AgentCode.EMOTION, "emotion_result.json"),
+                    new StepSpec("risk", AgentCode.RISK_ARCHIVE, "archive_receipt.json"));
         }
         return List.of(
-                new StepSpec("emotion", "EMOTION", "emotion_result.json"),
-                new StepSpec("trace", "TRACE", "trace_result.json"),
-                new StepSpec("support", "SUPPORT", "support_plan.json"),
-                new StepSpec("risk", "RISK_ARCHIVE", "archive_receipt.json"));
+                new StepSpec("emotion", AgentCode.EMOTION, "emotion_result.json"),
+                new StepSpec("trace", AgentCode.TRACE, "trace_result.json"),
+                new StepSpec("support", AgentCode.SUPPORT, "support_plan.json"),
+                new StepSpec("risk", AgentCode.RISK_ARCHIVE, "archive_receipt.json"));
     }
 }

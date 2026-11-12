@@ -1,29 +1,31 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import SvNavBar from '@/components/ui/SvNavBar.vue'
 import SvCard from '@/components/ui/SvCard.vue'
 import SvIcon from '@/components/ui/SvIcon.vue'
-import SvList from '@/components/ui/SvList.vue'
-import SvCell from '@/components/ui/SvCell.vue'
 import SvSheet from '@/components/ui/SvSheet.vue'
+import SvPageBody from '@/components/ui/SvPageBody.vue'
 import SvPullToRefresh from '@/components/ui/SvPullToRefresh.vue'
 import SvEmotionDial, { type CheckinValue } from '@/components/ui/SvEmotionDial.vue'
 import SvCalendarHeat, { type HeatDay } from '@/components/ui/SvCalendarHeat.vue'
 import CrisisReferral from '@/components/CrisisReferral.vue'
-import http, { type ApiResp } from '@/api/http'
+import { checkinApi } from '@/api/domains/checkin'
+import { isConflict } from '@/api/http'
+import { companionApi } from '@/api/domains/companion'
+import { emotionApi } from '@/api/domains/emotion'
+import { notificationApi } from '@/api/domains/notification'
+import { planApi } from '@/api/domains/plan'
+import { readingApi } from '@/api/domains/reading'
+import { taskApi } from '@/api/domains/task'
 import { EMOTIONS } from '@/utils/emotions'
+import { PIPELINE_LABELS } from '@/constants/task'
+import { addBusinessDays, BUSINESS_TZ, businessDate, businessHour } from '@/utils/date'
+import type { ActivePlanView, EmotionPointView, PlanItemView } from '@/types/domain'
 import { toast } from '@/stores/ui'
 import { useAuthStore } from '@/stores/auth'
 import { useCrisisStore } from '@/stores/crisis'
 
-interface TPoint {
-  date: string
-  sourceType: string
-  emotion: string
-  valence: string
-  intensity: string
-}
 interface CheckInView {
   date: string
   emotionCode: string
@@ -38,24 +40,6 @@ interface StreakView {
   longest: number
   totalDays: number
   makeupAvailable: boolean
-}
-interface PlanItem {
-  seq: number
-  exerciseId: string
-  guidance: string
-  scheduledDate: string
-  doneAt: string | null
-  exerciseName: string
-  durationMin: number
-}
-interface PlanView {
-  planId: string
-  title: string
-  days: number
-  daysLeft: number
-  doneCount: number
-  totalCount: number
-  items: PlanItem[]
 }
 interface CompanionActive {
   sessionId: number
@@ -90,7 +74,7 @@ const ptr = ref<InstanceType<typeof SvPullToRefresh> | null>(null)
 const days = ref<HeatDay[]>([])
 const todayCheckin = ref<CheckInView | null>(null)
 const streak = ref<StreakView | null>(null)
-const plan = ref<PlanView | null>(null)
+const plan = ref<ActivePlanView | null>(null)
 const companionActive = ref<CompanionActive | null>(null)
 const reading = ref<ReadingView | null>(null)
 const tasks = ref<TaskItem[]>([])
@@ -105,9 +89,10 @@ const makeupDate = ref('')
 const makeupDial = ref<Partial<CheckinValue>>({})
 
 const me = computed(() => auth.me)
-const hour = new Date().getHours()
-const greeting = computed(
-  () =>
+const now = ref(new Date())
+const greeting = computed(() => {
+  const hour = businessHour(now.value)
+  return (
     (hour < 5
       ? '还没睡呀'
       : hour < 11
@@ -118,17 +103,27 @@ const greeting = computed(
             ? '下午好'
             : hour < 22
               ? '晚上好'
-              : '夜深了') + (me.value?.nickname ? `，${me.value.nickname}` : ''),
+              : '夜深了') + (me.value?.nickname ? `，${me.value.nickname}` : '')
+  )
+})
+
+function tick() {
+  now.value = new Date()
+}
+
+const weekdayFmt = new Intl.DateTimeFormat('zh-CN', { timeZone: BUSINESS_TZ, weekday: 'short' })
+const dateLabel = computed(
+  () => `${businessDate(now.value).replace(/-/g, '.')} ${weekdayFmt.format(now.value)}`,
 )
 
-const today = () => new Date().toLocaleDateString('en-CA')
+const today = () => businessDate()
 
-function buildDays(points: TPoint[]): HeatDay[] {
+function buildDays(points: EmotionPointView[]): HeatDay[] {
   const out: HeatDay[] = []
   const t = new Date()
   for (let i = 13; i >= 0; i--) {
     const d = new Date(t.getTime() - i * 86400000)
-    const key = d.toLocaleDateString('en-CA')
+    const key = businessDate(d)
     const ps = points.filter(p => p.date === key)
     out.push(
       ps.length
@@ -153,30 +148,29 @@ async function load() {
   } catch {
     /* 画像失败不挡首页 */
   }
-  const from = new Date(Date.now() - 13 * 86400000).toLocaleDateString('en-CA')
+  const from = businessDate(addBusinessDays(new Date(), -13))
   const month = today().slice(0, 7)
   const [traj, ci, st, pl, cp, nf, rd, tk] = await Promise.all([
-    http.get<ApiResp<{ points: TPoint[] }>>('/emotions/trajectory', { params: { from, to: today() } }),
-    http.get<ApiResp<{ items: CheckInView[]; today: CheckInView | null }>>('/mood-check-ins', {
-      params: { month },
+    emotionApi.trajectory<{ points: EmotionPointView[] }>({ from, to: today() }),
+    checkinApi.month<{ items: CheckInView[]; today: CheckInView | null }>({ month }),
+    checkinApi.streak<StreakView>(),
+    planApi.active<{ plan: ActivePlanView | null }>(),
+    companionApi.active<CompanionActive | null>(),
+    notificationApi.list<{ items: unknown[]; total: number; unreadCount: number }>({
+      page: 0,
+      size: 1,
     }),
-    http.get<ApiResp<StreakView>>('/mood-check-ins/streak'),
-    http.get<ApiResp<{ plan: PlanView | null }>>('/plans/active'),
-    http.get<ApiResp<CompanionActive | null>>('/companion/active'),
-    http.get<ApiResp<{ items: unknown[]; total: number; unreadCount: number }>>('/notifications', {
-      params: { page: 0, size: 1 },
-    }),
-    http.get<ApiResp<ReadingView>>('/readings/today').catch(() => null), // 每日一读失败不挡首页
-    http.get<ApiResp<{ items: TaskItem[] }>>('/tasks', { params: { page: 0, size: 6 } }).catch(() => null), // C5 最近动态
+    readingApi.today<ReadingView>().catch(() => null), // 每日一读失败不挡首页
+    taskApi.list<{ items: TaskItem[] }>({ page: 0, size: 6 }).catch(() => null), // C5 最近动态
   ])
-  days.value = buildDays(traj.data.data.points)
-  todayCheckin.value = ci.data.data.today
-  streak.value = st.data.data
-  plan.value = pl.data.data.plan
-  companionActive.value = cp.data.data
-  unread.value = nf.data.data.unreadCount
-  reading.value = rd?.data.data ?? null
-  tasks.value = tk?.data.data.items ?? []
+  days.value = buildDays(traj.points)
+  todayCheckin.value = ci.today
+  streak.value = st
+  plan.value = pl.plan
+  companionActive.value = cp
+  unread.value = nf.unreadCount
+  reading.value = rd ?? null
+  tasks.value = tk?.items ?? []
   loaded.value = true
 }
 
@@ -188,7 +182,20 @@ async function refresh() {
   }
   ptr.value?.done()
 }
-onMounted(refresh)
+
+let clock: ReturnType<typeof setInterval> | undefined
+function onVisible() {
+  if (document.visibilityState === 'visible') tick()
+}
+onMounted(() => {
+  refresh()
+  clock = setInterval(tick, 60_000)
+  document.addEventListener('visibilitychange', onVisible)
+})
+onUnmounted(() => {
+  if (clock) clearInterval(clock)
+  document.removeEventListener('visibilitychange', onVisible)
+})
 
 const todayMeta = computed(
   () => todayCheckin.value && EMOTIONS.find(e => e.code === todayCheckin.value!.emotionCode),
@@ -198,7 +205,7 @@ async function checkin() {
   if (!dial.value.emotion || saving.value) return
   saving.value = true
   try {
-    await http.post('/mood-check-ins', {
+    await checkinApi.create({
       emotion: dial.value.emotion,
       energy: dial.value.energy || 3,
       note: dial.value.note?.trim() || undefined,
@@ -208,6 +215,8 @@ async function checkin() {
     await load()
   } catch (e) {
     toast((e as Error).message || '打卡失败，稍后再试')
+    // B-09：多端并发修改同一打卡 → 拉取最新状态，避免界面停留在旧值
+    if (isConflict(e)) await load()
   } finally {
     saving.value = false
   }
@@ -226,41 +235,34 @@ async function submitMakeup() {
   if (!makeupDial.value.emotion || saving.value) return
   saving.value = true
   try {
-    await http.post(
-      '/mood-check-ins/makeup',
+    await checkinApi.makeup(
       {
         emotion: makeupDial.value.emotion,
         energy: makeupDial.value.energy || 3,
         note: makeupDial.value.note?.trim() || undefined,
       },
-      { params: { date: makeupDate.value } },
+      { date: makeupDate.value },
     )
     makeupOpen.value = false
     toast('补上了——断签不羞辱，日历只是提醒你回来')
     await load()
   } catch (e) {
     toast((e as Error).message || '补签失败')
+    if (isConflict(e)) await load()
   } finally {
     saving.value = false
   }
 }
 
-function goFollow(item: PlanItem) {
+function goFollow(item: PlanItemView) {
   router.push(
     `/practice/room/${item.exerciseId}?planId=${plan.value?.planId || ''}&seq=${item.seq}&scheduled=${item.scheduledDate}`,
   )
 }
 
-const planItemDone = (it: PlanItem) => !!it.doneAt
+const planItemDone = (it: PlanItemView) => !!it.doneAt
 
 /* 最近动态（C5）：任务历史聚合为 feed，用户对系统"做了什么对我"有掌控感 */
-const PIPE_LABEL: Record<string, string> = {
-  DIARY_PIPELINE: '日记梳理',
-  COMPANION_PIPELINE: '漫聊段落消化',
-  COGNITIVE_PIPELINE: '认知书写追问',
-  SIMULATE_PIPELINE: '沟通复盘',
-  GROWTH_LETTER_PIPELINE: '成长来信',
-}
 const TASK_STATE: Record<string, { word: string; cls: string }> = {
   SUCCESS: { word: '已完成', cls: 'ok' },
   PARTIAL_SUCCESS: { word: '部分完成', cls: 'mid' },
@@ -285,12 +287,12 @@ function feedTime(t: TaskItem): string {
 async function toggleFavorite() {
   if (!reading.value) return
   try {
-    const { data } = await http.post<ApiResp<{ favorited: boolean }>>('/readings/favorites', {
+    const { favorited } = await readingApi.toggleFavorite({
       type: 'PSY_TOPIC',
       refCode: reading.value.kgNodeId,
     })
-    reading.value.favorited = data.data.favorited
-    toast(data.data.favorited ? '已收藏进成长档案' : '已取消收藏')
+    reading.value.favorited = favorited
+    toast(favorited ? '已收藏进成长档案' : '已取消收藏')
   } catch (e) {
     toast((e as Error).message || '收藏操作失败')
   }
@@ -301,7 +303,8 @@ async function toggleFavorite() {
   <div class="today">
     <SvNavBar :title="greeting">
       <template #large>
-        <h1>{{ greeting }}<small>今天也要好好陪自己</small></h1>
+        <p class="date">{{ dateLabel }}</p>
+        <h1>{{ greeting }}<small>今天想从哪里开始？</small></h1>
       </template>
       <template #actions>
         <router-link to="/diaries/write" class="nav-act" aria-label="写一篇情绪日记"
@@ -317,7 +320,7 @@ async function toggleFavorite() {
     </SvNavBar>
 
     <SvPullToRefresh ref="ptr" @refresh="refresh">
-      <div class="body">
+      <SvPageBody>
         <CrisisReferral
           v-if="crisis.crisisMode"
           level="MEDIUM"
@@ -334,8 +337,10 @@ async function toggleFavorite() {
         <SvCard>
           <div class="dial-head">
             <h2>{{ todayCheckin ? '今天的心情已记下' : '现在，你感觉如何？' }}</h2>
-            <span v-if="todayMeta" class="done" :style="{ color: `var(${todayMeta.varName})` }">
-              {{ todayMeta.face }} {{ todayMeta.label }}</span
+            <span v-if="todayMeta" class="done">
+              <i class="edot" :style="{ background: `var(${todayMeta.varName})` }" />{{
+                todayMeta.label
+              }}</span
             >
           </div>
           <template v-if="!todayCheckin">
@@ -355,7 +360,7 @@ async function toggleFavorite() {
               <template v-if="todayCheckin.note"> · 「{{ todayCheckin.note }}」</template>
             </p>
             <p v-if="streak" class="sv-cap streak">
-              🔥 已为自己记录 {{ streak.totalDays }} 天 · 连续 {{ streak.current }} 天（最长
+              已为自己记录 {{ streak.totalDays }} 天 · 连续 {{ streak.current }} 天（最长
               {{ streak.longest }} 天）
             </p>
           </template>
@@ -369,7 +374,7 @@ async function toggleFavorite() {
         <!-- 今日小计划（G4） -->
         <SvCard v-if="plan && plan.items.length">
           <div class="dial-head">
-            <h2>🌿 {{ plan.title }}</h2>
+            <h2>{{ plan.title }}</h2>
             <span class="sv-cap prog"
               >{{ plan.doneCount }}/{{ plan.totalCount }} · 剩 {{ plan.daysLeft }} 天</span
             >
@@ -385,108 +390,82 @@ async function toggleFavorite() {
           <router-link class="more" to="/practice">查看全部计划 →</router-link>
         </SvCard>
 
-        <!-- 每日一读（N3：规则供给不过 LLM，收藏进档案） -->
-        <SvCard v-if="reading">
-          <div class="rd">
-            <div class="rd-main">
-              <h2>每日一读 · {{ reading.title }}</h2>
-              <p class="rd-sum">{{ reading.summary }}</p>
-              <p class="rd-micro">🌱 微行动：{{ reading.microAction }}</p>
-              <p class="sv-cap rd-meta">
-                约 {{ Math.max(1, Math.round(reading.readingSec / 60)) }} 分钟读完
-                <span v-for="t in reading.aboutTags" :key="t" class="rd-tag">{{ t }}</span>
-              </p>
-            </div>
-            <button
-              class="rd-star"
-              :class="{ on: reading.favorited }"
-              :aria-pressed="reading.favorited"
-              :aria-label="reading.favorited ? '取消收藏这篇科普' : '收藏这篇科普到成长档案'"
-              @click="toggleFavorite"
-            >
-              <SvIcon name="i-star" :size="20" tone="inherit" />
-            </button>
-          </div>
-        </SvCard>
-
         <!-- 漫聊 / 日记双入口（C0） -->
         <SvCard :pad="false">
-          <div class="duo">
-            <button class="duo-main" @click="router.push('/companion')">
-              <span class="m-ico"><SvIcon name="i-chat" :size="24" tone="inherit" /></span>
+          <button class="entry-row" @click="router.push('/companion')">
+            <SvIcon name="i-chat" :size="20" tone="inherit" />
+            <span class="e-txt">
               <b>来漫聊</b>
               <small>{{
                 companionActive
                   ? `接着聊——今天第 ${companionActive.segmentNo} 段，已经说了 ${companionActive.turns} 句`
                   : '不用组织语言，说碎片也可以'
               }}</small>
-            </button>
-            <button class="duo-side" @click="router.push('/diaries/write')">
-              <span class="s-ico"><SvIcon name="i-pen" :size="20" tone="inherit" /></span>
+            </span>
+            <SvIcon name="i-arrow" :size="16" tone="label2" />
+          </button>
+          <button class="entry-row" @click="router.push('/diaries/write')">
+            <SvIcon name="i-pen" :size="20" tone="inherit" />
+            <span class="e-txt">
               <b>写日记</b>
               <small>让心屿陪你梳理</small>
-            </button>
-          </div>
+            </span>
+            <SvIcon name="i-arrow" :size="16" tone="label2" />
+          </button>
+        </SvCard>
+
+        <!-- 每日一读（N3：规则供给不过 LLM，收藏进档案） -->
+        <SvCard v-if="reading" :pad="false">
+          <details class="fold">
+            <summary>
+              <span>每日一读 · {{ reading.title }}</span>
+              <SvIcon name="i-arrow" :size="14" tone="label2" />
+            </summary>
+            <div class="rd">
+              <div class="rd-main">
+                <p class="rd-sum">{{ reading.summary }}</p>
+                <p class="rd-micro">微行动：{{ reading.microAction }}</p>
+                <p class="sv-cap rd-meta">
+                  约 {{ Math.max(1, Math.round(reading.readingSec / 60)) }} 分钟读完
+                  <span v-for="t in reading.aboutTags" :key="t" class="rd-tag">{{ t }}</span>
+                </p>
+              </div>
+              <button
+                class="rd-star"
+                :class="{ on: reading.favorited }"
+                :aria-pressed="reading.favorited"
+                :aria-label="reading.favorited ? '取消收藏这篇科普' : '收藏这篇科普到成长档案'"
+                @click="toggleFavorite"
+              >
+                <SvIcon name="i-star" :size="18" tone="inherit" />
+              </button>
+            </div>
+          </details>
         </SvCard>
 
         <!-- 最近动态（C5） -->
-        <SvCard v-if="tasks.length">
-          <div class="dial-head">
-            <h2>最近动态</h2>
-            <router-link class="more feed-more" to="/archive">去档案看产出 →</router-link>
-          </div>
-          <ul class="feed">
-            <li v-for="t in tasks" :key="t.taskNo">
-              <span class="fd-dot" :class="TASK_STATE[t.status]?.cls || 'run'" aria-hidden="true"></span>
-              <span class="fd-txt"
-                >{{ PIPE_LABEL[t.pipelineCode] || t.pipelineCode }} ·
-                <b>{{ TASK_STATE[t.status]?.word || t.status }}</b></span
-              >
-              <small>{{ feedTime(t) }}</small>
-            </li>
-          </ul>
+        <SvCard v-if="tasks.length" :pad="false">
+          <details class="fold">
+            <summary>
+              <span>最近动态</span>
+              <small class="sv-cap">{{ tasks.length }} 条</small>
+            </summary>
+            <ul class="feed">
+              <li v-for="t in tasks" :key="t.taskNo">
+                <span class="fd-dot" :class="TASK_STATE[t.status]?.cls || 'run'" aria-hidden="true"></span>
+                <span class="fd-txt"
+                  >{{ PIPELINE_LABELS[t.pipelineCode] || t.pipelineCode }} ·
+                  <b>{{ TASK_STATE[t.status]?.word || t.status }}</b></span
+                >
+                <small>{{ feedTime(t) }}</small>
+              </li>
+            </ul>
+            <router-link class="fold-more" to="/archive">去档案看产出 →</router-link>
+          </details>
         </SvCard>
 
-        <SvList title="今天可以做">
-          <SvCell
-            label="日记本"
-            hint="加密时间线 · 回看 编辑 重新分析"
-            icon="i-diary"
-            tone="color-mix(in srgb, var(--e-joy) 20%, transparent)"
-            to="/diaries"
-          />
-          <SvCell
-            label="自助练习"
-            hint="呼吸环 · 54321 · 认知书写 沉浸跟练"
-            icon="i-heart"
-            tone="color-mix(in srgb, var(--sv-mint) 18%, transparent)"
-            to="/practice"
-          />
-          <SvCell
-            label="情绪洞察"
-            hint="曲线 · 周画像 · 误区趋势"
-            icon="i-chart"
-            tone="color-mix(in srgb, var(--e-fear) 16%, transparent)"
-            to="/insights"
-          />
-          <SvCell
-            label="成长来信"
-            hint="每周一封，写给正在长大的你"
-            icon="i-mail"
-            tone="var(--sv-indigo-soft)"
-            to="/letters"
-          />
-          <SvCell
-            label="成就墙"
-            hint="每一枚都来自你照顾自己的时刻"
-            icon="i-medal"
-            tone="color-mix(in srgb, var(--sv-amber) 18%, transparent)"
-            to="/achievements"
-          />
-        </SvList>
-
         <p class="sv-cap foot">写日记让心屿陪你梳理情绪——所有记录信封加密存储，只有你能看到。</p>
-      </div>
+      </SvPageBody>
     </SvPullToRefresh>
 
     <!-- 补签（G3：断签不羞辱） -->
@@ -509,15 +488,19 @@ async function toggleFavorite() {
 .today {
   min-height: 100%;
 }
-.body {
-  padding: 0 var(--sv-s4);
+.date {
+  font-family: var(--sv-serif);
+  font-size: var(--sv-fs-footnote);
+  color: var(--sv-label2);
+  letter-spacing: 0.4px;
+  margin-bottom: 4px;
 }
 .nav-act {
   display: grid;
   place-items: center;
   width: 44px;
   height: 44px;
-  color: var(--sv-indigo);
+  color: var(--sv-accent);
   position: relative;
 }
 .badge {
@@ -527,25 +510,25 @@ async function toggleFavorite() {
   min-width: 16px;
   height: 16px;
   padding: 0 4px;
-  border-radius: 8px;
-  background: var(--sv-red);
-  color: #fff;
-  font-size: 10px;
-  font-weight: 700;
+  border-radius: var(--sv-r-tag);
+  background: var(--sv-danger);
+  color: var(--sv-on-accent);
+  font-size: var(--sv-fs-caption2);
+  font-weight: 600;
   display: grid;
   place-items: center;
   line-height: 1;
 }
 .notice {
-  background: color-mix(in srgb, var(--sv-amber) 16%, var(--sv-card));
-  color: var(--sv-label);
+  border: 1px solid var(--sv-warn);
   border-radius: var(--sv-r-card);
   padding: 12px 14px;
   font-size: var(--sv-fs-footnote);
+  color: var(--sv-label);
   margin-bottom: 14px;
 }
 .notice a {
-  font-weight: 600;
+  font-weight: 500;
 }
 .dial-head {
   display: flex;
@@ -558,8 +541,17 @@ async function toggleFavorite() {
   font-size: var(--sv-fs-title3);
 }
 .done {
-  font-size: var(--sv-fs-callout);
-  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--sv-fs-footnote);
+  color: var(--sv-label2);
+}
+.edot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  display: inline-block;
 }
 .streak {
   margin-top: 6px;
@@ -573,17 +565,17 @@ async function toggleFavorite() {
 .k {
   width: 12px;
   height: 12px;
-  border-radius: 4px;
+  border-radius: var(--sv-r-tag);
   display: inline-block;
 }
 .k.cool {
-  background: color-mix(in srgb, var(--sv-red) 62%, var(--sv-card));
+  background: color-mix(in srgb, var(--sv-danger) 55%, var(--sv-card));
 }
 .k.mid {
   background: color-mix(in srgb, var(--e-joy) 55%, var(--sv-card));
 }
 .k.warm {
-  background: var(--sv-mint);
+  background: var(--sv-ok);
 }
 .pitem {
   display: flex;
@@ -595,7 +587,7 @@ async function toggleFavorite() {
   margin-bottom: var(--sv-s2);
 }
 .pitem.on {
-  background: color-mix(in srgb, var(--sv-mint) 10%, var(--sv-card));
+  background: var(--sv-fill3);
 }
 .pitem-txt {
   flex: 1;
@@ -619,6 +611,75 @@ async function toggleFavorite() {
 .prog {
   color: var(--sv-label2);
 }
+.entry-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 56px;
+  padding: 14px var(--sv-s5);
+  border: none;
+  border-bottom: 1px solid var(--sv-sep);
+  background: transparent;
+  color: var(--sv-label);
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  font-size: var(--sv-fs-body);
+}
+.entry-row:last-child {
+  border-bottom: none;
+}
+.entry-row > svg:first-child {
+  color: var(--sv-accent);
+}
+.e-txt {
+  flex: 1;
+  min-width: 0;
+}
+.e-txt b {
+  display: block;
+  font-size: var(--sv-fs-body);
+  font-weight: 500;
+}
+.e-txt small {
+  display: block;
+  margin-top: 2px;
+  color: var(--sv-label2);
+  font-size: var(--sv-fs-footnote);
+}
+.fold summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 14px var(--sv-s5);
+  cursor: pointer;
+  font-size: var(--sv-fs-body);
+  color: var(--sv-label);
+  list-style: none;
+}
+.fold summary::-webkit-details-marker {
+  display: none;
+}
+.fold summary svg {
+  transition: transform 0.18s ease;
+}
+.fold[open] summary svg {
+  transform: rotate(90deg);
+}
+.fold .rd {
+  padding: 0 var(--sv-s5) var(--sv-s5);
+}
+.fold .feed {
+  padding: 0 var(--sv-s5);
+}
+.fold-more {
+  display: block;
+  padding: 10px var(--sv-s5) var(--sv-s5);
+  font-size: var(--sv-fs-footnote);
+  color: var(--sv-accent);
+}
 .rd {
   display: flex;
   gap: 10px;
@@ -628,19 +689,15 @@ async function toggleFavorite() {
   flex: 1;
   min-width: 0;
 }
-.rd-main h2 {
-  font-size: var(--sv-fs-title3);
-  margin-bottom: 6px;
-}
 .rd-sum {
   font-size: var(--sv-fs-footnote);
-  line-height: 1.7;
+  line-height: var(--sv-lh-body);
   color: var(--sv-label);
 }
 .rd-micro {
   margin-top: 8px;
   font-size: var(--sv-fs-footnote);
-  color: var(--sv-mint);
+  color: var(--sv-ok);
   line-height: 1.6;
 }
 .rd-meta {
@@ -651,97 +708,33 @@ async function toggleFavorite() {
   flex-wrap: wrap;
 }
 .rd-tag {
-  background: var(--sv-fill2);
-  border-radius: 6px;
-  padding: 1px 6px;
+  border: 1px solid var(--sv-sep);
+  border-radius: var(--sv-r-tag);
+  padding: 0 6px;
   color: var(--sv-label2);
 }
 .rd-star {
   flex: none;
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--sv-r-ctl);
   border: 1px solid var(--sv-sep);
   background: var(--sv-card);
   color: var(--sv-label2);
   cursor: pointer;
   display: grid;
   place-items: center;
-  transition: transform 0.12s var(--sv-ease);
-}
-.rd-star:active {
-  transform: scale(0.9);
 }
 .rd-star.on {
-  color: var(--sv-amber);
-  border-color: color-mix(in srgb, var(--sv-amber) 45%, var(--sv-sep));
-  background: color-mix(in srgb, var(--sv-amber) 12%, var(--sv-card));
+  color: var(--sv-warn);
+  border-color: var(--sv-warn);
+  background: var(--sv-fill3);
 }
 .more {
   display: inline-block;
   margin-top: 6px;
   font-size: var(--sv-fs-footnote);
-  color: var(--sv-indigo);
-}
-.duo {
-  display: grid;
-  grid-template-columns: 1.4fr 1fr;
-  gap: 10px;
-  padding: var(--sv-s4);
-}
-.duo button {
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  text-align: left;
-  font-family: inherit;
-  color: var(--sv-label);
-  border-radius: var(--sv-r-ctl);
-  padding: 14px;
-}
-.duo-main {
-  background: linear-gradient(140deg, var(--sv-indigo), var(--sv-purple));
-  color: #fff;
-}
-.duo-main b {
-  font-size: var(--sv-fs-title3);
-  display: block;
-  margin-top: 10px;
-}
-.duo-main small {
-  opacity: 0.85;
-  display: block;
-  margin-top: 4px;
-  line-height: 1.5;
-}
-.duo-side {
-  border: 1px solid var(--sv-sep);
-}
-.duo-side b {
-  font-size: var(--sv-fs-callout);
-  display: block;
-  margin-top: 8px;
-}
-.duo-side small {
-  color: var(--sv-label2);
-  display: block;
-  margin-top: 3px;
-}
-.m-ico,
-.s-ico {
-  display: grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  border-radius: 14px;
-}
-.m-ico {
-  background: rgba(255, 255, 255, 0.22);
-  color: #fff;
-}
-.s-ico {
-  background: var(--sv-indigo-soft);
-  color: var(--sv-indigo);
+  color: var(--sv-accent);
 }
 .mk-tip {
   margin-bottom: 12px;
@@ -754,8 +747,8 @@ async function toggleFavorite() {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 7px 0;
-  border-bottom: 1px dashed var(--sv-sep);
+  padding: 8px 0;
+  border-bottom: 1px solid var(--sv-sep);
   font-size: var(--sv-fs-footnote);
   color: var(--sv-label);
 }
@@ -778,19 +771,16 @@ async function toggleFavorite() {
   flex: none;
 }
 .fd-dot.ok {
-  background: var(--sv-mint);
+  background: var(--sv-ok);
 }
 .fd-dot.mid {
-  background: var(--sv-amber);
+  background: var(--sv-warn);
 }
 .fd-dot.run {
-  background: var(--sv-blue);
+  background: var(--sv-label3);
 }
 .fd-dot.bad {
-  background: var(--sv-red);
-}
-.feed-more {
-  margin-top: 0;
+  background: var(--sv-danger);
 }
 .foot {
   text-align: center;

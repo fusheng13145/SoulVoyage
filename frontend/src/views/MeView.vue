@@ -7,7 +7,9 @@ import SvList from '@/components/ui/SvList.vue'
 import SvCell from '@/components/ui/SvCell.vue'
 import SvSegmented from '@/components/ui/SvSegmented.vue'
 import SvSwitch from '@/components/ui/SvSwitch.vue'
-import http, { type ApiResp } from '@/api/http'
+import SvPageBody from '@/components/ui/SvPageBody.vue'
+import { notificationApi } from '@/api/domains/notification'
+import { isConflict } from '@/api/http'
 import { useAuthStore } from '@/stores/auth'
 import { useCrisisStore } from '@/stores/crisis'
 import { themePref, setTheme, type ThemePref } from '@/composables/theme'
@@ -37,13 +39,13 @@ onMounted(() => {
   crisis.refreshProfile().catch(() => {
     /* 横幅降级不影响本页 */
   })
-  http
-    .get<ApiResp<Prefs>>('/preferences')
-    .then(({ data }) => {
-      prefs.value = data.data
+  notificationApi
+    .getPrefs<Prefs>()
+    .then(data => {
+      prefs.value = data
       // 服务端为真源：首次对齐本地缓存
-      if (data.data.theme !== themePref.value) setTheme(data.data.theme as ThemePref)
-      if (data.data.hapticOn !== hapticOn.value) setHaptic(data.data.hapticOn)
+      if (data.theme !== themePref.value) setTheme(data.theme as ThemePref)
+      if (data.hapticOn !== hapticOn.value) setHaptic(data.hapticOn)
     })
     .catch(() => {
       /* 离线时保留本地偏好 */
@@ -67,10 +69,11 @@ function pickTheme(v: string | number) {
 async function patch(body: Partial<Prefs>) {
   if (!prefs.value) return
   try {
-    const { data } = await http.put<ApiResp<Prefs>>('/preferences', body)
-    prefs.value = data.data
+    prefs.value = await notificationApi.putPrefs<Prefs>(body)
   } catch (e) {
     toast((e as Error).message || '设置没保存上，再试一次')
+    // B-09：并发保存冲突 → 以服务端最新偏好为准，避免本地继续拿旧版本重试
+    if (isConflict(e)) prefs.value = await notificationApi.getPrefs<Prefs>().catch(() => prefs.value)
   }
 }
 
@@ -101,7 +104,7 @@ async function logout() {
   <div class="me">
     <SvNavBar title="我的" />
 
-    <div class="body">
+    <SvPageBody>
       <SvCard>
         <div class="profile">
           <span class="avatar" aria-hidden="true">{{ initial }}</span>
@@ -137,6 +140,13 @@ async function logout() {
           tone="var(--sv-indigo-soft)"
           to="/notifications"
         />
+        <SvCell
+          label="任务中心"
+          hint="看清系统为你做了什么 · 失败可重试"
+          icon="i-clock"
+          tone="color-mix(in srgb, var(--sv-mint) 14%, transparent)"
+          to="/tasks"
+        />
       </SvList>
 
       <SvList title="外观与体感">
@@ -166,7 +176,7 @@ async function logout() {
         </SvCell>
       </SvList>
 
-      <SvList title="它如何提醒你">
+      <SvList title="提醒方式">
         <SvCell
           label="每日打卡提醒"
           hint="到点轻轻说一句，不连环催"
@@ -296,14 +306,11 @@ async function logout() {
       <button class="sv-btn ghost" :disabled="loggingOut" @click="logout">退出登录</button>
 
       <p class="sv-cap foot">心屿漫行对全部内容做信封加密，服务端无法读取明文。</p>
-    </div>
+    </SvPageBody>
   </div>
 </template>
 
 <style scoped>
-.body {
-  padding: 0 var(--sv-s4);
-}
 .profile {
   display: flex;
   align-items: center;
@@ -313,13 +320,15 @@ async function logout() {
   width: 56px;
   height: 56px;
   flex: none;
-  border-radius: 50%;
+  border: 1px solid var(--sv-sep);
+  border-radius: var(--sv-r-card);
   display: grid;
   place-items: center;
+  font-family: var(--sv-serif);
   font-size: var(--sv-fs-title2);
-  font-weight: 700;
-  color: #fff;
-  background: linear-gradient(140deg, var(--sv-indigo), var(--sv-purple));
+  font-weight: 600;
+  color: var(--sv-accent);
+  background: var(--sv-card2);
 }
 .pinfo b {
   font-size: var(--sv-fs-title3);
@@ -327,7 +336,7 @@ async function logout() {
 }
 .notice {
   margin-top: var(--sv-s3);
-  background: color-mix(in srgb, var(--sv-amber) 16%, var(--sv-card));
+  border: 1px solid var(--sv-warn);
   border-radius: var(--sv-r-ctl);
   padding: 10px 12px;
   font-size: var(--sv-fs-footnote);
@@ -336,12 +345,13 @@ async function logout() {
   min-width: 168px;
 }
 .time {
-  border: 1px solid var(--sv-sep);
-  border-radius: 8px;
-  background: var(--sv-card);
+  border: 1px solid var(--sv-line-strong);
+  border-radius: var(--sv-r-ctl);
+  background: var(--sv-card2);
   color: var(--sv-label);
   font-size: var(--sv-fs-footnote);
-  padding: 6px 8px;
+  min-height: 32px;
+  padding: 4px 8px;
   font-family: inherit;
 }
 .foot {

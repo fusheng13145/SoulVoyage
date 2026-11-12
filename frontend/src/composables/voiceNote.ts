@@ -1,5 +1,5 @@
 import { onUnmounted, ref } from 'vue'
-import http, { type ApiResp } from '@/api/http'
+import { voiceApi } from '@/api/domains/voice'
 
 /** 与后端 VoiceDiaryController.MAX_DURATION_MS 同一口径：一段最多 90 秒 */
 export const MAX_VOICE_MS = 90_000
@@ -48,11 +48,8 @@ export function useVoiceNote(onTranscript: (text: string, durationMs: number) =>
       const form = new FormData()
       form.append('file', blob, 'voice')
       form.append('durationMs', String(Math.round(durationMs)))
-      const { data } = await http.post<ApiResp<{ text: string; durationMs: number }>>(
-        '/diaries/voice-transcriptions',
-        form,
-      )
-      onTranscript(data.data.text, data.data.durationMs)
+      const t = await voiceApi.transcribe(form)
+      onTranscript(t.text, t.durationMs)
     } catch (e) {
       // 后端的中文话术（太大/不是音频/转写失败）直接透传，前端不再编第二套说辞
       error.value = (e as Error).message || '转写失败了，先手写一段吧'

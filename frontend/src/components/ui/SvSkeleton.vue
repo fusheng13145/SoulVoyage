@@ -8,7 +8,7 @@ withDefaults(defineProps<{ h?: number; w?: string; round?: boolean }>(), { h: 14
     :style="{
       height: h + 'px',
       width: w || '100%',
-      borderRadius: round ? '50%' : '14px',
+      borderRadius: round ? '50%' : 'var(--sv-r-ctl)',
     }"
   />
 </template>
@@ -16,18 +16,16 @@ withDefaults(defineProps<{ h?: number; w?: string; round?: boolean }>(), { h: 14
 <style scoped>
 .sk {
   display: block;
-  background: linear-gradient(
-    90deg,
-    var(--sv-fill2) 25%,
-    color-mix(in srgb, var(--sv-fill2) 40%, var(--sv-card)) 50%,
-    var(--sv-fill2) 75%
-  );
-  background-size: 200%;
-  animation: shim 1.3s infinite;
+  background: var(--sv-fill2);
+  animation: breathe 1.4s ease-in-out infinite;
 }
-@keyframes shim {
-  to {
-    background-position: -200%;
+@keyframes breathe {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
   }
 }
 </style>

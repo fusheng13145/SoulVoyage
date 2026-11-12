@@ -14,6 +14,9 @@ spring:
       ddl-auto: update
     properties:
       hibernate.globally_quoted_identifiers: true
+  flyway:
+    # 测试库走 H2 + ddl-auto；MySQL 方言的 V1/V2 迁移在本地 MySQL 演练（见 Batch 5 spec §3）
+    enabled: false
 
 soulvoyage:
   llm:

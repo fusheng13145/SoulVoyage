@@ -10,8 +10,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Map;
-
 @RestController
 @RequestMapping("/api/v1/auth")
 @RequiredArgsConstructor
@@ -44,24 +42,21 @@ public class AuthController {
     }
 
     @GetMapping("/me")
-    public ApiResponse<Map<String, Object>> me(@AuthenticationPrincipal AuthPrincipal p) {
+    public ApiResponse<MeResp> me(@AuthenticationPrincipal AuthPrincipal p) {
         if (p == null) throw new com.soulvoyage.common.exception.BizException(
                 com.soulvoyage.common.api.ErrorCode.UNAUTHORIZED, null);
         UserEntity u = userRepo.findByIdAndDeletedAtIsNull(p.userId()).orElseThrow();
-        return ApiResponse.ok(Map.ofEntries(
-                Map.entry("userId", u.getId()), Map.entry("username", u.getUsername()),
-                Map.entry("nickname", u.getNickname()), Map.entry("role", u.getRole()),
-                Map.entry("crisisState", u.getCrisisState()),
-                Map.entry("agreedPolicyAt", u.getAgreedPolicyAt() == null ? "" : u.getAgreedPolicyAt().toString()),
-                Map.entry("policyVersion", u.getPolicyVersion() == null ? "" : u.getPolicyVersion()),
-                Map.entry("status", u.getStatus().intValue()),
-                Map.entry("deletionRequestedAt",
-                        u.getDeletionRequestedAt() == null ? "" : u.getDeletionRequestedAt().toString()),
+        return ApiResponse.ok(new MeResp(
+                u.getId(), u.getUsername(), u.getNickname(), u.getRole(),
+                u.getCrisisState(),
+                u.getAgreedPolicyAt() == null ? "" : u.getAgreedPolicyAt().toString(),
+                u.getPolicyVersion() == null ? "" : u.getPolicyVersion(),
+                u.getStatus().intValue(),
+                u.getDeletionRequestedAt() == null ? "" : u.getDeletionRequestedAt().toString(),
                 // M14：只回"绑没绑"，不回 openid——那是服务端与微信之间的标识，不是给用户看的
-                Map.entry("wechatBound", u.getWxOpenid() != null),
-                // createdAt 由库侧默认值供给（列上 insertable=false），读回来可能是 null：
-                // Map.entry 不接受 null 值，这里不兜住就是整个 /me 报 500
-                Map.entry("createdAt", u.getCreatedAt() == null ? "" : u.getCreatedAt().toString())));
+                u.getWxOpenid() != null,
+                // createdAt 由库侧默认值供给（列上 insertable=false），读回来可能是 null
+                u.getCreatedAt() == null ? "" : u.getCreatedAt().toString()));
     }
 
     static String clientIp(HttpServletRequest req) {

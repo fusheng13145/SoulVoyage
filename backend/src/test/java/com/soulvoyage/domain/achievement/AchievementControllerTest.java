@@ -1,6 +1,7 @@
 package com.soulvoyage.domain.achievement;
 
 import com.soulvoyage.auth.AuthPrincipal;
+import com.soulvoyage.domain.achievement.dto.AchievementDtos.WallResp;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -39,10 +40,10 @@ class AchievementControllerTest {
                 Map.of("code", "b", "unlocked", false),
                 Map.of("code", "c", "unlocked", true)));
 
-        Map<String, Object> out = controller.wall(principal()).getData();
+        WallResp out = controller.wall(principal()).getData();
 
-        assertEquals(3, out.get("totalCount"));
-        assertEquals(2L, out.get("unlockedCount"));
+        assertEquals(3, out.totalCount());
+        assertEquals(2L, out.unlockedCount());
     }
 
     @Test
@@ -52,10 +53,10 @@ class AchievementControllerTest {
         noFlag.put("code", "x");
         when(achievements.wall(7L)).thenReturn(List.of(noFlag));
 
-        Map<String, Object> out = controller.wall(principal()).getData();
+        WallResp out = controller.wall(principal()).getData();
 
-        assertEquals(1, out.get("totalCount"));
-        assertEquals(0L, out.get("unlockedCount"));
+        assertEquals(1, out.totalCount());
+        assertEquals(0L, out.unlockedCount());
     }
 
     @Test
@@ -63,9 +64,9 @@ class AchievementControllerTest {
     void wallIgnoresTruthyNonBoolean() {
         when(achievements.wall(7L)).thenReturn(List.of(Map.of("code", "y", "unlocked", "true")));
 
-        Map<String, Object> out = controller.wall(principal()).getData();
+        WallResp out = controller.wall(principal()).getData();
 
-        assertEquals(0L, out.get("unlockedCount"), "只认 Boolean.TRUE，不做宽松真值判断");
+        assertEquals(0L, out.unlockedCount(), "只认 Boolean.TRUE，不做宽松真值判断");
     }
 
     @Test
@@ -73,11 +74,11 @@ class AchievementControllerTest {
     void wallWithEmptyCatalog() {
         when(achievements.wall(7L)).thenReturn(List.of());
 
-        Map<String, Object> out = controller.wall(principal()).getData();
+        WallResp out = controller.wall(principal()).getData();
 
-        assertEquals(List.of(), out.get("items"));
-        assertEquals(0L, out.get("unlockedCount"));
-        assertEquals(0, out.get("totalCount"));
+        assertEquals(List.of(), out.items());
+        assertEquals(0L, out.unlockedCount());
+        assertEquals(0, out.totalCount());
     }
 
     @Test

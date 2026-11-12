@@ -164,7 +164,7 @@ public class DiaryService {
         var input = mapper.createObjectNode();
         input.put("diaryText", text);
         input.put("recordDate", d.getRecordDate().toString());
-        TaskInstanceEntity t = orchestrator.submit(userId, "DIARY_PIPELINE", input,
+        TaskInstanceEntity t = orchestrator.submitInternal(userId, "DIARY_PIPELINE", input,
                 "diary-re-" + id + "-" + System.nanoTime());
         d.setTaskId(t.getId());
         diaryRepo.save(d);

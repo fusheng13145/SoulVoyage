@@ -2,18 +2,26 @@ package com.soulvoyage.common.exception;
 
 import com.soulvoyage.common.api.ApiResponse;
 import com.soulvoyage.common.api.ErrorCode;
+import com.soulvoyage.common.api.ErrorCodeMapping;
 import com.soulvoyage.orchestrator.agent.LlmUnavailableException;
 import com.soulvoyage.orchestrator.agent.OutputInvalidException;
+import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataAccessResourceFailureException;
+import org.springframework.data.redis.RedisConnectionFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.ResponseEntity.BodyBuilder;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 import java.io.IOException;
@@ -31,7 +39,8 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(BizException.class)
     public ResponseEntity<ApiResponse<Void>> biz(BizException e) {
-        return json(httpStatus(e.getErrorCode())).body(ApiResponse.fail(e.getErrorCode(), e.getMessage()));
+        return json(ErrorCodeMapping.statusOf(e.getErrorCode()))
+                .body(ApiResponse.fail(e.getErrorCode(), e.getMessage()));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -39,7 +48,32 @@ public class GlobalExceptionHandler {
         String msg = e.getBindingResult().getFieldErrors().stream()
                 .map(f -> f.getField() + ": " + f.getDefaultMessage())
                 .findFirst().orElse("参数不合法");
-        return json(HttpStatus.BAD_REQUEST).body(ApiResponse.fail(ErrorCode.BAD_PARAMS, msg));
+        return badRequest(msg);
+    }
+
+    /** Bean Validation 的方法级校验（@Validated + @RequestParam 等）同样收口为 2001。 */
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ResponseEntity<ApiResponse<Void>> constraint(ConstraintViolationException e) {
+        String msg = e.getConstraintViolations().stream()
+                .map(v -> v.getMessage()).findFirst().orElse("参数不合法");
+        return badRequest(msg);
+    }
+
+    /** JSON 体不可解析：客户端问题，不能落进 500。 */
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ApiResponse<Void>> unreadable(HttpMessageNotReadableException e) {
+        log.debug("request body unreadable: {}", e.getMessage());
+        return badRequest("请求体格式不正确");
+    }
+
+    @ExceptionHandler(MissingServletRequestParameterException.class)
+    public ResponseEntity<ApiResponse<Void>> missingParam(MissingServletRequestParameterException e) {
+        return badRequest("缺少参数: " + e.getParameterName());
+    }
+
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ApiResponse<Void>> typeMismatch(MethodArgumentTypeMismatchException e) {
+        return badRequest("参数格式不正确: " + e.getName());
     }
 
     @ExceptionHandler(AccessDeniedException.class)
@@ -74,11 +108,26 @@ public class GlobalExceptionHandler {
                 .body(ApiResponse.fail(ErrorCode.LLM_OUTPUT_INVALID, e.getMessage()));
     }
 
+    /** 依赖不可达（MySQL / Redis）：503 + 5002，让前端提示稍后重试而不是“参数错误”。 */
+    @ExceptionHandler({DataAccessResourceFailureException.class, RedisConnectionFailureException.class})
+    public ResponseEntity<ApiResponse<Void>> dependencyDown(Exception e) {
+        log.error("dependency unavailable", e);
+        return json(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(ApiResponse.fail(ErrorCode.DEPENDENCY_UNAVAILABLE, null));
+    }
+
+    /** B-09：乐观锁冲突——同一聚合被并发修改，让客户端刷新后重试而不是 500 */
+    @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
+    public ResponseEntity<ApiResponse<Void>> optimisticLock(ObjectOptimisticLockingFailureException e) {
+        log.warn("optimistic lock conflict: {}", e.getMessage());
+        return json(HttpStatus.CONFLICT).body(ApiResponse.fail(ErrorCode.CONFLICT, null));
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiResponse<Void>> other(Exception e) {
         log.error("unhandled exception", e);
         return json(HttpStatus.INTERNAL_SERVER_ERROR)
-                .body(ApiResponse.fail(ErrorCode.BAD_PARAMS, "服务内部错误"));
+                .body(ApiResponse.fail(ErrorCode.INTERNAL_ERROR, null));
     }
 
     /** 上传体积超过容器上限时 Spring 先于业务抛：换成 2001 的业务话术，别把 500 甩给录音的用户 */
@@ -92,16 +141,7 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(status).contentType(MediaType.APPLICATION_JSON);
     }
 
-    private static HttpStatus httpStatus(ErrorCode code) {
-        return switch (code) {
-            case UNAUTHORIZED, LOGIN_FAILED -> HttpStatus.UNAUTHORIZED;
-            case FORBIDDEN, CRISIS_MODE_RESTRICTED -> HttpStatus.FORBIDDEN;
-            case USERNAME_EXISTS, TASK_CONCURRENCY_LIMIT -> HttpStatus.CONFLICT;
-            case NOT_FOUND, TASK_NOT_FOUND -> HttpStatus.NOT_FOUND;
-            case LLM_RATE_LIMIT -> HttpStatus.TOO_MANY_REQUESTS;
-            case LLM_TIMEOUT -> HttpStatus.SERVICE_UNAVAILABLE;
-            case ASR_FAILED, WX_LOGIN_FAILED -> HttpStatus.BAD_GATEWAY;   // 第三方没答上来，不是客户端的错
-            default -> HttpStatus.BAD_REQUEST;   // 20xx/30xx 其余参数与流程类
-        };
+    private static ResponseEntity<ApiResponse<Void>> badRequest(String msg) {
+        return json(HttpStatus.BAD_REQUEST).body(ApiResponse.fail(ErrorCode.BAD_PARAMS, msg));
     }
 }

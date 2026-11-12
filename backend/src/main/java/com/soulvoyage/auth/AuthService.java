@@ -28,6 +28,7 @@ public class AuthService {
     private final JwtService jwt;
     private final AuditService audit;
     private final StringRedisTemplate redis;
+    private final RedisGuard guard;
 
     @Value("${soulvoyage.security.login-lock.max-fail}")
     private int maxFail;
@@ -62,8 +63,9 @@ public class AuthService {
 
     /** S3：失败计数达阈值即锁定（窗口内连正确密码也拒）；S2：status=3 冷静期允许登录以撤回注销 */
     public UserEntity authenticate(LoginReq req, String ip) {
-        String failKey = FAIL_PREFIX + req.username();
-        String cnt = redis.opsForValue().get(failKey);
+        // B-07：计数按 username+IP 双维度——攻击者无法用单一用户名锁死他人账号
+        String failKey = FAIL_PREFIX + req.username() + ":" + ip;
+        String cnt = guard.read("login.fail.count", () -> redis.opsForValue().get(failKey));
         if (cnt != null && Integer.parseInt(cnt) >= maxFail) {
             throw new BizException(ErrorCode.LOGIN_FAILED, "失败次数过多，请稍后再试");
         }
@@ -71,13 +73,16 @@ public class AuthService {
         boolean ok = u != null && (u.getStatus() == 1 || u.getStatus() == 3)
                 && encoder.matches(req.password(), u.getPasswordHash());
         if (!ok) {
-            Long n = redis.opsForValue().increment(failKey);
-            if (n != null && n == 1) redis.expire(failKey, lockWindow);
+            // B-16：Redis 故障时降级为"不锁定"（登录不被缓存拖死），由 sv.redis.degraded 指标告警
+            guard.writeBestEffort("login.fail.count", () -> {
+                Long n = redis.opsForValue().increment(failKey);
+                if (n != null && n == 1) redis.expire(failKey, lockWindow);
+            });
             audit.record(u == null ? null : u.getId(), "LOGIN_FAILED",
                     "user:" + req.username(), ip);
             throw new BizException(ErrorCode.LOGIN_FAILED);
         }
-        redis.delete(failKey);
+        guard.writeBestEffort("login.fail.count", () -> redis.delete(failKey));
         audit.record(u.getId(), "LOGIN", "user:" + u.getId(), ip);
         return u;
     }

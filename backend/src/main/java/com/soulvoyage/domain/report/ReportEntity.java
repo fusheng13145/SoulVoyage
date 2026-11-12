@@ -62,4 +62,9 @@ public class ReportEntity {
 
     @Column(name = "deleted_at")
     private Instant deletedAt;
+
+    /** B-09 乐观锁：批注/反馈/过期标记并发写入时防丢更新 */
+    @Version
+    @Column(name = "version", nullable = false)
+    private Long version;
 }

@@ -1,6 +1,9 @@
 package com.soulvoyage.agent.companion;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.soulvoyage.orchestrator.AgentCode;
+import com.soulvoyage.orchestrator.PipelineCode;
+import com.soulvoyage.orchestrator.pipeline.PipelinePayloads;
 import com.soulvoyage.orchestrator.pipeline.StepSpec;
 import com.soulvoyage.orchestrator.pipeline.TaskContext;
 import com.soulvoyage.orchestrator.pipeline.TaskDefinition;
@@ -18,19 +21,24 @@ import java.util.List;
 public class CompanionPipeline implements TaskDefinition {
 
     @Override
-    public String code() { return "COMPANION_PIPELINE"; }
+    public PipelineCode code() { return PipelineCode.COMPANION_PIPELINE; }
+
+    @Override
+    public void validatePayload(JsonNode payload) {
+        PipelinePayloads.requirePositiveLong(PipelinePayloads.requireObject(payload), "sessionId");
+    }
 
     @Override
     public List<StepSpec> steps(TaskContext ctx) {
         JsonNode input = ctx.input();
         boolean wantTrace = input != null && input.path("wantTrace").asBoolean(false);
         List<StepSpec> steps = new ArrayList<>();
-        steps.add(new StepSpec("digest", "COMPANION", "companion_digest.json"));
-        steps.add(new StepSpec("emotion", "EMOTION", "emotion_result.json"));
+        steps.add(new StepSpec("digest", AgentCode.COMPANION, "companion_digest.json"));
+        steps.add(new StepSpec("emotion", AgentCode.EMOTION, "emotion_result.json"));
         if (wantTrace) {
-            steps.add(new StepSpec("insight", "TRACE", "trace_result.json"));
+            steps.add(new StepSpec("insight", AgentCode.TRACE, "trace_result.json"));
         }
-        steps.add(new StepSpec("risk", "RISK_ARCHIVE", "archive_receipt.json"));
+        steps.add(new StepSpec("risk", AgentCode.RISK_ARCHIVE, "archive_receipt.json"));
         return steps;
     }
 }

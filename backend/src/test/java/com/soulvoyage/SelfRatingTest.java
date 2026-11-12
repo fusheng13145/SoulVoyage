@@ -62,11 +62,11 @@ class SelfRatingTest {
         assertEquals(0, t.getIntensity().compareTo(new BigDecimal("0.68")));
         assertTrue(t.getEventTags().contains("午后晒了太阳"), "备注应进 eventTags");
 
-        Map<String, Object> traj = controller.trajectory(p, today, today, 30, "day").getData();
-        @SuppressWarnings("unchecked")
-        List<Map<String, Object>> points = (List<Map<String, Object>>) traj.get("points");
+        com.soulvoyage.domain.emotion.dto.EmotionDtos.TrajectoryResp traj =
+                controller.trajectory(p, today, today, 30, "day").getData();
+        List<com.soulvoyage.domain.emotion.dto.EmotionDtos.TrajectoryPoint> points = traj.points();
         assertEquals(1, points.size());
-        assertEquals("SELF_RATING", points.get(0).get("sourceType"));
+        assertEquals("SELF_RATING", points.get(0).sourceType());
     }
 
     @Test
@@ -91,7 +91,7 @@ class SelfRatingTest {
         long uid = newUser();
         var p = new AuthPrincipal(uid, "USER");
         var resp = controller.selfRating(p, req("期待", "-0.2", "0.36", null, null));
-        LocalDate d = LocalDate.parse(String.valueOf(resp.getData().get("date")));
+        LocalDate d = LocalDate.parse(String.valueOf(resp.getData().date()));
         List<EmotionTrajectoryEntity> rows = trajRepo
                 .findByUserIdAndRecordDateBetweenOrderByRecordDateAsc(uid, d, d);
         assertEquals(1, rows.size());

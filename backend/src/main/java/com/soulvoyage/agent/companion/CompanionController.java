@@ -1,6 +1,10 @@
 package com.soulvoyage.agent.companion;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.soulvoyage.agent.companion.dto.CompanionDtos.EndResp;
+import com.soulvoyage.agent.companion.dto.CompanionDtos.HistoryResp;
+import com.soulvoyage.agent.companion.dto.CompanionDtos.HistorySession;
+import com.soulvoyage.agent.companion.dto.CompanionDtos.NoAnalyzeResp;
 import com.soulvoyage.auth.AuthPrincipal;
 import com.soulvoyage.common.api.ApiResponse;
 import com.soulvoyage.common.exception.BizException;
@@ -46,17 +50,16 @@ public class CompanionController {
     }
 
     @GetMapping("/sessions")
-    public ApiResponse<Map<String, Object>> history(@AuthenticationPrincipal AuthPrincipal p,
-                                                    @RequestParam(defaultValue = "0") int page,
-                                                    @RequestParam(defaultValue = "20") int size) {
+    public ApiResponse<HistoryResp> history(@AuthenticationPrincipal AuthPrincipal p,
+                                            @RequestParam(defaultValue = "0") int page,
+                                            @RequestParam(defaultValue = "20") int size) {
         Page<CompanionSessionEntity> ps = service.history(p.userId(),
                 PageRequest.of(page, Math.min(size, 50)));
-        return ApiResponse.ok(Map.of(
-                "page", ps.getNumber(), "size", ps.getSize(), "total", ps.getTotalElements(),
-                "sessions", ps.getContent().stream().map(s -> Map.<String, Object>of(
-                        "sessionId", s.getId(), "chatDate", s.getChatDate().toString(),
-                        "segmentNo", s.getSegmentNo(), "status", s.getStatus(), "turns", s.getTurns()
-                )).toList()));
+        return ApiResponse.ok(new HistoryResp(
+                ps.getNumber(), ps.getSize(), ps.getTotalElements(),
+                ps.getContent().stream().map(s -> new HistorySession(
+                        s.getId(), s.getChatDate().toString(), s.getSegmentNo(),
+                        s.getStatus(), s.getTurns())).toList()));
     }
 
     @GetMapping("/sessions/{id}")
@@ -117,18 +120,18 @@ public class CompanionController {
 
     /** 「这句别分析」：下一次管道消化排除该轮（用户自主权，C0） */
     @PostMapping("/turns/{turnId}/no-analyze")
-    public ApiResponse<Map<String, Object>> noAnalyze(@AuthenticationPrincipal AuthPrincipal p,
-                                                      @PathVariable Long turnId) {
+    public ApiResponse<NoAnalyzeResp> noAnalyze(@AuthenticationPrincipal AuthPrincipal p,
+                                                @PathVariable Long turnId) {
         service.markNoAnalyze(p.userId(), turnId);
-        return ApiResponse.ok(Map.of("turnId", turnId, "noAnalyze", true));
+        return ApiResponse.ok(new NoAnalyzeResp(turnId, true));
     }
 
     /** 收段：封口 + 交 COMPANION_PIPELINE，202 语义返回 taskNo；无可消化内容时为空串（不伪造任务） */
     @PostMapping("/sessions/{id}/end")
-    public ResponseEntity<ApiResponse<Map<String, Object>>> end(@AuthenticationPrincipal AuthPrincipal p,
-                                                                @PathVariable Long id) {
+    public ResponseEntity<ApiResponse<EndResp>> end(@AuthenticationPrincipal AuthPrincipal p,
+                                                    @PathVariable Long id) {
         String taskNo = service.end(p.userId(), id);
-        return ResponseEntity.accepted().body(ApiResponse.ok(Map.of(
-                "sessionId", id, "taskNo", taskNo == null ? "" : taskNo)));
+        return ResponseEntity.accepted().body(ApiResponse.ok(new EndResp(
+                id, taskNo == null ? "" : taskNo)));
     }
 }

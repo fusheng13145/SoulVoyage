@@ -1,6 +1,7 @@
 package com.soulvoyage.agent.support;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.soulvoyage.agent.support.dto.ExerciseDtos.CheckInResp;
 import com.soulvoyage.auth.AuthPrincipal;
 import com.soulvoyage.common.api.ErrorCode;
 import com.soulvoyage.common.exception.BizException;
@@ -13,6 +14,7 @@ import com.soulvoyage.domain.exercise.ExerciseRecordRepository;
 import com.soulvoyage.domain.plan.PlanService;
 import com.soulvoyage.domain.task.TaskInstanceEntity;
 import com.soulvoyage.orchestrator.OrchestratorService;
+import com.soulvoyage.orchestrator.api.TaskDtos.TaskNoResp;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -132,13 +134,13 @@ class ExerciseControllerTest {
                 .thenReturn(List.of());
         stubSave(77L);
 
-        Map<String, Object> data = controller.checkIn(user,
+        CheckInResp data = controller.checkIn(user,
                 new ExerciseController.CheckInReq("ex_478_breath", null, true, "还不错",
                         null, null, null, 120, null)).getData();
 
-        assertEquals(77L, data.get("id"));
-        assertEquals("ex_478_breath", data.get("exerciseId"));
-        assertEquals(true, data.get("completed"));
+        assertEquals(77L, data.id());
+        assertEquals("ex_478_breath", data.exerciseId());
+        assertEquals(true, data.completed());
 
         ArgumentCaptor<ExerciseRecordEntity> c = ArgumentCaptor.forClass(ExerciseRecordEntity.class);
         verify(recordRepo).save(c.capture());
@@ -274,10 +276,10 @@ class ExerciseControllerTest {
         stubSave(84L);
         doThrow(new IllegalStateException("achievement down")).when(achievements).evaluate(1L);
 
-        Map<String, Object> data = controller.checkIn(user, new ExerciseController.CheckInReq(
+        CheckInResp data = controller.checkIn(user, new ExerciseController.CheckInReq(
                 "ex_478_breath", null, true, null, null, null, null, null, null)).getData();
 
-        assertEquals(84L, data.get("id"));
+        assertEquals(84L, data.id());
     }
 
     @Test
@@ -289,10 +291,10 @@ class ExerciseControllerTest {
         stubSave(85L);
         doThrow(new BizException(ErrorCode.NOT_FOUND)).when(plans).markItemDone(anyLong(), anyLong(), anyInt(), any());
 
-        Map<String, Object> data = controller.checkIn(user, new ExerciseController.CheckInReq(
+        CheckInResp data = controller.checkIn(user, new ExerciseController.CheckInReq(
                 "ex_478_breath", null, true, null, "pl_12", 3, null, null, null)).getData();
 
-        assertEquals(85L, data.get("id"));
+        assertEquals(85L, data.id());
     }
 
     // ---------------- 行为激活 1-5 星 ----------------
@@ -374,10 +376,10 @@ class ExerciseControllerTest {
         when(trajRepo.findByUserIdAndRecordDateAndSourceType(anyLong(), any(), eq("SELF_RATING")))
                 .thenThrow(new IllegalStateException("traj down"));
 
-        Map<String, Object> data = controller.checkIn(user, new ExerciseController.CheckInReq(
+        CheckInResp data = controller.checkIn(user, new ExerciseController.CheckInReq(
                 "ex_478_breath", null, true, null, null, null, null, null, 4)).getData();
 
-        assertEquals(93L, data.get("id"));
+        assertEquals(93L, data.id());
     }
 
     // ---------------- cognitive ----------------
@@ -392,11 +394,11 @@ class ExerciseControllerTest {
                 .thenReturn(Optional.empty());
         stubSave(88L);
 
-        Map<String, String> data = controller.cognitive(user,
+        TaskNoResp data = controller.cognitive(user,
                 new ExerciseController.CognitiveReq("室友没回消息", "他肯定讨厌我", "他可能在忙",
                         "pl_9", 3, 60)).getData();
 
-        assertEquals("TK-COG", data.get("taskNo"));
+        assertEquals("TK-COG", data.taskNo());
         ArgumentCaptor<com.fasterxml.jackson.databind.node.ObjectNode> ic =
                 ArgumentCaptor.forClass(com.fasterxml.jackson.databind.node.ObjectNode.class);
         verify(orchestrator).submit(eq(1L), eq("COGNITIVE_PIPELINE"), ic.capture(), eq(null));
@@ -433,10 +435,10 @@ class ExerciseControllerTest {
         stubSave(0L);
         doThrow(new BizException(ErrorCode.NOT_FOUND)).when(plans).markItemDone(anyLong(), anyLong(), anyInt(), any());
 
-        Map<String, String> data = controller.cognitive(user,
+        TaskNoResp data = controller.cognitive(user,
                 new ExerciseController.CognitiveReq("a", "b", "c", "pl_9", 1, 30)).getData();
 
-        assertEquals("TK-COG3", data.get("taskNo"));
+        assertEquals("TK-COG3", data.taskNo());
     }
 
     // ---------------- records ----------------

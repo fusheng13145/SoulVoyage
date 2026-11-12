@@ -180,6 +180,22 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/v1/tasks/{taskNo}/retry': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post: operations['retryTask']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/v1/tasks/{taskNo}/cancel': {
     parameters: {
       query?: never
@@ -868,6 +884,22 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/v1/tasks/{taskNo}/steps': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get: operations['steps']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/v1/simulations/{id}': {
     parameters: {
       query?: never
@@ -1523,19 +1555,50 @@ export interface components {
       data?: Record<string, never>
       traceId?: string
     }
-    ApiResponseMapStringObject: {
+    PrefsPatchReq: {
+      theme?: string
+      checkinReminderOn?: boolean
+      reminderTime?: string
+      planReminderOn?: boolean
+      letterOn?: boolean
+      hapticOn?: boolean
+      companionAnalysisOn?: boolean
+      counselorBoardOn?: boolean
+    }
+    ApiResponsePrefsResp: {
       /** Format: int32 */
       code?: number
       msg?: string
-      data?: {
-        [key: string]: Record<string, never>
-      }
+      data?: components['schemas']['PrefsResp']
       traceId?: string
+    }
+    PrefsResp: {
+      theme?: string
+      checkinReminderOn?: boolean
+      reminderTime?: string
+      planReminderOn?: boolean
+      letterOn?: boolean
+      hapticOn?: boolean
+      companionAnalysisOn?: boolean
+      counselorBoardOn?: boolean
+      updatedAt?: string
     }
     DiaryEditReq: {
       content: string
       /** Format: int32 */
       moodSelfRating?: number
+    }
+    ApiResponseDiaryUpdateResp: {
+      /** Format: int32 */
+      code?: number
+      msg?: string
+      data?: components['schemas']['DiaryUpdateResp']
+      traceId?: string
+    }
+    DiaryUpdateResp: {
+      /** Format: int64 */
+      id?: number
+      staled?: boolean
     }
     DraftReq: {
       content: string
@@ -1556,6 +1619,19 @@ export interface components {
       recommendedFor?: string[]
       /** Format: int32 */
       status?: number
+    }
+    ApiResponseContentWriteResp: {
+      /** Format: int32 */
+      code?: number
+      msg?: string
+      data?: components['schemas']['ContentWriteResp']
+      traceId?: string
+    }
+    ContentWriteResp: {
+      code?: string
+      /** Format: int64 */
+      contentVersion?: number
+      effective?: boolean
     }
     KgBody: {
       type?: string
@@ -1588,18 +1664,41 @@ export interface components {
       payload?: components['schemas']['JsonNode']
       clientReqId?: string
     }
-    ApiResponseMapStringString: {
+    ApiResponseSubmitResp: {
       /** Format: int32 */
       code?: number
       msg?: string
-      data?: {
-        [key: string]: string
-      }
+      data?: components['schemas']['SubmitResp']
       traceId?: string
+    }
+    SubmitResp: {
+      taskNo?: string
+      status?: string
     }
     OpenReq: {
       sceneCode: string
       difficulty?: string
+    }
+    ApiResponseOpenSceneResp: {
+      /** Format: int32 */
+      code?: number
+      msg?: string
+      data?: components['schemas']['OpenSceneResp']
+      traceId?: string
+    }
+    OpenSceneResp: {
+      /** Format: int64 */
+      simulateId?: number
+      sceneCode?: string
+      title?: string
+      background?: string
+      npcName?: string
+      relation?: string
+      difficulty?: string
+      openingLine?: string
+      /** Format: int32 */
+      maxTurns?: number
+      goalDimensions?: string[]
     }
     TurnReq: {
       userText: string
@@ -1608,16 +1707,72 @@ export interface components {
       /** Format: int64 */
       timeout?: number
     }
+    ApiResponseInterruptResp: {
+      /** Format: int32 */
+      code?: number
+      msg?: string
+      data?: components['schemas']['InterruptResp']
+      traceId?: string
+    }
+    InterruptResp: {
+      status?: string
+    }
+    ApiResponseTaskNoResp: {
+      /** Format: int32 */
+      code?: number
+      msg?: string
+      data?: components['schemas']['TaskNoResp']
+      traceId?: string
+    }
+    TaskNoResp: {
+      taskNo?: string
+    }
     StarReq: {
       starred: boolean
+    }
+    ApiResponseStarResp: {
+      /** Format: int32 */
+      code?: number
+      msg?: string
+      data?: components['schemas']['StarResp']
+      traceId?: string
+    }
+    StarResp: {
+      /** Format: int64 */
+      id?: number
+      starred?: boolean
     }
     FeedbackReq: {
       rating?: string
       note?: string
     }
+    ApiResponseFeedbackResp: {
+      /** Format: int32 */
+      code?: number
+      msg?: string
+      data?: components['schemas']['FeedbackResp']
+      traceId?: string
+    }
+    FeedbackResp: {
+      /** Format: int64 */
+      id?: number
+      feedback?: string
+    }
     FavoriteReq: {
       type: string
       refCode: string
+    }
+    ApiResponseFavoriteToggleResp: {
+      /** Format: int32 */
+      code?: number
+      msg?: string
+      data?: components['schemas']['FavoriteToggleResp']
+      traceId?: string
+    }
+    FavoriteToggleResp: {
+      type?: string
+      refCode?: string
+      favorited?: boolean
     }
     CheckInReq: {
       emotion: string
@@ -1656,6 +1811,19 @@ export interface components {
       /** Format: int32 */
       durationActual?: number
     }
+    ApiResponseCheckInResp: {
+      /** Format: int32 */
+      code?: number
+      msg?: string
+      data?: components['schemas']['CheckInResp']
+      traceId?: string
+    }
+    CheckInResp: {
+      /** Format: int64 */
+      id?: number
+      exerciseId?: string
+      completed?: boolean
+    }
     SelfRatingReq: {
       emotion?: string
       valence?: number
@@ -1663,6 +1831,45 @@ export interface components {
       note?: string
       /** Format: date */
       date?: string
+    }
+    ApiResponseSelfRatingResp: {
+      /** Format: int32 */
+      code?: number
+      msg?: string
+      data?: components['schemas']['SelfRatingResp']
+      traceId?: string
+    }
+    SelfRatingResp: {
+      /** Format: int64 */
+      id?: number
+      date?: string
+    }
+    ApiResponseVoiceTranscriptionResp: {
+      /** Format: int32 */
+      code?: number
+      msg?: string
+      data?: components['schemas']['VoiceTranscriptionResp']
+      traceId?: string
+    }
+    VoiceTranscriptionResp: {
+      text?: string
+      model?: string
+      /** Format: int64 */
+      costMs?: number
+      /** Format: int64 */
+      durationMs?: number
+    }
+    ApiResponseNoAnalyzeResp: {
+      /** Format: int32 */
+      code?: number
+      msg?: string
+      data?: components['schemas']['NoAnalyzeResp']
+      traceId?: string
+    }
+    NoAnalyzeResp: {
+      /** Format: int64 */
+      turnId?: number
+      noAnalyze?: boolean
     }
     ApiResponseSessionView: {
       /** Format: int32 */
@@ -1695,6 +1902,18 @@ export interface components {
       noAnalyze?: boolean
       /** Format: date-time */
       createdAt?: string
+    }
+    ApiResponseEndResp: {
+      /** Format: int32 */
+      code?: number
+      msg?: string
+      data?: components['schemas']['EndResp']
+      traceId?: string
+    }
+    EndResp: {
+      /** Format: int64 */
+      sessionId?: number
+      taskNo?: string
     }
     WxRegisterReq: {
       bindTicket: string
@@ -1754,11 +1973,101 @@ export interface components {
       username: string
       password: string
     }
+    ApiResponseExportTicketResp: {
+      /** Format: int32 */
+      code?: number
+      msg?: string
+      data?: components['schemas']['ExportTicketResp']
+      traceId?: string
+    }
+    ExportTicketResp: {
+      fileId?: string
+      /** Format: int32 */
+      expiresInSeconds?: number
+      mode?: string
+      note?: string
+    }
+    ApiResponseUserStatusResp: {
+      /** Format: int32 */
+      code?: number
+      msg?: string
+      data?: components['schemas']['UserStatusResp']
+      traceId?: string
+    }
+    UserStatusResp: {
+      /** Format: int64 */
+      userId?: number
+      /** Format: int32 */
+      status?: number
+    }
+    ApiResponseRetryResp: {
+      /** Format: int32 */
+      code?: number
+      msg?: string
+      data?: components['schemas']['RetryResp']
+      traceId?: string
+    }
+    RetryResp: {
+      taskNo?: string
+      status?: string
+    }
     ReviewBody: {
       closeCrisis?: boolean
     }
+    ApiResponseRiskReviewResp: {
+      /** Format: int32 */
+      code?: number
+      msg?: string
+      data?: components['schemas']['RiskReviewResp']
+      traceId?: string
+    }
+    RiskReviewResp: {
+      /** Format: int64 */
+      riskEventId?: number
+      reviewed?: boolean
+      crisisClosed?: boolean
+    }
     RevealBody: {
       password?: string
+    }
+    ApiResponseRiskRevealResp: {
+      /** Format: int32 */
+      code?: number
+      msg?: string
+      data?: components['schemas']['RiskRevealResp']
+      traceId?: string
+    }
+    RiskRevealResp: {
+      /** Format: int64 */
+      riskEventId?: number
+      /** Format: int64 */
+      userId?: number
+      evidence?: Record<string, never>
+    }
+    ApiResponseVerifyAuditResp: {
+      /** Format: int32 */
+      code?: number
+      msg?: string
+      data?: components['schemas']['VerifyAuditResp']
+      traceId?: string
+    }
+    VerifyAuditResp: {
+      intact?: boolean
+      /** Format: int64 */
+      checked?: number
+      /** Format: int64 */
+      brokenAtId?: number
+    }
+    ApiResponseContentVersionResp: {
+      /** Format: int32 */
+      code?: number
+      msg?: string
+      data?: components['schemas']['ContentVersionResp']
+      traceId?: string
+    }
+    ContentVersionResp: {
+      /** Format: int64 */
+      contentVersion?: number
     }
     PreviewBody: {
       template?: string
@@ -1767,8 +2076,52 @@ export interface components {
         [key: string]: string
       }
     }
+    ApiResponsePreviewResp: {
+      /** Format: int32 */
+      code?: number
+      msg?: string
+      data?: components['schemas']['PreviewResp']
+      traceId?: string
+    }
+    PreviewResp: {
+      template?: string
+      system?: string
+      output?: string
+      model?: string
+      /** Format: int32 */
+      tokensIn?: number
+      /** Format: int32 */
+      tokensOut?: number
+      /** Format: int64 */
+      costMs?: number
+    }
     GroupBody: {
       name?: string
+    }
+    ApiResponseBoardDetailResp: {
+      /** Format: int32 */
+      code?: number
+      msg?: string
+      data?: components['schemas']['BoardDetailResp']
+      traceId?: string
+    }
+    BoardDetailResp: {
+      /** Format: int64 */
+      id?: number
+      name?: string
+      /** Format: int32 */
+      status?: number
+      /** Format: int32 */
+      memberCount?: number
+      /** Format: int32 */
+      consentedCount?: number
+      members?: components['schemas']['BoardMemberView'][]
+    }
+    BoardMemberView: {
+      /** Format: int64 */
+      userId?: number
+      username?: string
+      consented?: boolean
     }
     MembersBody: {
       userIds?: number[]
@@ -1806,6 +2159,57 @@ export interface components {
       errorMsg?: string
       createdAt?: string
     }
+    ApiResponseListTaskTimelineStep: {
+      /** Format: int32 */
+      code?: number
+      msg?: string
+      data?: components['schemas']['TaskTimelineStep'][]
+      traceId?: string
+    }
+    TaskTimelineStep: {
+      /** Format: int32 */
+      stepSeq?: number
+      agent?: string
+      stepCode?: string
+      status?: string
+      /** Format: int32 */
+      attempt?: number
+      /** Format: int32 */
+      costMs?: number
+      errorMsg?: string
+      createdAt?: string
+    }
+    ApiResponseSimulationListResp: {
+      /** Format: int32 */
+      code?: number
+      msg?: string
+      data?: components['schemas']['SimulationListResp']
+      traceId?: string
+    }
+    SimulationListItem: {
+      /** Format: int64 */
+      simulateId?: number
+      sceneCode?: string
+      sceneTitle?: string
+      difficulty?: string
+      status?: string
+      /** Format: int32 */
+      totalTurns?: number
+      avgScore?: number
+      dimensionScores?: Record<string, never>
+      startedAt?: string
+      finishedAt?: string
+      reportId?: string
+    }
+    SimulationListResp: {
+      items?: components['schemas']['SimulationListItem'][]
+      /** Format: int32 */
+      page?: number
+      /** Format: int32 */
+      size?: number
+      /** Format: int64 */
+      total?: number
+    }
     ApiResponseJsonNode: {
       /** Format: int32 */
       code?: number
@@ -1822,6 +2226,161 @@ export interface components {
       }[]
       traceId?: string
     }
+    ApiResponseReportListResp: {
+      /** Format: int32 */
+      code?: number
+      msg?: string
+      data?: components['schemas']['ReportListResp']
+      traceId?: string
+    }
+    ReportListResp: {
+      items?: components['schemas']['ReportMeta'][]
+      /** Format: int32 */
+      page?: number
+      /** Format: int32 */
+      size?: number
+      /** Format: int64 */
+      total?: number
+    }
+    ReportMeta: {
+      /** Format: int64 */
+      id?: number
+      type?: string
+      title?: string
+      riskLevel?: string
+      starred?: boolean
+      feedback?: string
+      createdAt?: string
+    }
+    ApiResponseReportDetailResp: {
+      /** Format: int32 */
+      code?: number
+      msg?: string
+      data?: components['schemas']['ReportDetailResp']
+      traceId?: string
+    }
+    ReportDetailResp: {
+      /** Format: int64 */
+      id?: number
+      type?: string
+      title?: string
+      riskLevel?: string
+      starred?: boolean
+      feedback?: string
+      feedbackNote?: string
+      feedbackAt?: string
+      createdAt?: string
+      content?: components['schemas']['JsonNode']
+    }
+    ApiResponseTodayResp: {
+      /** Format: int32 */
+      code?: number
+      msg?: string
+      data?: components['schemas']['TodayResp']
+      traceId?: string
+    }
+    TodayResp: {
+      kgNodeId?: string
+      title?: string
+      summary?: string
+      microAction?: string
+      aboutTags?: string[]
+      /** Format: int32 */
+      readingSec?: number
+      date?: string
+      favorited?: boolean
+      firstToday?: boolean
+    }
+    ApiResponsePlanListResp: {
+      /** Format: int32 */
+      code?: number
+      msg?: string
+      data?: components['schemas']['PlanListResp']
+      traceId?: string
+    }
+    PlanItemView: {
+      /** Format: int32 */
+      seq?: number
+      exerciseId?: string
+      guidance?: string
+      scheduledDate?: string
+      doneAt?: string
+      feedback?: string
+      exerciseName?: string
+      /** Format: int32 */
+      durationMin?: number
+    }
+    PlanListResp: {
+      items?: components['schemas']['PlanView'][]
+    }
+    PlanView: {
+      planId?: string
+      title?: string
+      /** Format: int32 */
+      days?: number
+      status?: string
+      startDate?: string
+      endDate?: string
+      /** Format: int32 */
+      daysLeft?: number
+      /** Format: int32 */
+      doneCount?: number
+      /** Format: int32 */
+      totalCount?: number
+      items?: components['schemas']['PlanItemView'][]
+    }
+    ApiResponsePlanView: {
+      /** Format: int32 */
+      code?: number
+      msg?: string
+      data?: components['schemas']['PlanView']
+      traceId?: string
+    }
+    ActivePlanResp: {
+      plan?: components['schemas']['PlanView']
+    }
+    ApiResponseActivePlanResp: {
+      /** Format: int32 */
+      code?: number
+      msg?: string
+      data?: components['schemas']['ActivePlanResp']
+      traceId?: string
+    }
+    ApiResponseNotificationListResp: {
+      /** Format: int32 */
+      code?: number
+      msg?: string
+      data?: components['schemas']['NotificationListResp']
+      traceId?: string
+    }
+    NotificationItem: {
+      /** Format: int64 */
+      id?: number
+      kind?: string
+      title?: string
+      body?: string
+      link?: string
+      readAt?: string
+      createdAt?: string
+    }
+    NotificationListResp: {
+      items?: components['schemas']['NotificationItem'][]
+      /** Format: int64 */
+      total?: number
+      /** Format: int64 */
+      unreadCount?: number
+    }
+    ApiResponseMonthResp: {
+      /** Format: int32 */
+      code?: number
+      msg?: string
+      data?: components['schemas']['MonthResp']
+      traceId?: string
+    }
+    MonthResp: {
+      items?: components['schemas']['CheckInView'][]
+      today?: components['schemas']['CheckInView']
+    }
     ApiResponseStreakView: {
       /** Format: int32 */
       code?: number
@@ -1837,6 +2396,304 @@ export interface components {
       /** Format: int32 */
       totalDays?: number
       makeupAvailable?: boolean
+    }
+    ApiResponseLetterListResp: {
+      /** Format: int32 */
+      code?: number
+      msg?: string
+      data?: components['schemas']['LetterListResp']
+      traceId?: string
+    }
+    LetterItem: {
+      id?: string
+      statWeek?: string
+      createdAt?: string
+      letter?: string
+      weekGlow?: string
+    }
+    LetterListResp: {
+      items?: components['schemas']['LetterItem'][]
+      /** Format: int32 */
+      total?: number
+    }
+    ApiResponseTrajectoryResp: {
+      /** Format: int32 */
+      code?: number
+      msg?: string
+      data?: components['schemas']['TrajectoryResp']
+      traceId?: string
+    }
+    TrajectoryPoint: {
+      date?: string
+      sourceType?: string
+      emotion?: string
+      valence?: number
+      intensity?: number
+      eventTags?: components['schemas']['JsonNode']
+    }
+    TrajectoryResp: {
+      from?: string
+      to?: string
+      points?: components['schemas']['TrajectoryPoint'][]
+    }
+    ApiResponseProfileResp: {
+      /** Format: int32 */
+      code?: number
+      msg?: string
+      data?: components['schemas']['ProfileResp']
+      traceId?: string
+    }
+    ProfileResp: {
+      crisisMode?: boolean
+      crisisState?: string
+      weeks?: components['schemas']['ProfileWeek'][]
+    }
+    ProfileWeek: {
+      statWeek?: string
+      avgValence?: Record<string, never>
+      riskLevel?: string
+      stressorTop?: components['schemas']['JsonNode']
+      distortionTop?: components['schemas']['JsonNode']
+    }
+    ApiResponseDiaryListResp: {
+      /** Format: int32 */
+      code?: number
+      msg?: string
+      data?: components['schemas']['DiaryListResp']
+      traceId?: string
+    }
+    DiaryListItem: {
+      /** Format: int64 */
+      id?: number
+      recordDate?: string
+      /** Format: int32 */
+      moodSelfRating?: number
+      /** Format: int64 */
+      taskId?: number
+      source?: string
+      preview?: string
+    }
+    DiaryListResp: {
+      items?: components['schemas']['DiaryListItem'][]
+      /** Format: int32 */
+      page?: number
+      /** Format: int32 */
+      size?: number
+      /** Format: int32 */
+      total?: number
+    }
+    ApiResponseDiaryDetailResp: {
+      /** Format: int32 */
+      code?: number
+      msg?: string
+      data?: components['schemas']['DiaryDetailResp']
+      traceId?: string
+    }
+    DiaryDetailResp: {
+      /** Format: int64 */
+      id?: number
+      recordDate?: string
+      /** Format: int32 */
+      moodSelfRating?: number
+      content?: string
+      source?: string
+      /** Format: int64 */
+      voiceDurationMs?: number
+      /** Format: int64 */
+      taskId?: number
+      reports?: components['schemas']['ReportRef'][]
+      emotions?: components['schemas']['EmotionRef'][]
+    }
+    EmotionRef: {
+      sourceType?: string
+      emotion?: string
+      valence?: number
+      intensity?: number
+      eventTags?: components['schemas']['JsonNode']
+    }
+    ReportRef: {
+      /** Format: int64 */
+      id?: number
+      type?: string
+      title?: string
+      riskLevel?: string
+      /** Format: int32 */
+      stale?: number
+    }
+    ApiResponseDraftResp: {
+      /** Format: int32 */
+      code?: number
+      msg?: string
+      data?: components['schemas']['DraftResp']
+      traceId?: string
+    }
+    DraftResp: {
+      content?: string
+    }
+    ApiResponseHistoryResp: {
+      /** Format: int32 */
+      code?: number
+      msg?: string
+      data?: components['schemas']['HistoryResp']
+      traceId?: string
+    }
+    HistoryResp: {
+      /** Format: int32 */
+      page?: number
+      /** Format: int32 */
+      size?: number
+      /** Format: int64 */
+      total?: number
+      sessions?: components['schemas']['HistorySession'][]
+    }
+    HistorySession: {
+      /** Format: int64 */
+      sessionId?: number
+      chatDate?: string
+      /** Format: int32 */
+      segmentNo?: number
+      status?: string
+      /** Format: int32 */
+      turns?: number
+    }
+    ApiResponseMeResp: {
+      /** Format: int32 */
+      code?: number
+      msg?: string
+      data?: components['schemas']['MeResp']
+      traceId?: string
+    }
+    MeResp: {
+      /** Format: int64 */
+      userId?: number
+      username?: string
+      nickname?: string
+      role?: string
+      crisisState?: string
+      agreedPolicyAt?: string
+      policyVersion?: string
+      /** Format: int32 */
+      status?: number
+      deletionRequestedAt?: string
+      wechatBound?: boolean
+      createdAt?: string
+    }
+    ApiResponseTaskDetailResp: {
+      /** Format: int32 */
+      code?: number
+      msg?: string
+      data?: components['schemas']['TaskDetailResp']
+      traceId?: string
+    }
+    TaskDetailResp: {
+      taskNo?: string
+      /** Format: int64 */
+      userId?: number
+      pipelineCode?: string
+      status?: string
+      clientReqId?: string
+      errorMsg?: string
+      createdAt?: string
+      startedAt?: string
+      finishedAt?: string
+      steps?: components['schemas']['TaskStepView'][]
+    }
+    TaskStepView: {
+      /** Format: int32 */
+      stepSeq?: number
+      agentCode?: string
+      stepCode?: string
+      status?: string
+      /** Format: int32 */
+      attempt?: number
+      /** Format: int32 */
+      costMs?: number
+      /** Format: int32 */
+      llmCalls?: number
+      /** Format: int32 */
+      tokensIn?: number
+      /** Format: int32 */
+      tokensOut?: number
+      model?: string
+      errorMsg?: string
+      createdAt?: string
+    }
+    AgentStat: {
+      agent?: string
+      /** Format: int32 */
+      steps?: number
+      /** Format: int64 */
+      avgMs?: number
+      /** Format: int64 */
+      p95Ms?: number
+      /** Format: int64 */
+      maxMs?: number
+      /** Format: int64 */
+      llmCalls?: number
+      /** Format: int64 */
+      tokensIn?: number
+      /** Format: int64 */
+      tokensOut?: number
+    }
+    ApiResponseMetricsOverviewResp: {
+      /** Format: int32 */
+      code?: number
+      msg?: string
+      data?: components['schemas']['MetricsOverviewResp']
+      traceId?: string
+    }
+    LlmRejects: {
+      /** Format: int64 */
+      rateLimited?: number
+      /** Format: int64 */
+      queueTimeout?: number
+    }
+    MetricsOverviewResp: {
+      /** Format: int32 */
+      windowDays?: number
+      tasks?: components['schemas']['TaskOverview']
+      riskEvents?: {
+        [key: string]: number
+      }
+      agents?: components['schemas']['AgentStat'][]
+      tokensByDay?: components['schemas']['TokensByDay'][]
+      reportFeedback?: {
+        [key: string]: number
+      }
+      runtime?: components['schemas']['RuntimeView']
+    }
+    RuntimeView: {
+      llmGate?: string
+      kg?: string
+      /** Format: int64 */
+      taskSubmitted?: number
+      /** Format: int64 */
+      llmCalls?: number
+      /** Format: int64 */
+      tokensIn?: number
+      /** Format: int64 */
+      tokensOut?: number
+      llmRejects?: components['schemas']['LlmRejects']
+    }
+    TaskOverview: {
+      today?: components['schemas']['TaskStats']
+      window?: components['schemas']['TaskStats']
+    }
+    TaskStats: {
+      byStatus?: {
+        [key: string]: number
+      }
+      /** Format: int64 */
+      finished?: number
+      /** Format: double */
+      successRate?: number
+    }
+    TokensByDay: {
+      date?: string
+      /** Format: int64 */
+      tokensIn?: number
+      /** Format: int64 */
+      tokensOut?: number
     }
     ApiResponseListSceneCardEntity: {
       /** Format: int32 */
@@ -1882,6 +2739,43 @@ export interface components {
       /** Format: date-time */
       updatedAt?: string
     }
+    ApiResponseKgGraphAuditResp: {
+      /** Format: int32 */
+      code?: number
+      msg?: string
+      data?: components['schemas']['KgGraphAuditResp']
+      traceId?: string
+    }
+    KgAuditNode: {
+      label?: string
+      kind?: string
+      /** Format: int32 */
+      expect?: number
+      /** Format: int32 */
+      actual?: number
+      missing?: string[]
+      extra?: string[]
+      reserved?: string[]
+    }
+    KgAuditRelation: {
+      type?: string
+      /** Format: int64 */
+      expect?: number
+      /** Format: int64 */
+      actual?: number
+    }
+    KgGraphAuditResp: {
+      available?: boolean
+      reason?: string
+      /** Format: int64 */
+      contentVersion?: number
+      /** Format: int64 */
+      syncedVersion?: number
+      consistent?: boolean
+      nodes?: components['schemas']['KgAuditNode'][]
+      relations?: components['schemas']['KgAuditRelation'][]
+      note?: string
+    }
     ApiResponseListExerciseLibraryEntity: {
       /** Format: int32 */
       code?: number
@@ -1900,6 +2794,91 @@ export interface components {
       durationMin?: number
       /** Format: int32 */
       status?: number
+    }
+    ApiResponseBoardStatsResp: {
+      /** Format: int32 */
+      code?: number
+      msg?: string
+      data?: components['schemas']['BoardStatsResp']
+      traceId?: string
+    }
+    BoardCheckIns: {
+      /** Format: int64 */
+      contributors?: number
+      /** Format: int64 */
+      personDays?: number
+      /** Format: double */
+      avgRating?: number
+      /** Format: double */
+      avgEnergy?: number
+      emotions?: components['schemas']['BoardEmotion'][]
+    }
+    BoardDayValence: {
+      date?: string
+      /** Format: double */
+      avgValence?: number
+    }
+    BoardEmotion: {
+      code?: string
+      /** Format: int64 */
+      count?: number
+    }
+    BoardStatsResp: {
+      /** Format: int64 */
+      groupId?: number
+      groupName?: string
+      /** Format: int32 */
+      windowDays?: number
+      /** Format: int32 */
+      memberCount?: number
+      /** Format: int32 */
+      consentedCount?: number
+      /** Format: int32 */
+      threshold?: number
+      suppressed?: boolean
+      reason?: string
+      checkIns?: components['schemas']['BoardCheckIns']
+      valenceByDay?: components['schemas']['BoardDayValence'][]
+      /** Format: int32 */
+      hiddenDays?: number
+      riskEvents?: {
+        [key: string]: number
+      }
+    }
+    ApiResponseWallResp: {
+      /** Format: int32 */
+      code?: number
+      msg?: string
+      data?: components['schemas']['WallResp']
+      traceId?: string
+    }
+    BadgeView: {
+      code?: string
+      name?: string
+      desc?: string
+      unlocked?: boolean
+      unlockedAt?: string
+    }
+    WallResp: {
+      items?: components['schemas']['BadgeView'][]
+      /** Format: int64 */
+      unlockedCount?: number
+      /** Format: int32 */
+      totalCount?: number
+    }
+    ApiResponseRemoveMemberResp: {
+      /** Format: int32 */
+      code?: number
+      msg?: string
+      data?: components['schemas']['RemoveMemberResp']
+      traceId?: string
+    }
+    RemoveMemberResp: {
+      /** Format: int64 */
+      groupId?: number
+      /** Format: int64 */
+      userId?: number
+      removed?: boolean
     }
   }
   responses: never
@@ -1949,7 +2928,7 @@ export interface operations {
           [name: string]: unknown
         }
         content: {
-          '*/*': components['schemas']['ApiResponseMapStringObject']
+          '*/*': components['schemas']['ApiResponsePrefsResp']
         }
       }
     }
@@ -1963,9 +2942,7 @@ export interface operations {
     }
     requestBody: {
       content: {
-        'application/json': {
-          [key: string]: Record<string, never>
-        }
+        'application/json': components['schemas']['PrefsPatchReq']
       }
     }
     responses: {
@@ -1975,7 +2952,7 @@ export interface operations {
           [name: string]: unknown
         }
         content: {
-          '*/*': components['schemas']['ApiResponseMapStringObject']
+          '*/*': components['schemas']['ApiResponsePrefsResp']
         }
       }
     }
@@ -1997,7 +2974,7 @@ export interface operations {
           [name: string]: unknown
         }
         content: {
-          '*/*': components['schemas']['ApiResponseMapStringObject']
+          '*/*': components['schemas']['ApiResponseDiaryDetailResp']
         }
       }
     }
@@ -2023,7 +3000,7 @@ export interface operations {
           [name: string]: unknown
         }
         content: {
-          '*/*': components['schemas']['ApiResponseMapStringObject']
+          '*/*': components['schemas']['ApiResponseDiaryUpdateResp']
         }
       }
     }
@@ -2065,7 +3042,7 @@ export interface operations {
           [name: string]: unknown
         }
         content: {
-          '*/*': components['schemas']['ApiResponseMapStringObject']
+          '*/*': components['schemas']['ApiResponseDraftResp']
         }
       }
     }
@@ -2135,7 +3112,7 @@ export interface operations {
           [name: string]: unknown
         }
         content: {
-          '*/*': components['schemas']['ApiResponseMapStringObject']
+          '*/*': components['schemas']['ApiResponseContentWriteResp']
         }
       }
     }
@@ -2161,7 +3138,7 @@ export interface operations {
           [name: string]: unknown
         }
         content: {
-          '*/*': components['schemas']['ApiResponseMapStringObject']
+          '*/*': components['schemas']['ApiResponseContentWriteResp']
         }
       }
     }
@@ -2187,7 +3164,7 @@ export interface operations {
           [name: string]: unknown
         }
         content: {
-          '*/*': components['schemas']['ApiResponseMapStringObject']
+          '*/*': components['schemas']['ApiResponseContentWriteResp']
         }
       }
     }
@@ -2302,7 +3279,29 @@ export interface operations {
           [name: string]: unknown
         }
         content: {
-          '*/*': components['schemas']['ApiResponseMapStringString']
+          '*/*': components['schemas']['ApiResponseSubmitResp']
+        }
+      }
+    }
+  }
+  retryTask: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        taskNo: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          '*/*': components['schemas']['ApiResponseSubmitResp']
         }
       }
     }
@@ -2348,7 +3347,7 @@ export interface operations {
           [name: string]: unknown
         }
         content: {
-          '*/*': components['schemas']['ApiResponseMapStringObject']
+          '*/*': components['schemas']['ApiResponseSimulationListResp']
         }
       }
     }
@@ -2372,7 +3371,7 @@ export interface operations {
           [name: string]: unknown
         }
         content: {
-          '*/*': components['schemas']['ApiResponseMapStringObject']
+          '*/*': components['schemas']['ApiResponseOpenSceneResp']
         }
       }
     }
@@ -2420,7 +3419,7 @@ export interface operations {
           [name: string]: unknown
         }
         content: {
-          '*/*': components['schemas']['ApiResponseMapStringString']
+          '*/*': components['schemas']['ApiResponseInterruptResp']
         }
       }
     }
@@ -2442,7 +3441,7 @@ export interface operations {
           [name: string]: unknown
         }
         content: {
-          '*/*': components['schemas']['ApiResponseMapStringString']
+          '*/*': components['schemas']['ApiResponseTaskNoResp']
         }
       }
     }
@@ -2468,7 +3467,7 @@ export interface operations {
           [name: string]: unknown
         }
         content: {
-          '*/*': components['schemas']['ApiResponseMapStringObject']
+          '*/*': components['schemas']['ApiResponseStarResp']
         }
       }
     }
@@ -2494,7 +3493,7 @@ export interface operations {
           [name: string]: unknown
         }
         content: {
-          '*/*': components['schemas']['ApiResponseMapStringObject']
+          '*/*': components['schemas']['ApiResponseFeedbackResp']
         }
       }
     }
@@ -2538,7 +3537,7 @@ export interface operations {
           [name: string]: unknown
         }
         content: {
-          '*/*': components['schemas']['ApiResponseMapStringObject']
+          '*/*': components['schemas']['ApiResponseFavoriteToggleResp']
         }
       }
     }
@@ -2624,7 +3623,7 @@ export interface operations {
           [name: string]: unknown
         }
         content: {
-          '*/*': components['schemas']['ApiResponseMapStringObject']
+          '*/*': components['schemas']['ApiResponseMonthResp']
         }
       }
     }
@@ -2700,7 +3699,7 @@ export interface operations {
           [name: string]: unknown
         }
         content: {
-          '*/*': components['schemas']['ApiResponseMapStringString']
+          '*/*': components['schemas']['ApiResponseTaskNoResp']
         }
       }
     }
@@ -2746,7 +3745,7 @@ export interface operations {
           [name: string]: unknown
         }
         content: {
-          '*/*': components['schemas']['ApiResponseMapStringObject']
+          '*/*': components['schemas']['ApiResponseCheckInResp']
         }
       }
     }
@@ -2770,7 +3769,7 @@ export interface operations {
           [name: string]: unknown
         }
         content: {
-          '*/*': components['schemas']['ApiResponseMapStringObject']
+          '*/*': components['schemas']['ApiResponseSelfRatingResp']
         }
       }
     }
@@ -2792,7 +3791,7 @@ export interface operations {
           [name: string]: unknown
         }
         content: {
-          '*/*': components['schemas']['ApiResponseMapStringString']
+          '*/*': components['schemas']['ApiResponseTaskNoResp']
         }
       }
     }
@@ -2821,7 +3820,7 @@ export interface operations {
           [name: string]: unknown
         }
         content: {
-          '*/*': components['schemas']['ApiResponseMapStringObject']
+          '*/*': components['schemas']['ApiResponseVoiceTranscriptionResp']
         }
       }
     }
@@ -2843,7 +3842,7 @@ export interface operations {
           [name: string]: unknown
         }
         content: {
-          '*/*': components['schemas']['ApiResponseMapStringObject']
+          '*/*': components['schemas']['ApiResponseNoAnalyzeResp']
         }
       }
     }
@@ -2866,7 +3865,7 @@ export interface operations {
           [name: string]: unknown
         }
         content: {
-          '*/*': components['schemas']['ApiResponseMapStringObject']
+          '*/*': components['schemas']['ApiResponseHistoryResp']
         }
       }
     }
@@ -2934,7 +3933,7 @@ export interface operations {
           [name: string]: unknown
         }
         content: {
-          '*/*': components['schemas']['ApiResponseMapStringObject']
+          '*/*': components['schemas']['ApiResponseEndResp']
         }
       }
     }
@@ -3124,7 +4123,7 @@ export interface operations {
           [name: string]: unknown
         }
         content: {
-          '*/*': components['schemas']['ApiResponseMapStringObject']
+          '*/*': components['schemas']['ApiResponseExportTicketResp']
         }
       }
     }
@@ -3146,7 +4145,7 @@ export interface operations {
           [name: string]: unknown
         }
         content: {
-          '*/*': components['schemas']['ApiResponseMapStringObject']
+          '*/*': components['schemas']['ApiResponseUserStatusResp']
         }
       }
     }
@@ -3168,7 +4167,7 @@ export interface operations {
           [name: string]: unknown
         }
         content: {
-          '*/*': components['schemas']['ApiResponseMapStringObject']
+          '*/*': components['schemas']['ApiResponseUserStatusResp']
         }
       }
     }
@@ -3190,7 +4189,7 @@ export interface operations {
           [name: string]: unknown
         }
         content: {
-          '*/*': components['schemas']['ApiResponseMapStringObject']
+          '*/*': components['schemas']['ApiResponseRetryResp']
         }
       }
     }
@@ -3216,7 +4215,7 @@ export interface operations {
           [name: string]: unknown
         }
         content: {
-          '*/*': components['schemas']['ApiResponseMapStringObject']
+          '*/*': components['schemas']['ApiResponseRiskReviewResp']
         }
       }
     }
@@ -3242,7 +4241,7 @@ export interface operations {
           [name: string]: unknown
         }
         content: {
-          '*/*': components['schemas']['ApiResponseMapStringObject']
+          '*/*': components['schemas']['ApiResponseRiskRevealResp']
         }
       }
     }
@@ -3262,7 +4261,7 @@ export interface operations {
           [name: string]: unknown
         }
         content: {
-          '*/*': components['schemas']['ApiResponseMapStringObject']
+          '*/*': components['schemas']['ApiResponseVerifyAuditResp']
         }
       }
     }
@@ -3282,7 +4281,7 @@ export interface operations {
           [name: string]: unknown
         }
         content: {
-          '*/*': components['schemas']['ApiResponseMapStringObject']
+          '*/*': components['schemas']['ApiResponseContentVersionResp']
         }
       }
     }
@@ -3306,7 +4305,7 @@ export interface operations {
           [name: string]: unknown
         }
         content: {
-          '*/*': components['schemas']['ApiResponseMapStringObject']
+          '*/*': components['schemas']['ApiResponsePreviewResp']
         }
       }
     }
@@ -3350,7 +4349,7 @@ export interface operations {
           [name: string]: unknown
         }
         content: {
-          '*/*': components['schemas']['ApiResponseMapStringObject']
+          '*/*': components['schemas']['ApiResponseBoardDetailResp']
         }
       }
     }
@@ -3376,7 +4375,7 @@ export interface operations {
           [name: string]: unknown
         }
         content: {
-          '*/*': components['schemas']['ApiResponseMapStringObject']
+          '*/*': components['schemas']['ApiResponseBoardDetailResp']
         }
       }
     }
@@ -3396,7 +4395,7 @@ export interface operations {
           [name: string]: unknown
         }
         content: {
-          '*/*': components['schemas']['ApiResponseMapStringObject']
+          '*/*': components['schemas']['ApiResponseExportTicketResp']
         }
       }
     }
@@ -3443,6 +4442,28 @@ export interface operations {
         }
         content: {
           '*/*': components['schemas']['SseEmitter']
+        }
+      }
+    }
+  }
+  steps: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        taskNo: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          '*/*': components['schemas']['ApiResponseListTaskTimelineStep']
         }
       }
     }
@@ -3552,7 +4573,7 @@ export interface operations {
           [name: string]: unknown
         }
         content: {
-          '*/*': components['schemas']['ApiResponseMapStringObject']
+          '*/*': components['schemas']['ApiResponseReportListResp']
         }
       }
     }
@@ -3574,7 +4595,7 @@ export interface operations {
           [name: string]: unknown
         }
         content: {
-          '*/*': components['schemas']['ApiResponseMapStringObject']
+          '*/*': components['schemas']['ApiResponseReportDetailResp']
         }
       }
     }
@@ -3594,7 +4615,7 @@ export interface operations {
           [name: string]: unknown
         }
         content: {
-          '*/*': components['schemas']['ApiResponseMapStringObject']
+          '*/*': components['schemas']['ApiResponseTodayResp']
         }
       }
     }
@@ -3614,7 +4635,7 @@ export interface operations {
           [name: string]: unknown
         }
         content: {
-          '*/*': components['schemas']['ApiResponseMapStringObject']
+          '*/*': components['schemas']['ApiResponsePlanListResp']
         }
       }
     }
@@ -3636,7 +4657,7 @@ export interface operations {
           [name: string]: unknown
         }
         content: {
-          '*/*': components['schemas']['ApiResponseMapStringObject']
+          '*/*': components['schemas']['ApiResponsePlanView']
         }
       }
     }
@@ -3656,7 +4677,7 @@ export interface operations {
           [name: string]: unknown
         }
         content: {
-          '*/*': components['schemas']['ApiResponseMapStringObject']
+          '*/*': components['schemas']['ApiResponseActivePlanResp']
         }
       }
     }
@@ -3679,7 +4700,7 @@ export interface operations {
           [name: string]: unknown
         }
         content: {
-          '*/*': components['schemas']['ApiResponseMapStringObject']
+          '*/*': components['schemas']['ApiResponseNotificationListResp']
         }
       }
     }
@@ -3719,7 +4740,7 @@ export interface operations {
           [name: string]: unknown
         }
         content: {
-          '*/*': components['schemas']['ApiResponseMapStringObject']
+          '*/*': components['schemas']['ApiResponseLetterListResp']
         }
       }
     }
@@ -3764,7 +4785,7 @@ export interface operations {
           [name: string]: unknown
         }
         content: {
-          '*/*': components['schemas']['ApiResponseMapStringObject']
+          '*/*': components['schemas']['ApiResponseTrajectoryResp']
         }
       }
     }
@@ -3786,7 +4807,7 @@ export interface operations {
           [name: string]: unknown
         }
         content: {
-          '*/*': components['schemas']['ApiResponseMapStringObject']
+          '*/*': components['schemas']['ApiResponseProfileResp']
         }
       }
     }
@@ -3812,7 +4833,7 @@ export interface operations {
           [name: string]: unknown
         }
         content: {
-          '*/*': components['schemas']['ApiResponseMapStringObject']
+          '*/*': components['schemas']['ApiResponseDiaryListResp']
         }
       }
     }
@@ -3874,7 +4895,7 @@ export interface operations {
           [name: string]: unknown
         }
         content: {
-          '*/*': components['schemas']['ApiResponseMapStringObject']
+          '*/*': components['schemas']['ApiResponseMeResp']
         }
       }
     }
@@ -4010,7 +5031,7 @@ export interface operations {
           [name: string]: unknown
         }
         content: {
-          '*/*': components['schemas']['ApiResponseMapStringObject']
+          '*/*': components['schemas']['ApiResponseTaskDetailResp']
         }
       }
     }
@@ -4125,7 +5146,7 @@ export interface operations {
           [name: string]: unknown
         }
         content: {
-          '*/*': components['schemas']['ApiResponseMapStringObject']
+          '*/*': components['schemas']['ApiResponseMetricsOverviewResp']
         }
       }
     }
@@ -4187,7 +5208,7 @@ export interface operations {
           [name: string]: unknown
         }
         content: {
-          '*/*': components['schemas']['ApiResponseMapStringObject']
+          '*/*': components['schemas']['ApiResponseKgGraphAuditResp']
         }
       }
     }
@@ -4229,7 +5250,7 @@ export interface operations {
           [name: string]: unknown
         }
         content: {
-          '*/*': components['schemas']['ApiResponseMapStringObject']
+          '*/*': components['schemas']['ApiResponseBoardDetailResp']
         }
       }
     }
@@ -4253,7 +5274,7 @@ export interface operations {
           [name: string]: unknown
         }
         content: {
-          '*/*': components['schemas']['ApiResponseMapStringObject']
+          '*/*': components['schemas']['ApiResponseBoardStatsResp']
         }
       }
     }
@@ -4273,7 +5294,7 @@ export interface operations {
           [name: string]: unknown
         }
         content: {
-          '*/*': components['schemas']['ApiResponseMapStringObject']
+          '*/*': components['schemas']['ApiResponseWallResp']
         }
       }
     }
@@ -4316,7 +5337,7 @@ export interface operations {
           [name: string]: unknown
         }
         content: {
-          '*/*': components['schemas']['ApiResponseMapStringObject']
+          '*/*': components['schemas']['ApiResponseRemoveMemberResp']
         }
       }
     }

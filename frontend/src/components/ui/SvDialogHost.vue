@@ -51,56 +51,60 @@ function onKey(e: KeyboardEvent) {
 }
 .box {
   position: relative;
-  width: min(280px, 84vw);
-  background: color-mix(in srgb, var(--sv-card) 92%, transparent);
-  backdrop-filter: var(--sv-blur);
-  -webkit-backdrop-filter: var(--sv-blur);
-  border-radius: var(--sv-r-ctl);
-  text-align: center;
-  overflow: hidden;
-  box-shadow: var(--sv-sh-2);
-}
-[data-theme='dark'] .box {
+  width: min(400px, 86vw);
+  background: var(--sv-card);
   border: 1px solid var(--sv-sep);
+  border-radius: var(--sv-r-sheet);
+  text-align: left;
+  overflow: hidden;
+  box-shadow: var(--sv-elev-1);
+  padding: 20px 20px 16px;
 }
 .box b {
   display: block;
-  padding: 19px 16px 5px;
-  font-size: var(--sv-fs-headline);
+  font-size: var(--sv-fs-title3);
+  font-weight: 600;
 }
 .box p {
-  padding: 0 16px 19px;
-  font-size: var(--sv-fs-callout);
+  margin-top: 8px;
+  font-size: var(--sv-fs-body);
   color: var(--sv-label2);
-  line-height: 1.4;
+  line-height: var(--sv-lh-body);
 }
 .btns {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  border-top: 1px solid var(--sv-sep);
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 20px;
 }
 .btns button {
-  min-height: 44px;
-  border: none;
-  background: transparent;
+  min-height: 32px;
+  padding: 5px 14px;
+  border: 1px solid var(--sv-sep);
+  border-radius: var(--sv-r-ctl);
+  background: var(--sv-card);
   cursor: pointer;
-  font-size: var(--sv-fs-headline);
-  color: var(--sv-blue);
-  font-weight: 600;
+  font-size: var(--sv-fs-subhead);
+  color: var(--sv-label2);
+  font-weight: 500;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 4px;
 }
-.btns button + button {
-  border-left: 1px solid var(--sv-sep);
+.btns .ok {
+  background: var(--sv-accent);
+  border-color: var(--sv-accent);
+  color: var(--sv-on-accent);
 }
 .btns .ok.danger {
-  color: var(--sv-red);
+  background: var(--sv-danger);
+  border-color: var(--sv-danger);
+  color: var(--sv-on-accent);
 }
 .dlg-enter-active,
 .dlg-leave-active {
-  transition: opacity 0.25s;
+  transition: opacity 0.18s ease;
 }
 .dlg-enter-from,
 .dlg-leave-to {

@@ -5,6 +5,7 @@ import com.soulvoyage.auth.AuthPrincipal;
 import com.soulvoyage.common.api.ApiResponse;
 import com.soulvoyage.common.api.ErrorCode;
 import com.soulvoyage.common.exception.BizException;
+import com.soulvoyage.domain.diary.dto.DiaryDtos.VoiceTranscriptionResp;
 import io.micrometer.core.instrument.MeterRegistry;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -14,7 +15,6 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.Duration;
-import java.util.Map;
 import java.util.Set;
 
 /**
@@ -54,9 +54,10 @@ public class VoiceDiaryController {
     }
 
     @PostMapping(value = "/voice-transcriptions", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ApiResponse<Map<String, Object>> transcribe(@AuthenticationPrincipal AuthPrincipal p,
-                                                       @RequestPart(name = "file", required = false) MultipartFile file,
-                                                       @RequestParam(required = false) Long durationMs) {
+    public ApiResponse<VoiceTranscriptionResp> transcribe(
+            @AuthenticationPrincipal AuthPrincipal p,
+            @RequestPart(name = "file", required = false) MultipartFile file,
+            @RequestParam(required = false) Long durationMs) {
         String type = file == null || file.getContentType() == null
                 ? "" : file.getContentType().split(";")[0].trim().toLowerCase();
         if (file == null || file.isEmpty()) throw new BizException(ErrorCode.BAD_PARAMS, "没收到录音呢");
@@ -76,6 +77,8 @@ public class VoiceDiaryController {
         } catch (Exception e) {
             throw new BizException(ErrorCode.BAD_PARAMS, "录音没能读出来，再试一次？");
         }
+        // B-17：Content-Type 可伪造，必须用容器魔数二次确认——避免借语音口投喂任意字节流
+        if (!matchesMagic(audio, type)) throw new BizException(ErrorCode.BAD_PARAMS, "只支持语音文件哦");
         AsrClient.AsrResult r = asr.transcribe(
                 new AsrClient.AsrRequest(audio, type, durationMs == null ? 0 : durationMs));
         reg.counter("sv.asr.call", "model", r.model() == null ? "unknown" : r.model()).increment();
@@ -83,11 +86,8 @@ public class VoiceDiaryController {
         log.info("voice transcribed user={} bytes={} chars={} cost={}ms",
                 file.getSize(), audio.length, r.text().length(), r.costMs());
 
-        return ApiResponse.ok(Map.of(
-                "text", r.text(),
-                "model", r.model(),
-                "costMs", r.costMs(),
-                "durationMs", durationMs == null ? 0 : durationMs));
+        return ApiResponse.ok(new VoiceTranscriptionResp(
+                r.text(), r.model(), r.costMs(), durationMs == null ? 0 : durationMs));
     }
 
     /** 与漫聊同构的用户级滑动窗：换设备/换会话都在同一窗内照限；多节点时同一 Redis 窗 */
@@ -95,5 +95,34 @@ public class VoiceDiaryController {
         if (!windowLimiter.tryAcquire("voice:" + userId, RATE_PER_MINUTE, Duration.ofSeconds(60))) {
             throw new BizException(ErrorCode.LLM_RATE_LIMIT, "转写得太快啦，稍等一会儿再录");
         }
+    }
+
+    /** B-17 魔数校验：声明类型与容器头必须一致（webm/ogg/mp4/m4a/aac/mp3/wav） */
+    private static boolean matchesMagic(byte[] b, String type) {
+        if (b == null || b.length < 4) return false;
+        return switch (type) {
+            case "audio/webm" -> (b[0] & 0xFF) == 0x1A && (b[1] & 0xFF) == 0x45
+                    && (b[2] & 0xFF) == 0xDF && (b[3] & 0xFF) == 0xA3;
+            case "audio/ogg" -> b[0] == 'O' && b[1] == 'g' && b[2] == 'g' && b[3] == 'S';
+            case "audio/mp4", "audio/x-m4a", "audio/m4a", "audio/mp4a-latm" -> isMp4(b);
+            case "audio/aac" -> isMp4(b) || isAdts(b);
+            case "audio/mpeg" -> (b.length >= 3 && b[0] == 'I' && b[1] == 'D' && b[2] == '3') || isMpegFrame(b);
+            case "audio/wav", "audio/x-wav" -> b.length >= 12
+                    && b[0] == 'R' && b[1] == 'I' && b[2] == 'F' && b[3] == 'F'
+                    && b[8] == 'W' && b[9] == 'A' && b[10] == 'V' && b[11] == 'E';
+            default -> false;
+        };
+    }
+
+    private static boolean isMp4(byte[] b) {
+        return b.length >= 12 && b[4] == 'f' && b[5] == 't' && b[6] == 'y' && b[7] == 'p';
+    }
+
+    private static boolean isAdts(byte[] b) {
+        return b.length >= 2 && (b[0] & 0xFF) == 0xFF && (b[1] & 0xF6) == 0xF0;
+    }
+
+    private static boolean isMpegFrame(byte[] b) {
+        return b.length >= 2 && (b[0] & 0xFF) == 0xFF && (b[1] & 0xE0) == 0xE0;
     }
 }

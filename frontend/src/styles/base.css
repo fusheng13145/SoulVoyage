@@ -1,4 +1,4 @@
-/* 全局基础样式：排版 / 按钮 / 通用件（DS1–DS4 落地，组件态样式各自 scoped） */
+/* 全局基础样式：排版 / 按钮 / 表单 / 通用件（Quiet Journal，Spec §5.4–5.6） */
 * {
   box-sizing: border-box;
   -webkit-tap-highlight-color: transparent;
@@ -11,8 +11,8 @@ body {
 body {
   margin: 0;
   font-family: var(--sv-font);
-  font-size: var(--sv-body);
-  line-height: 1.6;
+  font-size: var(--sv-fs-body);
+  line-height: var(--sv-lh-body);
   color: var(--sv-label);
   background: var(--sv-bg);
   -webkit-font-smoothing: antialiased;
@@ -32,27 +32,50 @@ ol,
 figure {
   margin: 0;
 }
+h1,
+h2,
+h3,
+h4 {
+  line-height: var(--sv-lh-tight);
+  font-weight: 600;
+}
 ul,
 ol {
   padding: 0;
   list-style: none;
 }
 a {
-  color: var(--sv-indigo);
+  color: var(--sv-accent);
   text-decoration: none;
 }
 button {
   font-family: inherit;
 }
 :focus-visible {
-  outline: 2.5px solid var(--sv-blue);
+  outline: 1px solid var(--sv-focus);
   outline-offset: 2px;
-  border-radius: 6px;
+  box-shadow: 0 0 0 4px var(--sv-accent-soft);
+  border-radius: var(--sv-r-ctl);
 }
 
-/* 阅读列（DS2） */
+/* 页面内容容器（A-05） */
+.sv-page-body {
+  padding: 0 var(--sv-s5);
+}
+.sv-center {
+  text-align: center;
+  padding: var(--sv-s4) 0;
+}
+
+/* 阅读列：长文用衬线（Spec §5.4） */
 .sv-prose {
   max-width: 68ch;
+  font-family: var(--sv-serif);
+  font-size: var(--sv-fs-prose);
+  line-height: var(--sv-lh-prose);
+}
+.sv-serif {
+  font-family: var(--sv-serif);
 }
 .sv-muted {
   color: var(--sv-label2);
@@ -64,60 +87,92 @@ button {
   font-size: var(--sv-fs-caption1);
 }
 
-/* 按钮（14px 圆角控件） */
+/* 按钮（40px / 6px；按下只改背景，不缩放） */
 .sv-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: var(--sv-s2);
   width: 100%;
-  min-height: var(--sv-s8);
-  padding: 14px var(--sv-s5);
-  border: none;
+  min-height: 40px;
+  padding: 9px var(--sv-s4);
+  border: 1px solid transparent;
   border-radius: var(--sv-r-ctl);
-  font-size: var(--sv-fs-headline);
-  font-weight: 600;
+  font-size: var(--sv-fs-body);
+  font-weight: 500;
   cursor: pointer;
-  background: var(--sv-indigo);
-  color: #fff;
-  transition:
-    transform 0.12s var(--sv-ease),
-    opacity 0.15s;
+  background: var(--sv-accent);
+  color: var(--sv-on-accent);
+  transition: background 0.18s ease;
 }
 .sv-btn:active {
-  transform: scale(0.97);
+  background: color-mix(in srgb, var(--sv-accent) 88%, var(--sv-label));
 }
 .sv-btn:disabled {
-  opacity: 0.55;
+  opacity: 0.45;
   cursor: not-allowed;
 }
 .sv-btn.ghost {
-  background: var(--sv-fill2);
-  color: var(--sv-indigo);
+  background: var(--sv-card);
+  border-color: var(--sv-sep);
+  color: var(--sv-accent);
+}
+.sv-btn.ghost:active {
+  background: var(--sv-card2);
 }
 .sv-btn.danger {
-  background: var(--sv-red);
+  background: var(--sv-danger);
+  color: var(--sv-on-accent);
 }
 .sv-btn.plain {
   background: transparent;
-  color: var(--sv-indigo);
+  border-color: transparent;
+  color: var(--sv-accent);
+}
+.sv-btn.plain:active {
+  background: var(--sv-accent-soft);
 }
 .sv-btn.sm {
   width: auto;
-  min-height: 36px;
-  padding: 9px 14px;
+  min-height: 32px;
+  padding: 5px 12px;
   font-size: var(--sv-fs-subhead);
 }
 
-/* 卡片表面：dark 下描边替代阴影（DS2） */
+/* 输入框（40px / 6px / card2 底 / 1px 强边框） */
+.sv-input,
+.sv-textarea {
+  width: 100%;
+  min-height: 40px;
+  padding: 9px 12px;
+  border: 1px solid var(--sv-line-strong);
+  border-radius: var(--sv-r-ctl);
+  background: var(--sv-card2);
+  color: var(--sv-label);
+  font-family: inherit;
+  font-size: var(--sv-fs-body);
+  line-height: var(--sv-lh-body);
+  outline: none;
+}
+.sv-textarea {
+  resize: vertical;
+  min-height: 120px;
+}
+.sv-input::placeholder,
+.sv-textarea::placeholder {
+  color: var(--sv-label3);
+}
+.sv-input:focus,
+.sv-textarea:focus {
+  border-color: var(--sv-accent);
+  box-shadow: 0 0 0 2px var(--sv-accent-soft);
+}
+
+/* 卡片表面：1px 边框建立层次，默认无阴影（Spec §5.2 规则 3） */
 .sv-surface {
   background: var(--sv-card);
-  border-radius: var(--sv-r-card);
-  box-shadow: var(--sv-sh-1);
-}
-[data-theme='dark'] .sv-surface {
   border: 1px solid var(--sv-sep);
-  box-shadow: none;
+  border-radius: var(--sv-r-card);
 }
 
 /* 滚动容器隐藏滚动条（观感），但保留键盘滚动 */
@@ -130,7 +185,7 @@ button {
   display: none;
 }
 
-/* 减动效全局降级（DS4） */
+/* 减动效全局降级（DS4 / Spec §5.8） */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

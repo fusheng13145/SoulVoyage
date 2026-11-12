@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import AdminShell from '@/components/AdminShell.vue'
 import SvCard from '@/components/ui/SvCard.vue'
@@ -148,7 +148,7 @@ const maxAbsValence = 1
 
 <template>
   <AdminShell title="群体看板" subtitle="M12 · 只出匿名聚合，授权不足 10 人整体抑制">
-    <p v-if="loading" class="muted center">加载中…</p>
+    <p v-if="loading" class="muted sv-center">加载中…</p>
 
     <template v-else>
       <div class="row">
@@ -177,7 +177,7 @@ const maxAbsValence = 1
         </div>
         <p class="meta">成员 {{ g.memberCount }} 人 · 已授权 {{ g.consentedCount }} / 10 人阈值</p>
       </SvCard>
-      <p v-if="!groups.length" class="muted center">还没有群体。建一个，再从用户支持页把人拉进来。</p>
+      <p v-if="!groups.length" class="muted sv-center">还没有群体。建一个，再从用户支持页把人拉进来。</p>
 
       <template v-if="current">
         <h3 class="sec">成员与授权</h3>
@@ -300,10 +300,6 @@ const maxAbsValence = 1
 </template>
 
 <style scoped>
-.center {
-  text-align: center;
-  padding: var(--sv-s4) 0;
-}
 .muted {
   color: var(--sv-label3);
   font-size: var(--sv-fs-caption2);
@@ -406,7 +402,7 @@ const maxAbsValence = 1
   border: 1px solid var(--sv-sep);
   background: var(--sv-card);
   color: var(--sv-label2);
-  border-radius: 999px;
+  border-radius: var(--sv-r-tag);
   padding: 7px 14px;
   font-size: var(--sv-fs-footnote);
   cursor: pointer;
@@ -460,7 +456,7 @@ const maxAbsValence = 1
 }
 .bar {
   height: 10px;
-  border-radius: 999px;
+  border-radius: var(--sv-r-tag);
   background: var(--sv-indigo);
   min-width: 3px;
 }
@@ -484,7 +480,7 @@ const maxAbsValence = 1
   font-size: 10px;
   font-weight: 600;
   padding: 3px 8px;
-  border-radius: 999px;
+  border-radius: var(--sv-r-tag);
 }
 .pill.ok {
   background: color-mix(in srgb, #30d158 18%, transparent);

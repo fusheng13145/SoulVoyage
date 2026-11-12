@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import AdminShell from '@/components/AdminShell.vue'
 import SvCard from '@/components/ui/SvCard.vue'
@@ -146,7 +146,7 @@ async function preview() {
       <option v-for="t in KG_TYPES" :key="t" :value="t">{{ KG_TYPE_LABEL[t] }} {{ t }}</option>
     </select>
 
-    <p v-if="loading" class="muted center">加载中…</p>
+    <p v-if="loading" class="muted sv-center">加载中…</p>
     <template v-else>
       <SvCard v-for="n in kg" :key="n.code" :pad="false" class="item">
         <button class="hd" @click="toggleExpand(n.code)">
@@ -249,7 +249,7 @@ async function preview() {
   border: 1px solid var(--sv-sep);
   background: var(--sv-card);
   color: var(--sv-label2);
-  border-radius: 999px;
+  border-radius: var(--sv-r-tag);
   padding: 7px 12px;
   font-size: var(--sv-fs-footnote);
   cursor: pointer;
@@ -271,10 +271,6 @@ async function preview() {
   padding: 9px 10px;
   font-size: var(--sv-fs-footnote);
   font-family: inherit;
-}
-.center {
-  text-align: center;
-  padding: var(--sv-s4) 0;
 }
 .muted {
   color: var(--sv-label3);
@@ -317,7 +313,7 @@ async function preview() {
   font-size: 10px;
   font-weight: 600;
   padding: 3px 8px;
-  border-radius: 999px;
+  border-radius: var(--sv-r-tag);
   flex: none;
 }
 .pill.ok {

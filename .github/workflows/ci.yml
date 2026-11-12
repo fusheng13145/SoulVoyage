@@ -87,6 +87,9 @@ jobs:
           name: vitest-coverage
           path: frontend/coverage
       # vue-tsc 消费 OpenAPI 生成类型：后端契约变了这里必须同步 gen:api
+      - name: 类型检查（vue-tsc）
+        working-directory: frontend
+        run: npm run typecheck
       - name: 类型检查与构建
         working-directory: frontend
         run: npm run build

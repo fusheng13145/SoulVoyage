@@ -80,10 +80,10 @@ class MoodCheckInControllerTest {
         // today 回的是"今天这条记录"，未打卡时为 null（返回类型不是 boolean）
         when(checkIn.today(7L)).thenReturn(view);
 
-        Map<String, Object> out = controller.month(principal(), "2026-09").getData();
+        var out = controller.month(principal(), "2026-09").getData();
 
-        assertEquals(List.of(view), out.get("items"));
-        assertEquals(view, out.get("today"));
+        assertEquals(List.of(view), out.items());
+        assertEquals(view, out.today());
     }
 
     @Test
@@ -92,10 +92,10 @@ class MoodCheckInControllerTest {
         when(checkIn.month(7L, 2026, 9)).thenReturn(List.of());
         when(checkIn.today(7L)).thenReturn(null);
 
-        Map<String, Object> out = controller.month(principal(), "2026-09").getData();
+        var out = controller.month(principal(), "2026-09").getData();
 
-        assertEquals(List.of(), out.get("items"));
-        assertEquals(null, out.get("today"));
+        assertEquals(List.of(), out.items());
+        assertEquals(null, out.today());
     }
 
     @Test

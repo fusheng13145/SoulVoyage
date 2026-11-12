@@ -8,6 +8,7 @@ import com.soulvoyage.crypto.CryptoService;
 import com.soulvoyage.domain.report.ReportController;
 import com.soulvoyage.domain.report.ReportEntity;
 import com.soulvoyage.domain.report.ReportRepository;
+import com.soulvoyage.domain.report.dto.ReportDtos.ReportMeta;
 import com.soulvoyage.domain.user.UserEntity;
 import com.soulvoyage.domain.user.UserRepository;
 import org.junit.jupiter.api.Test;
@@ -61,14 +62,11 @@ class M10ReportAnnotationTest {
     }
 
     private long total(AuthPrincipal p, String type, String risk, Boolean starred) {
-        return ((Number) reports.list(p, type, risk, starred, null, null, 0, 50)
-                .getData().get("total")).longValue();
+        return reports.list(p, type, risk, starred, null, null, 0, 50).getData().total();
     }
 
-    @SuppressWarnings("unchecked")
-    private java.util.List<ReportController.ReportMeta> items(AuthPrincipal p, Boolean starred) {
-        return (java.util.List<ReportController.ReportMeta>) reports.list(p, null, null, starred, null, null, 0, 50)
-                .getData().get("items");
+    private java.util.List<ReportMeta> items(AuthPrincipal p, Boolean starred) {
+        return reports.list(p, null, null, starred, null, null, 0, 50).getData().items();
     }
 
     @Test
@@ -77,14 +75,15 @@ class M10ReportAnnotationTest {
         var p = new AuthPrincipal(uid, "USER");
         long id = newReport(uid, "TRACE", "冲突复盘");
 
-        assertEquals(Map.of("id", id, "starred", true),
-                reports.star(p, id, new ReportController.StarReq(true)).getData());
+        var star = reports.star(p, id, new ReportController.StarReq(true)).getData();
+        assertEquals(id, star.id());
+        assertTrue(star.starred());
         // 重复提交同一目标值不翻转：幂等，前端掉线重试不会把收藏悄悄取消
         reports.star(p, id, new ReportController.StarReq(true));
         assertEquals((short) 1, reportRepo.findById(id).orElseThrow().getStarred());
         assertEquals(1L, total(p, null, null, true));
         assertEquals(0L, total(p, null, null, false));
-        assertEquals(true, reports.detail(p, id).getData().get("starred"));
+        assertEquals(true, reports.detail(p, id).getData().starred());
         assertTrue(items(p, null).get(0).starred());
 
         reports.star(p, id, new ReportController.StarReq(false));
@@ -113,9 +112,9 @@ class M10ReportAnnotationTest {
                 "反馈原话必须密文落库");
 
         var detail = reports.detail(p, id).getData();
-        assertEquals("这句洞察真的点到我头上了", detail.get("feedbackNote"));
-        assertEquals("USEFUL", detail.get("feedback"));
-        assertEquals(false, detail.get("starred"));
+        assertEquals("这句洞察真的点到我头上了", detail.feedbackNote());
+        assertEquals("USEFUL", detail.feedback());
+        assertEquals(false, detail.starred());
 
         // 撤销评价：档位、原话、时间戳一并清空，不留孤儿女密文
         reports.feedback(p, id, new ReportController.FeedbackReq("", "残留"));
@@ -123,7 +122,7 @@ class M10ReportAnnotationTest {
         assertNull(r.getFeedback());
         assertNull(r.getFeedbackNoteEnc());
         assertNull(r.getFeedbackAt());
-        assertEquals("", reports.detail(p, id).getData().get("feedbackNote"));
+        assertEquals("", reports.detail(p, id).getData().feedbackNote());
     }
 
     @Test
@@ -150,8 +149,9 @@ class M10ReportAnnotationTest {
         reports.feedback(p, id, new ReportController.FeedbackReq("UNHELPFUL", "太笼统"));
         // H2 建的路径 created_at 无默认值（为 null），窗口聚合按时间过滤 → 只断言查询可跑通
         assertDoesNotThrow(() -> reportRepo.countFeedbackSince(Instant.EPOCH));
-        assertEquals(Map.of("id", id, "feedback", "UNHELPFUL"),
-                reports.feedback(p, id, new ReportController.FeedbackReq("unhelpful", null)).getData());
+        var feedback = reports.feedback(p, id, new ReportController.FeedbackReq("unhelpful", null)).getData();
+        assertEquals(id, feedback.id());
+        assertEquals("UNHELPFUL", feedback.feedback());
         assertNull(reportRepo.findById(id).orElseThrow().getFeedbackNoteEnc(), "改档不带原话即清空");
     }
 }

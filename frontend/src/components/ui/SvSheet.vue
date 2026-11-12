@@ -94,20 +94,23 @@ onUnmounted(() => {
   position: relative;
   width: 100%;
   background: var(--sv-card);
-  border-radius: var(--sv-r-sheet) var(--sv-r-sheet) 0 0;
-  padding: 10px var(--sv-s5) calc(28px + var(--sv-safe-b));
-  max-height: 86%;
+  border: 1px solid var(--sv-sep);
+  border-bottom: none;
+  border-radius: 16px 16px 0 0;
+  box-shadow: var(--sv-elev-1);
+  padding: 10px var(--sv-s5) calc(24px + var(--sv-safe-b));
+  max-height: 80dvh;
   display: flex;
   flex-direction: column;
   transform: translateY(0);
 }
 .panel.full {
-  height: 86%;
+  height: 80dvh;
 }
 .grab {
   width: 36px;
-  height: 5px;
-  border-radius: 99px;
+  height: 4px;
+  border-radius: 2px;
   flex: none;
   background: var(--sv-label3);
   margin: 4px auto 14px;
@@ -118,7 +121,7 @@ onUnmounted(() => {
 }
 .panel h2 {
   font-size: var(--sv-fs-title3);
-  font-weight: 700;
+  font-weight: 600;
   margin-bottom: var(--sv-s2);
 }
 .body {
@@ -134,7 +137,7 @@ onUnmounted(() => {
 }
 .sheet-enter-active,
 .sheet-leave-active {
-  transition: opacity 0.3s;
+  transition: opacity 0.18s ease;
 }
 .sheet-enter-from,
 .sheet-leave-to {
@@ -142,10 +145,10 @@ onUnmounted(() => {
 }
 .sheet-enter-active .panel,
 .sheet-leave-active .panel {
-  transition: transform 0.45s var(--sv-ease);
+  transition: transform 0.18s ease;
 }
 .sheet-enter-from .panel,
 .sheet-leave-to .panel {
-  transform: translateY(110%);
+  transform: translateY(12px);
 }
 </style>

@@ -46,7 +46,9 @@ class AuthHardeningTest {
         // 窗口内即使密码正确也拒绝（锁定生效）
         BizException locked = assertThrows(BizException.class, () -> auth.login(new LoginReq(u, PWD), "test"));
         assertTrue(locked.getMessage().contains("稍后再试"));
-        redis.delete("jwt:login-fail:" + u);   // 清理，避免影响其他用例
+        // B-07 双维度：同名账号换一个 IP 不受本 IP 失败计数影响（防定向锁死）
+        assertNotNull(auth.login(new LoginReq(u, PWD), "another-ip").accessToken());
+        redis.delete("jwt:login-fail:" + u + ":test");   // 清理，避免影响其他用例
         assertNotNull(auth.login(new LoginReq(u, PWD), "test").accessToken());
     }
 

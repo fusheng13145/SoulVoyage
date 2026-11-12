@@ -1,5 +1,8 @@
 package com.soulvoyage.orchestrator.pipeline;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.soulvoyage.orchestrator.AgentCode;
+import com.soulvoyage.orchestrator.PipelineCode;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -14,12 +17,17 @@ import java.util.List;
 public class SimulatePipeline implements TaskDefinition {
 
     @Override
-    public String code() { return "SIMULATE_PIPELINE"; }
+    public PipelineCode code() { return PipelineCode.SIMULATE_PIPELINE; }
+
+    @Override
+    public void validatePayload(JsonNode payload) {
+        PipelinePayloads.requirePositiveLong(PipelinePayloads.requireObject(payload), "simulateId");
+    }
 
     @Override
     public List<StepSpec> steps(TaskContext ctx) {
         return List.of(
-                new StepSpec("review", "SIMULATE", "simulate_review_result.json"),
-                new StepSpec("risk", "RISK_ARCHIVE", "archive_receipt.json"));
+                new StepSpec("review", AgentCode.SIMULATE, "simulate_review_result.json"),
+                new StepSpec("risk", AgentCode.RISK_ARCHIVE, "archive_receipt.json"));
     }
 }

@@ -18,6 +18,12 @@ public class AuthDtos {
 
     public record RefreshReq(@NotBlank String refreshToken) {}
 
+    /** GET /auth/me 的响应契约（字段名与既有 JSON 完全一致；空值统一回空串）。 */
+    public record MeResp(long userId, String username, String nickname, String role,
+                         String crisisState, String agreedPolicyAt, String policyVersion,
+                         int status, String deletionRequestedAt, boolean wechatBound,
+                         String createdAt) {}
+
     public record DeleteReq(@NotBlank String password) {}
 
     public record PasswordReq(@NotBlank String oldPassword,

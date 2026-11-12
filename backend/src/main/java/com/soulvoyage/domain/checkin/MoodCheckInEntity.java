@@ -50,6 +50,11 @@ public class MoodCheckInEntity {
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
+    /** B-09 乐观锁：同一天打卡被多端并发修改时，后写方拿 409 而不是静默覆盖 */
+    @Version
+    @Column(name = "version", nullable = false)
+    private Long version;
+
     @PrePersist
     @PreUpdate
     void touch() {

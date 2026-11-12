@@ -1,0 +1,61 @@
+{
+  "note": "注销申请→重新登录→状态→撤回→恢复正常",
+  "scenario": "account",
+  "steps": [
+    {
+      "name": "apply",
+      "request": {
+        "password": "<redacted>"
+      },
+      "response": null
+    },
+    {
+      "name": "relogin",
+      "response": {
+        "accessToken": "<redacted>",
+        "deletionPending": true,
+        "expiresIn": 1800,
+        "nickname": "<redacted>",
+        "refreshToken": "<redacted>",
+        "role": "USER",
+        "userId": "<redacted>"
+      }
+    },
+    {
+      "name": "pending",
+      "response": {
+        "agreedPolicyAt": "<redacted>",
+        "createdAt": "<redacted>",
+        "crisisState": "NORMAL",
+        "deletionRequestedAt": "<redacted>",
+        "nickname": "<redacted>",
+        "policyVersion": "",
+        "role": "USER",
+        "status": 3,
+        "userId": "<redacted>",
+        "username": "<redacted>",
+        "wechatBound": false
+      }
+    },
+    {
+      "name": "cancel",
+      "response": null
+    },
+    {
+      "name": "after",
+      "response": {
+        "agreedPolicyAt": "<redacted>",
+        "createdAt": "<redacted>",
+        "crisisState": "NORMAL",
+        "deletionRequestedAt": "",
+        "nickname": "<redacted>",
+        "policyVersion": "",
+        "role": "USER",
+        "status": 1,
+        "userId": "<redacted>",
+        "username": "<redacted>",
+        "wechatBound": false
+      }
+    }
+  ]
+}

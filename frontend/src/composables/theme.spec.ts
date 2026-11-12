@@ -1,6 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 type ThemeModule = typeof import('./theme')
+type MediaListener = (e: { matches: boolean }) => void
+
+/** 系统主题变化的监听器：由 loadTheme 收集，测试里手动触发 */
+let mediaListeners: MediaListener[] = []
 
 /**
  * theme.ts 的模块顶层就执行了 useColorMode，配色偏好只在首次 import 时读取一次。
@@ -10,12 +14,13 @@ type ThemeModule = typeof import('./theme')
 async function loadTheme(systemDark: boolean): Promise<ThemeModule> {
   vi.resetModules()
   localStorage.clear()
+  mediaListeners = []
   vi.stubGlobal(
     'matchMedia',
     vi.fn().mockReturnValue({
       matches: systemDark,
       media: '(prefers-color-scheme: dark)',
-      addEventListener: () => {},
+      addEventListener: (_: string, cb: MediaListener) => mediaListeners.push(cb),
       removeEventListener: () => {},
     }),
   )
@@ -84,5 +89,14 @@ describe('composables/theme 配色偏好', () => {
     expect(t.isDark.value).toBe(true)
     t.setTheme('light')
     expect(t.isDark.value).toBe(false)
+  })
+
+  it('跟随系统时，系统主题变化后 isDark 跟随', async () => {
+    const t = await loadTheme(false)
+    t.setTheme('system')
+    expect(t.isDark.value).toBe(false)
+    mediaListeners.forEach(cb => cb({ matches: true }))
+    await flush()
+    expect(t.isDark.value).toBe(true)
   })
 })

@@ -34,13 +34,7 @@ function setEnergy(e: number) {
         :aria-checked="value.emotion === e.code"
         @click="pick(e.code)"
       >
-        <i
-          :style="{
-            background: `color-mix(in srgb, var(${e.varName}) 18%, transparent)`,
-            borderColor: value.emotion === e.code ? `var(${e.varName})` : 'transparent',
-          }"
-          >{{ e.face }}</i
-        >
+        <i class="dot" :style="{ background: `var(${e.varName})` }" aria-hidden="true" />
         {{ e.label }}
       </button>
     </div>
@@ -80,37 +74,36 @@ function setEnergy(e: number) {
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: 6px;
+  min-height: 44px;
   font-size: var(--sv-fs-caption1);
   color: var(--sv-label2);
-  padding: 10px 0;
-  border-radius: 14px;
-  border: none;
+  padding: 6px 0;
+  border-radius: var(--sv-r-ctl);
+  border: 1px solid transparent;
   background: transparent;
   cursor: pointer;
   font-family: inherit;
-  transition: background 0.15s;
+  transition:
+    background 0.18s,
+    border-color 0.18s;
 }
 .emoc:active {
   background: var(--sv-fill2);
 }
-.emoc i {
-  width: 44px;
-  height: 44px;
+.dot {
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
-  display: grid;
-  place-items: center;
-  font-size: 20px;
+  display: block;
   font-style: normal;
-  border: 2.5px solid transparent;
-  transition: 0.2s var(--sv-ease);
 }
 .emoc.sel {
   color: var(--sv-label);
-  font-weight: 600;
-}
-.emoc.sel i {
-  transform: scale(1.12);
+  font-weight: 500;
+  border-color: var(--sv-accent);
+  background: var(--sv-accent-soft);
 }
 .energy {
   margin: 18px 0 4px;
@@ -125,22 +118,23 @@ function setEnergy(e: number) {
 }
 .energy output {
   font-size: var(--sv-fs-footnote);
-  font-weight: 600;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
 }
 .energy input {
   grid-column: 1 / -1;
   width: 100%;
-  accent-color: var(--sv-indigo);
+  accent-color: var(--sv-accent);
   height: 32px;
 }
 .note {
   width: 100%;
   margin-top: 14px;
-  border: 1px solid var(--sv-sep);
-  background: var(--sv-bg);
-  border-radius: 12px;
-  padding: 11px 14px;
-  font-size: var(--sv-fs-subhead);
+  border: 1px solid var(--sv-line-strong);
+  background: var(--sv-card2);
+  border-radius: var(--sv-r-ctl);
+  padding: 9px 12px;
+  font-size: var(--sv-fs-body);
   color: var(--sv-label);
   outline: none;
   font-family: inherit;

@@ -1,0 +1,4 @@
+#
+#Thu Nov 12 13:34:15 CST 2026
+no\ classes\ that\ are\ annotated\ with\ @RestController\ should\ depend\ on\ classes\ that\ have\ simple\ name\ ending\ with\ 'Repository'=02018492-ad8f-46c4-9982-9626185831e1
+no\ classes\ that\ reside\ in\ a\ package\ '..api..'\ should\ depend\ on\ classes\ that\ reside\ in\ a\ package\ '..domain..'=39c99f7c-22be-47b5-b466-eb23d79386cb

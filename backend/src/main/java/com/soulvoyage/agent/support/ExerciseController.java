@@ -1,6 +1,7 @@
 package com.soulvoyage.agent.support;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.soulvoyage.agent.support.dto.ExerciseDtos.CheckInResp;
 import com.soulvoyage.auth.AuthPrincipal;
 import com.soulvoyage.common.api.ApiResponse;
 import com.soulvoyage.common.api.ErrorCode;
@@ -13,6 +14,7 @@ import com.soulvoyage.domain.emotion.EmotionTrajectoryRepository;
 import com.soulvoyage.domain.exercise.ExerciseRecordEntity;
 import com.soulvoyage.domain.exercise.ExerciseRecordRepository;
 import com.soulvoyage.domain.plan.PlanService;
+import com.soulvoyage.orchestrator.api.TaskDtos.TaskNoResp;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import lombok.RequiredArgsConstructor;
@@ -65,8 +67,8 @@ public class ExerciseController {
     }
 
     @PostMapping("/exercise-records")
-    public ApiResponse<Map<String, Object>> checkIn(@AuthenticationPrincipal AuthPrincipal p,
-                                                    @Valid @RequestBody CheckInReq req) {
+    public ApiResponse<CheckInResp> checkIn(@AuthenticationPrincipal AuthPrincipal p,
+                                            @Valid @RequestBody CheckInReq req) {
         Exercise ex = catalog.require(req.exerciseId());
         LocalDate day = req.scheduledDate() == null ? cal.today() : req.scheduledDate();
         ExerciseRecordEntity r = recordRepo
@@ -96,13 +98,13 @@ public class ExerciseController {
         if (req.completed()) {
             afterCompletion(p.userId(), planDbId, req.planItemSeq(), req.ratingStar(), day);
         }
-        return ApiResponse.ok(Map.of("id", r.getId(), "exerciseId", ex.id(), "completed", true));
+        return ApiResponse.ok(new CheckInResp(r.getId(), ex.id(), true));
     }
 
     /** 认知书写三栏 → COGNITIVE_PIPELINE（EMOTION→TRACE 追问→RISK_ARCHIVE），并自动完成该练习 */
     @PostMapping("/exercises/cognitive-writing")
-    public ApiResponse<Map<String, String>> cognitive(@AuthenticationPrincipal AuthPrincipal p,
-                                                      @Valid @RequestBody CognitiveReq req) {
+    public ApiResponse<TaskNoResp> cognitive(@AuthenticationPrincipal AuthPrincipal p,
+                                             @Valid @RequestBody CognitiveReq req) {
         String text = "情境：" + req.situation() + "\n自动想法：" + req.autoThought()
                 + "\n替代想法：" + req.alternativeThought();
         var input = mapper.createObjectNode();
@@ -138,7 +140,7 @@ public class ExerciseController {
             }
         }
         safeEvaluate(p.userId());
-        return ApiResponse.ok(Map.of("taskNo", taskNo));
+        return ApiResponse.ok(new TaskNoResp(taskNo));
     }
 
     @GetMapping("/exercise-records")

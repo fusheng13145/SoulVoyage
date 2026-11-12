@@ -29,23 +29,17 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 8px;
-  background: color-mix(in srgb, var(--sv-red) 92%, #000);
-  color: #fff;
+  background: var(--sv-danger);
+  color: var(--sv-on-accent);
   padding: 10px 16px;
   font-size: var(--sv-fs-footnote);
   flex: none;
-}
-[data-theme='dark'] .banner {
-  /* dark 下提高对比（DS2 危机色规则） */
-  background: var(--sv-red);
-  color: #000;
-  font-weight: 700;
 }
 .banner b {
   margin-left: auto;
   display: inline-flex;
   align-items: center;
   gap: 2px;
-  font-weight: 600;
+  font-weight: 500;
 }
 </style>

@@ -16,6 +16,12 @@ export type Json = Record<string, any>
 export const TOKEN_KEY = 'sv_access'
 export const REFRESH_KEY = 'sv_refresh'
 
+/** B-09 乐观锁冲突：多端同时修改同一聚合，后端返回 409 + 2003，调用方应刷新后重试 */
+export const CONFLICT_CODE = 2003
+export function isConflict(e: unknown): boolean {
+  return typeof e === 'object' && e !== null && (e as { code?: number }).code === CONFLICT_CODE
+}
+
 const http = axios.create({ baseURL: '/api/v1', timeout: 30000 })
 
 http.interceptors.request.use(cfg => {
@@ -26,13 +32,29 @@ http.interceptors.request.use(cfg => {
 
 /** 服务端开启 refresh 轮换 + 重用检测后，同一旧 refresh 用两次会被判失窃吊销全部会话——并发 401 必须共享一次刷新 */
 let refreshing: Promise<boolean> | null = null
+
+const REFRESH_LOCK = 'sv_refresh_lock'
+
+/** B-07 跨标签互斥：有 Web Locks 时同一时刻只允许一个标签执行 refresh；不支持时退回单飞 */
+function withRefreshLock<T>(fn: () => Promise<T>): Promise<T> {
+  const locks = (navigator as Navigator & {
+    locks?: { request: (name: string, cb: () => Promise<T>) => Promise<T> }
+  }).locks
+  return locks?.request ? locks.request(REFRESH_LOCK, fn) : fn()
+}
+
 async function refreshOnce(): Promise<boolean> {
   if (!refreshing) {
-    refreshing = (async () => {
+    const tokenAtStart = localStorage.getItem(REFRESH_KEY)
+    refreshing = withRefreshLock(async () => {
       try {
+        const current = localStorage.getItem(REFRESH_KEY)
+        if (!current) return false
+        // 等锁期间别的标签已完成轮换：直接复用新令牌，避免旧 refresh 二次使用触发失窃吊销
+        if (tokenAtStart && current !== tokenAtStart) return true
         const { data } = await axios.post<ApiResp<{ accessToken: string; refreshToken: string }>>(
           '/api/v1/auth/refresh',
-          { refreshToken: localStorage.getItem(REFRESH_KEY) },
+          { refreshToken: current },
         )
         localStorage.setItem(TOKEN_KEY, data.data.accessToken)
         localStorage.setItem(REFRESH_KEY, data.data.refreshToken)
@@ -44,9 +66,31 @@ async function refreshOnce(): Promise<boolean> {
           refreshing = null
         }, 0)
       }
-    })()
+    })
   }
   return refreshing
+}
+
+/**
+ * B-07：带鉴权的 fetch（SSE 等无法走 axios 的场景共用）。
+ * 401 时复用统一单飞刷新并重试一次；仍失败则清空本地会话，由调用方决定跳转/降级。
+ */
+export async function authFetch(input: string, init: RequestInit = {}): Promise<Response> {
+  const send = () => {
+    const headers = new Headers(init.headers)
+    const t = localStorage.getItem(TOKEN_KEY)
+    if (t) headers.set('Authorization', `Bearer ${t}`)
+    return fetch(input, { ...init, headers })
+  }
+  let res = await send()
+  if (res.status === 401) {
+    if (await refreshOnce()) res = await send()
+    if (res.status === 401) {
+      localStorage.removeItem(TOKEN_KEY)
+      localStorage.removeItem(REFRESH_KEY)
+    }
+  }
+  return res
 }
 
 http.interceptors.response.use(

@@ -1,0 +1,48 @@
+{
+  "note": "模拟开场景→逐轮→结束→任务终态",
+  "scenario": "simulation",
+  "steps": [
+    {
+      "name": "open",
+      "request": {
+        "difficulty": "NORMAL",
+        "sceneCode": "DORM_CONFLICT"
+      },
+      "response": {
+        "simulateId": "<redacted>"
+      }
+    },
+    {
+      "name": "turn",
+      "response": {
+        "events": 9,
+        "turnDone": {
+          "crisis": false,
+          "emotionCue": "（mock）就事论事，保持保留",
+          "maxTurnsReached": false,
+          "npcEmotion": "NEUTRAL",
+          "npcText": "嗯，「我想跟你商量熄灯后的安排」，我大概明白你的意思。那我先说说我的情况，你再看看怎么合排。",
+          "stateTag": "",
+          "tension": 30,
+          "turnNo": 1
+        }
+      }
+    },
+    {
+      "name": "finish",
+      "response": {
+        "taskNo": "<redacted>"
+      }
+    },
+    {
+      "name": "task",
+      "response": {
+        "finalAgents": [
+          "SIMULATE",
+          "RISK_ARCHIVE"
+        ],
+        "status": "SUCCESS"
+      }
+    }
+  ]
+}

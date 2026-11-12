@@ -13,6 +13,7 @@ import com.soulvoyage.domain.task.AgentMessageRepository;
 import com.soulvoyage.llm.LlmClient;
 import com.soulvoyage.llm.OutputValidator;
 import com.soulvoyage.llm.PromptTemplates;
+import com.soulvoyage.orchestrator.AgentCode;
 import com.soulvoyage.orchestrator.agent.Agent;
 import com.soulvoyage.orchestrator.agent.AgentRuntime;
 import com.soulvoyage.orchestrator.agent.OutputInvalidException;
@@ -69,7 +70,7 @@ public class SupportAgent implements Agent {
     private final PlanService planService;
 
     @Override
-    public String code() { return "SUPPORT"; }
+    public AgentCode code() { return AgentCode.SUPPORT; }
 
     @Override
     public JsonNode run(AgentMessage request, AgentRuntime rt) {

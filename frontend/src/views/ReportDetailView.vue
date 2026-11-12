@@ -1,13 +1,16 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import SvNavBar from '@/components/ui/SvNavBar.vue'
 import SvCard from '@/components/ui/SvCard.vue'
 import SvChip from '@/components/ui/SvChip.vue'
+import SvPageBody from '@/components/ui/SvPageBody.vue'
 import SvDisclaimer from '@/components/ui/SvDisclaimer.vue'
-import http, { type ApiResp, type Json } from '@/api/http'
+import type { Json } from '@/api/http'
+import { isConflict } from '@/api/http'
+import { reportApi } from '@/api/domains/report'
 import { toast } from '@/stores/ui'
-import { useContentStore } from '@/stores/content'
+import { useContentStore, type ExerciseDef } from '@/stores/content'
 
 const route = useRoute()
 const content = useContentStore()
@@ -92,7 +95,9 @@ const riskChip = computed(
     },
 )
 
-const exerciseNames = computed(() => Object.fromEntries((content.exercises ?? []).map(x => [x.id, x])))
+const exerciseNames = computed<Record<string, ExerciseDef>>(() =>
+  Object.fromEntries((content.exercises ?? []).map(x => [x.id, x])),
+)
 
 /** 溯源报告正文可能挂在 content 顶层或 content.report */
 const traceBody = computed(() => report.value?.content?.report ?? report.value?.content ?? {})
@@ -102,9 +107,7 @@ onMounted(async () => {
     /* 名称降级为 id */
   })
   try {
-    const { data } = await http.get<ApiResp<ReportDetail>>(`/reports/${route.params.id}`)
-    report.value = data.data
-    noteDraft.value = data.data.feedbackNote || ''
+    await refreshReport()
   } catch (e) {
     toast((e as Error).message || '报告不存在或已删除')
   } finally {
@@ -112,18 +115,24 @@ onMounted(async () => {
   }
 })
 
+/** B-09：冲突后以服务端最新内容为准（批注/反馈/收藏都挂在同一报告行上） */
+async function refreshReport() {
+  const detail = await reportApi.detail<ReportDetail>(route.params.id as string)
+  report.value = detail
+  noteDraft.value = detail.feedbackNote || ''
+}
+
 async function toggleStar() {
   const r = report.value
   if (!r || busy.value) return
   busy.value = true
   try {
-    const { data } = await http.post<ApiResp<{ starred: boolean }>>(`/reports/${r.id}/star`, {
-      starred: !r.starred,
-    })
-    r.starred = data.data.starred
+    const { starred } = await reportApi.star(r.id, !r.starred)
+    r.starred = starred
     toast(r.starred ? '已收藏，在档案里可以只看待过的' : '已取消收藏')
   } catch (e) {
     toast((e as Error).message || '收藏操作失败')
+    if (isConflict(e)) await refreshReport()
   } finally {
     busy.value = false
   }
@@ -136,14 +145,14 @@ async function pickRating(value: string) {
   busy.value = true
   try {
     if (cancel) {
-      await http.post(`/reports/${r.id}/feedback`, { rating: '' })
+      await reportApi.feedback(r.id, { rating: '' })
       r.feedback = ''
       r.feedbackNote = ''
       noteDraft.value = ''
       showNote.value = false
       toast('已撤销这次评价')
     } else {
-      await http.post(`/reports/${r.id}/feedback`, {
+      await reportApi.feedback(r.id, {
         rating: value,
         note: noteDraft.value || r.feedbackNote,
       })
@@ -152,6 +161,7 @@ async function pickRating(value: string) {
     }
   } catch (e) {
     toast((e as Error).message || '反馈提交失败')
+    if (isConflict(e)) await refreshReport()
   } finally {
     busy.value = false
   }
@@ -162,12 +172,13 @@ async function saveNote() {
   if (!r || !r.feedback) return
   busy.value = true
   try {
-    await http.post(`/reports/${r.id}/feedback`, { rating: r.feedback, note: noteDraft.value })
+    await reportApi.feedback(r.id, { rating: r.feedback, note: noteDraft.value })
     r.feedbackNote = noteDraft.value.trim()
     showNote.value = false
     toast('记下了，谢谢你告诉我们的')
   } catch (e) {
     toast((e as Error).message || '反馈提交失败')
+    if (isConflict(e)) await refreshReport()
   } finally {
     busy.value = false
   }
@@ -178,7 +189,7 @@ async function saveNote() {
   <div class="report">
     <SvNavBar :title="report ? TYPE_LABELS[report.type] || '报告' : '报告'" back="返回" :large="false" />
 
-    <div v-if="report" class="body">
+    <SvPageBody v-if="report">
       <SvCard>
         <div class="head">
           <h2>{{ report.title }}</h2>
@@ -220,7 +231,7 @@ async function saveNote() {
           <div v-for="d in traceBody.cognitiveDistortions" :key="d.kgNodeId || d.name" class="dist">
             <b>{{ d.name }}</b>
             <p class="sv-muted">触发：{{ d.trigger }}</p>
-            <p class="q">🤔 {{ d.challengeQuestion }}</p>
+            <p class="q">{{ d.challengeQuestion }}</p>
           </div>
         </SvCard>
         <SvCard v-if="traceBody.socraticQuestions?.length">
@@ -233,7 +244,7 @@ async function saveNote() {
 
       <!-- 疏导方案 -->
       <SvCard v-if="isSupport">
-        <h3 class="t">🌿 {{ report.content.planTitle }}</h3>
+        <h3 class="t">{{ report.content.planTitle }}</h3>
         <div v-for="m in report.content.matchedExercises" :key="m.exerciseId" class="plan-item">
           <div class="pi-head">
             <b>{{ exerciseNames[m.exerciseId]?.name || m.exerciseId }}</b>
@@ -241,7 +252,7 @@ async function saveNote() {
           </div>
           <p>{{ m.reason }}</p>
           <small v-if="exerciseNames[m.exerciseId]" class="sv-muted">
-            {{ exerciseNames[m.exerciseId].steps.map((s: any) => s.step).join(' → ') }} · 约
+            {{ exerciseNames[m.exerciseId].steps.map(s => s.step).join(' → ') }} · 约
             {{ exerciseNames[m.exerciseId].durationMin }} 分钟</small
           >
         </div>
@@ -334,17 +345,14 @@ async function saveNote() {
         text="报告基于你自己的记录由 AI 生成，是自助参考，不构成任何诊断"
         :reason="'结论对照心理学知识库（CBG 图谱）与你的原始记录推导，只描述可能性。所有原文信封加密，仅你可见。'"
       />
-    </div>
+    </SvPageBody>
 
-    <div v-else-if="loading" class="body"><p class="sv-muted none">报告解密中…</p></div>
-    <div v-else class="body"><p class="sv-muted none">报告不存在、已删除或属于其他账号。</p></div>
+    <SvPageBody v-else-if="loading"><p class="sv-muted none">报告解密中…</p></SvPageBody>
+    <SvPageBody v-else><p class="sv-muted none">报告不存在、已删除或属于其他账号。</p></SvPageBody>
   </div>
 </template>
 
 <style scoped>
-.body {
-  padding: 0 var(--sv-s4);
-}
 .head {
   display: flex;
   align-items: center;
@@ -391,7 +399,7 @@ async function saveNote() {
   font-size: var(--sv-fs-caption1);
   color: var(--sv-indigo);
   background: var(--sv-indigo-soft);
-  border-radius: var(--sv-r-pill);
+  border-radius: var(--sv-r-tag);
   padding: 1px 8px;
 }
 .ev {
@@ -437,7 +445,7 @@ async function saveNote() {
   font-size: var(--sv-fs-caption1);
   background: var(--sv-indigo-soft);
   color: var(--sv-indigo);
-  border-radius: var(--sv-r-pill);
+  border-radius: var(--sv-r-tag);
   padding: 1px 8px;
 }
 .edu {
@@ -479,7 +487,7 @@ async function saveNote() {
   font-size: var(--sv-fs-caption1);
   background: var(--sv-fill2);
   color: var(--sv-label2);
-  border-radius: var(--sv-r-pill);
+  border-radius: var(--sv-r-tag);
   padding: 2px 10px;
 }
 h4 {
@@ -538,7 +546,7 @@ h4 {
   border: none;
   background: var(--sv-fill2);
   color: var(--sv-indigo);
-  border-radius: var(--sv-r-pill);
+  border-radius: var(--sv-r-tag);
   padding: 8px 16px;
   cursor: pointer;
   font-family: inherit;
@@ -569,7 +577,7 @@ h4 {
   border: 1px solid var(--sv-sep);
   background: var(--sv-fill2);
   color: var(--sv-label2);
-  border-radius: var(--sv-r-pill);
+  border-radius: var(--sv-r-tag);
   padding: 6px 14px;
   font-family: inherit;
   font-size: var(--sv-fs-footnote);
@@ -623,7 +631,7 @@ h4 {
 }
 .save,
 .ghost {
-  border-radius: var(--sv-r-pill);
+  border-radius: var(--sv-r-tag);
   padding: 8px 18px;
   font-family: inherit;
   font-size: var(--sv-fs-footnote);

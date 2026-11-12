@@ -1,0 +1,56 @@
+{
+  "note": "DIARY_PIPELINE 提交→轮询终态→回放任务流产物",
+  "scenario": "diary-task",
+  "steps": [
+    {
+      "name": "submit",
+      "request": {
+        "clientReqId": "<redacted>",
+        "payload": {
+          "diaryText": "今天小组会把我的方案当众改了一遍，我嘴上没说什么，心里很憋，晚上一直睡不着。",
+          "moodSelfRating": 2,
+          "recordDate": "2026-11-12"
+        },
+        "pipelineCode": "DIARY_PIPELINE"
+      },
+      "response": {
+        "status": "PENDING",
+        "taskNo": "<redacted>"
+      }
+    },
+    {
+      "name": "poll",
+      "response": {
+        "pollCount": 3,
+        "status": "SUCCESS"
+      }
+    },
+    {
+      "name": "finals",
+      "response": {
+        "agents": [
+          "EMOTION",
+          "TRACE",
+          "SUPPORT",
+          "RISK_ARCHIVE"
+        ],
+        "done": {
+          "archived": {
+            "emotionPoints": 1,
+            "messages": 7,
+            "reports": 2
+          },
+          "encryption": {
+            "algo": "AES-256-GCM",
+            "keyVersion": "k1"
+          },
+          "profileUpdated": true,
+          "referral": null,
+          "riskEventId": null,
+          "riskLevel": "LOW"
+        },
+        "eventCount": 12
+      }
+    }
+  ]
+}

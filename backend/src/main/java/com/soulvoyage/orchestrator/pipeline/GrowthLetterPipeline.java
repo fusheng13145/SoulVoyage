@@ -1,5 +1,8 @@
 package com.soulvoyage.orchestrator.pipeline;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.soulvoyage.orchestrator.AgentCode;
+import com.soulvoyage.orchestrator.PipelineCode;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -13,10 +16,18 @@ import java.util.List;
 public class GrowthLetterPipeline implements TaskDefinition {
 
     @Override
-    public String code() { return "GROWTH_LETTER_PIPELINE"; }
+    public PipelineCode code() { return PipelineCode.GROWTH_LETTER_PIPELINE; }
+
+    @Override
+    public void validatePayload(JsonNode payload) {
+        // 契约：{ statWeek, material: { dataPoints, ... } }，素材量必须为正
+        JsonNode p = PipelinePayloads.requireObject(payload);
+        PipelinePayloads.requireNonBlankText(p, "statWeek");
+        PipelinePayloads.requirePositiveInt(PipelinePayloads.requireObjectField(p, "material"), "dataPoints");
+    }
 
     @Override
     public List<StepSpec> steps(TaskContext ctx) {
-        return List.of(new StepSpec("letter", "LETTER", "growth_letter.json"));
+        return List.of(new StepSpec("letter", AgentCode.LETTER, "growth_letter.json"));
     }
 }

@@ -2,6 +2,8 @@ package com.soulvoyage.domain.content;
 
 import com.soulvoyage.auth.AuthPrincipal;
 import com.soulvoyage.common.api.ApiResponse;
+import com.soulvoyage.domain.content.dto.ReadingDtos.FavoriteToggleResp;
+import com.soulvoyage.domain.content.dto.ReadingDtos.TodayResp;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import lombok.RequiredArgsConstructor;
@@ -26,15 +28,21 @@ public class ReadingController {
     public record FavoriteReq(@NotBlank String type, @NotBlank String refCode) {}
 
     @GetMapping("/today")
-    public ApiResponse<Map<String, Object>> today(@AuthenticationPrincipal AuthPrincipal p) {
-        return ApiResponse.ok(service.today(p.userId()));
+    @SuppressWarnings("unchecked")
+    public ApiResponse<TodayResp> today(@AuthenticationPrincipal AuthPrincipal p) {
+        Map<String, Object> m = service.today(p.userId());
+        return ApiResponse.ok(new TodayResp(
+                (String) m.get("kgNodeId"), (String) m.get("title"), (String) m.get("summary"),
+                (String) m.get("microAction"), (List<String>) m.get("aboutTags"),
+                ((Number) m.get("readingSec")).intValue(), (String) m.get("date"),
+                Boolean.TRUE.equals(m.get("favorited")), Boolean.TRUE.equals(m.get("firstToday"))));
     }
 
     @PostMapping("/favorites")
-    public ApiResponse<Map<String, Object>> toggleFavorite(@AuthenticationPrincipal AuthPrincipal p,
-                                                           @Valid @RequestBody FavoriteReq req) {
+    public ApiResponse<FavoriteToggleResp> toggleFavorite(@AuthenticationPrincipal AuthPrincipal p,
+                                                          @Valid @RequestBody FavoriteReq req) {
         boolean on = service.toggleFavorite(p.userId(), req.type(), req.refCode());
-        return ApiResponse.ok(Map.of("type", req.type(), "refCode", req.refCode(), "favorited", on));
+        return ApiResponse.ok(new FavoriteToggleResp(req.type(), req.refCode(), on));
     }
 
     @GetMapping("/favorites")

@@ -11,7 +11,7 @@ withDefaults(
 </script>
 
 <template>
-  <!-- iMessage 质感气泡（DS3）：me=渐变蓝、ai=描边卡片、sys=居中灰字、typing=三点指示 -->
+  <!-- 纸面气泡：me=苔绿填充、ai=1px 边框、sys=居中灰字、typing=三点脉冲 -->
   <div v-if="role === 'typing'" class="msg typing" role="status" aria-label="对方正在输入">
     <i /><i /><i />
   </div>
@@ -25,35 +25,30 @@ withDefaults(
 <style scoped>
 .msg {
   max-width: 78%;
-  padding: 10px 14px;
-  border-radius: 20px;
-  font-size: var(--sv-fs-callout);
-  line-height: 1.5;
-  animation: pop 0.3s var(--sv-ease);
+  padding: 10px 12px;
+  border-radius: var(--sv-r-card);
+  font-size: var(--sv-fs-body);
+  line-height: var(--sv-lh-body);
+  animation: rise 0.18s ease;
   word-break: break-word;
   white-space: pre-wrap;
 }
-@keyframes pop {
+@keyframes rise {
   from {
     opacity: 0;
-    transform: translateY(8px) scale(0.96);
-  }
-  to {
-    opacity: 1;
+    transform: translateY(6px);
   }
 }
 .msg.ai {
   align-self: flex-start;
   background: var(--sv-card);
   border: 1px solid var(--sv-sep);
-  border-bottom-left-radius: 6px;
   color: var(--sv-label);
 }
 .msg.me {
   align-self: flex-end;
-  color: #fff;
-  background: linear-gradient(135deg, var(--sv-blue), var(--sv-indigo));
-  border-bottom-right-radius: 6px;
+  color: var(--sv-on-accent);
+  background: var(--sv-accent);
 }
 .msg.sys {
   align-self: center;
@@ -66,24 +61,23 @@ withDefaults(
 .who {
   display: block;
   font-size: var(--sv-fs-caption2);
-  opacity: 0.65;
+  color: var(--sv-label3);
   margin-bottom: 2px;
 }
 .typing {
   align-self: flex-start;
   background: var(--sv-card);
   border: 1px solid var(--sv-sep);
-  border-radius: 20px;
-  padding: 12px 16px;
+  padding: 12px 14px;
   display: flex;
   gap: 4px;
 }
 .typing i {
-  width: 7px;
-  height: 7px;
+  width: 4px;
+  height: 4px;
   border-radius: 50%;
   background: var(--sv-label3);
-  animation: bounce 1.2s infinite;
+  animation: blink 1.2s infinite;
 }
 .typing i:nth-child(2) {
   animation-delay: 0.15s;
@@ -91,14 +85,14 @@ withDefaults(
 .typing i:nth-child(3) {
   animation-delay: 0.3s;
 }
-@keyframes bounce {
+@keyframes blink {
   0%,
   60%,
   100% {
-    transform: none;
+    opacity: 0.35;
   }
   30% {
-    transform: translateY(-5px);
+    opacity: 1;
   }
 }
 </style>

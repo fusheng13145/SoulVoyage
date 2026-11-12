@@ -3,6 +3,10 @@ package com.soulvoyage.admin;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.soulvoyage.admin.dto.ContentAdminDtos.ContentVersionResp;
+import com.soulvoyage.admin.dto.ContentAdminDtos.ContentWriteResp;
+import com.soulvoyage.admin.dto.ContentAdminDtos.KgGraphAuditResp;
+import com.soulvoyage.admin.dto.ContentAdminDtos.PreviewResp;
 import com.soulvoyage.audit.AuditService;
 import com.soulvoyage.auth.AuthPrincipal;
 import com.soulvoyage.common.api.ErrorCode;
@@ -116,10 +120,10 @@ class ContentAdminControllerTest {
     void kgGraphAuditReportsDisabledGraph() {
         when(neo4jKg.getIfAvailable()).thenReturn(null);
 
-        Map<String, Object> data = controller.kgGraphAudit().getData();
+        KgGraphAuditResp data = controller.kgGraphAudit().getData();
 
-        assertEquals(false, data.get("available"));
-        assertTrue(String.valueOf(data.get("reason")).contains("soulvoyage.neo4j.enabled=false"));
+        assertEquals(false, data.available());
+        assertTrue(String.valueOf(data.reason()).contains("soulvoyage.neo4j.enabled=false"));
     }
 
     @Test
@@ -127,12 +131,16 @@ class ContentAdminControllerTest {
     void kgGraphAuditDelegatesWhenEnabled() {
         Neo4jKgService graph = org.mockito.Mockito.mock(Neo4jKgService.class);
         when(neo4jKg.getIfAvailable()).thenReturn(graph);
-        when(graph.audit()).thenReturn(Map.of("available", true, "drift", 0));
+        when(graph.audit()).thenReturn(Map.of(
+                "available", true, "contentVersion", 3L, "syncedVersion", 3L,
+                "consistent", true, "nodes", List.of(), "relations", List.of(), "note", "ok"));
 
-        Map<String, Object> data = controller.kgGraphAudit().getData();
+        KgGraphAuditResp data = controller.kgGraphAudit().getData();
 
-        assertEquals(true, data.get("available"));
-        assertEquals(0, data.get("drift"));
+        assertEquals(true, data.available());
+        assertEquals(true, data.consistent());
+        assertEquals(3L, data.contentVersion());
+        assertEquals("ok", data.note());
     }
 
     // ---------------- upsertKg ----------------
@@ -149,15 +157,15 @@ class ContentAdminControllerTest {
 
         ContentAdminController.KgBody body = new ContentAdminController.KgBody(
                 null, "灾难化", obj("{\"definition\":\"x\"}"), (short) 2);
-        Map<String, Object> data = controller.upsertKg(admin, "d1", body).getData();
+        ContentWriteResp data = controller.upsertKg(admin, "d1", body).getData();
 
         assertEquals("DISTORTION", exist.getType());
         assertEquals("灾难化", exist.getName());
         assertEquals("{\"definition\":\"x\"}", exist.getPayloadJson());
         assertEquals((short) 2, exist.getStatus());
-        assertEquals("d1", data.get("code"));
-        assertEquals(42L, data.get("contentVersion"));
-        assertEquals(true, data.get("effective"));
+        assertEquals("d1", data.code());
+        assertEquals(42L, data.contentVersion());
+        assertEquals(true, data.effective());
         verify(kgRepo).save(exist);
         verify(audit).record(1L, "KG_UPSERT", "content:d1", null);
     }
@@ -327,7 +335,7 @@ class ContentAdminControllerTest {
         ContentAdminController.ExerciseBody body = new ContentAdminController.ExerciseBody(
                 "4-7-8 呼吸", List.of("焦虑", "愤怒"), node("[{\"step\":\"吸气\"}]"), 3, (short) 1);
 
-        Map<String, Object> data = controller.upsertExercise(admin, "ex_478_breath", body).getData();
+        ContentWriteResp data = controller.upsertExercise(admin, "ex_478_breath", body).getData();
 
         ArgumentCaptor<ExerciseLibraryEntity> c = ArgumentCaptor.forClass(ExerciseLibraryEntity.class);
         verify(exerciseRepo).save(c.capture());
@@ -335,7 +343,7 @@ class ContentAdminControllerTest {
         assertEquals("[\"焦虑\",\"愤怒\"]", c.getValue().getApplyEmotions());
         assertEquals("[{\"step\":\"吸气\"}]", c.getValue().getStepsJson());
         assertEquals((short) 3, c.getValue().getDurationMin());
-        assertEquals(42L, data.get("contentVersion"));
+        assertEquals(42L, data.contentVersion());
         verify(audit).record(1L, "EXERCISE_UPSERT", "content:ex_478_breath", null);
     }
 
@@ -344,9 +352,9 @@ class ContentAdminControllerTest {
     @Test
     @DisplayName("refresh：强制刷新返回当前版本号并落审计")
     void refreshBumpsVersion() {
-        Map<String, Object> data = controller.refresh(admin).getData();
+        ContentVersionResp data = controller.refresh(admin).getData();
 
-        assertEquals(42L, data.get("contentVersion"));
+        assertEquals(42L, data.contentVersion());
         verify(audit).record(1L, "CONTENT_REFRESH", "content:version", null);
     }
 
@@ -384,16 +392,16 @@ class ContentAdminControllerTest {
         when(prompts.render(eq("SYS"), any())).thenReturn("SYS-PLAIN");
         when(llm.chat(any())).thenReturn(new LlmClient.LlmResponse("{\"ok\":true}", "mock-llm-v1", 11, 22, 33L));
 
-        Map<String, Object> data = controller.preview(admin,
+        PreviewResp data = controller.preview(admin,
                 new ContentAdminController.PreviewBody(" emotion_v1 ", "今天很累", null)).getData();
 
-        assertEquals("emotion_v1", data.get("template"));
-        assertEquals("SYS-PLAIN", data.get("system"));
-        assertEquals("{\"ok\":true}", data.get("output"));
-        assertEquals("mock-llm-v1", data.get("model"));
-        assertEquals(11, data.get("tokensIn"));
-        assertEquals(22, data.get("tokensOut"));
-        assertEquals(33L, data.get("costMs"));
+        assertEquals("emotion_v1", data.template());
+        assertEquals("SYS-PLAIN", data.system());
+        assertEquals("{\"ok\":true}", data.output());
+        assertEquals("mock-llm-v1", data.model());
+        assertEquals(11, data.tokensIn());
+        assertEquals(22, data.tokensOut());
+        assertEquals(33L, data.costMs());
         verify(prompts).render("SYS", Map.of());
         verify(audit).record(1L, "CONTENT_PREVIEW", "prompt:emotion_v1", null);
     }
@@ -405,11 +413,11 @@ class ContentAdminControllerTest {
         when(prompts.render(eq("SYS"), any())).thenReturn("SYS-RENDERED");
         when(llm.chat(any())).thenReturn(new LlmClient.LlmResponse("out", "mock-llm-v1", 1, 1, 1L));
 
-        Map<String, Object> data = controller.preview(admin,
+        PreviewResp data = controller.preview(admin,
                 new ContentAdminController.PreviewBody("trace_v1", "文本", Map.of("name", "小岛"))).getData();
 
-        assertEquals("SYS-RENDERED", data.get("system"));
-        assertNotNull(data.get("output"));
-        assertFalse(String.valueOf(data.get("template")).isBlank());
+        assertEquals("SYS-RENDERED", data.system());
+        assertNotNull(data.output());
+        assertFalse(String.valueOf(data.template()).isBlank());
     }
 }

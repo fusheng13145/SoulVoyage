@@ -61,23 +61,19 @@ const titleOf = (d: HeatDay) =>
 }
 .cell {
   flex: 1;
-  height: 34px;
-  border-radius: 9px;
+  height: 32px;
+  border-radius: var(--sv-r-tag);
   border: none;
   cursor: pointer;
-  transition: transform 0.2s var(--sv-ease);
   padding: 0;
   position: relative;
-}
-.cell:active {
-  transform: scale(1.15);
 }
 .cell span {
   position: absolute;
   bottom: 3px;
   left: 50%;
   transform: translateX(-50%);
-  font-size: 8px;
+  font-size: var(--sv-fs-caption2);
   color: var(--sv-label2);
 }
 .month {
@@ -87,10 +83,11 @@ const titleOf = (d: HeatDay) =>
 }
 .mcell {
   aspect-ratio: 1;
-  border-radius: 8px;
+  border-radius: var(--sv-r-tag);
   display: grid;
   place-items: center;
   font-size: var(--sv-fs-caption2);
   color: var(--sv-label2);
+  font-variant-numeric: tabular-nums;
 }
 </style>

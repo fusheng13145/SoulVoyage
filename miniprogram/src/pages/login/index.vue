@@ -209,10 +209,9 @@ function switchWechat() {
   text-align: center;
 }
 .seg-item.on {
-  background: var(--sv-card);
-  color: var(--sv-label);
-  font-weight: 600;
-  box-shadow: var(--sv-sh-1);
+  background: var(--sv-accent-soft);
+  color: var(--sv-accent);
+  font-weight: 500;
 }
 .local-row {
   display: flex;
@@ -221,18 +220,18 @@ function switchWechat() {
   justify-content: space-between;
 }
 .link {
-  color: var(--sv-indigo);
+  color: var(--sv-accent);
 }
 .fine {
   line-height: 1.5;
 }
 .err {
   padding: var(--sv-s3);
-  background: rgba(255, 69, 58, 0.1);
+  border: 1px solid var(--sv-danger);
   border-radius: var(--sv-r-ctl);
 }
 .err-text {
-  color: var(--sv-red);
+  color: var(--sv-danger);
   font-size: var(--sv-fs-footnote);
 }
 </style>

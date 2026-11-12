@@ -7,6 +7,11 @@ import com.soulvoyage.common.api.ErrorCode;
 import com.soulvoyage.common.exception.BizException;
 import com.soulvoyage.common.time.BusinessCalendar;
 import com.soulvoyage.domain.crisis.CrisisState;
+import com.soulvoyage.domain.emotion.dto.EmotionDtos.ProfileResp;
+import com.soulvoyage.domain.emotion.dto.EmotionDtos.ProfileWeek;
+import com.soulvoyage.domain.emotion.dto.EmotionDtos.SelfRatingResp;
+import com.soulvoyage.domain.emotion.dto.EmotionDtos.TrajectoryPoint;
+import com.soulvoyage.domain.emotion.dto.EmotionDtos.TrajectoryResp;
 import com.soulvoyage.domain.profile.EmotionProfileEntity;
 import com.soulvoyage.domain.profile.EmotionProfileRepository;
 import com.soulvoyage.domain.user.UserRepository;
@@ -37,7 +42,7 @@ public class EmotionController {
 
     /** O2：range 14/30/90（默认 30）+ granularity=day|week；显式 from/to 亦钳制跨度 ≤90 天 */
     @GetMapping("/trajectory")
-    public ApiResponse<Map<String, Object>> trajectory(
+    public ApiResponse<TrajectoryResp> trajectory(
             @AuthenticationPrincipal AuthPrincipal p,
             @RequestParam(required = false) LocalDate from,
             @RequestParam(required = false) LocalDate to,
@@ -48,24 +53,24 @@ public class EmotionController {
         if (start.plusDays(90).isBefore(end)) start = end.minusDays(90);
         List<EmotionTrajectoryEntity> rows = trajRepo
                 .findByUserIdAndRecordDateBetweenOrderByRecordDateAsc(p.userId(), start, end);
-        List<Map<String, Object>> points = "week".equals(granularity) ? weekly(rows) : daily(rows);
-        return ApiResponse.ok(Map.of("from", start.toString(), "to", end.toString(), "points", points));
+        List<TrajectoryPoint> points = "week".equals(granularity) ? weekly(rows) : daily(rows);
+        return ApiResponse.ok(new TrajectoryResp(start.toString(), end.toString(), points));
     }
 
-    private List<Map<String, Object>> daily(List<EmotionTrajectoryEntity> rows) {
+    private List<TrajectoryPoint> daily(List<EmotionTrajectoryEntity> rows) {
         return rows.stream()
-                .map(t -> Map.<String, Object>of(
-                        "date", t.getRecordDate().toString(),
-                        "sourceType", t.getSourceType(),
-                        "emotion", t.getPrimaryEmotion(),
-                        "valence", t.getValence(),
-                        "intensity", t.getIntensity(),
-                        "eventTags", parseJson(t.getEventTags())))
+                .map(t -> new TrajectoryPoint(
+                        t.getRecordDate().toString(),
+                        t.getSourceType(),
+                        t.getPrimaryEmotion(),
+                        t.getValence(),
+                        t.getIntensity(),
+                        parseJson(t.getEventTags())))
                 .toList();
     }
 
     /** 周聚合：效价/强度取均值，情绪取众数，eventTags 不随周上卷 */
-    private List<Map<String, Object>> weekly(List<EmotionTrajectoryEntity> rows) {
+    private List<TrajectoryPoint> weekly(List<EmotionTrajectoryEntity> rows) {
         var weeks = new java.util.TreeMap<LocalDate, List<EmotionTrajectoryEntity>>();
         for (EmotionTrajectoryEntity t : rows) {
             LocalDate ws = t.getRecordDate()
@@ -80,13 +85,13 @@ public class EmotionController {
                             java.util.stream.Collectors.counting()))
                     .entrySet().stream().max(Map.Entry.comparingByValue())
                     .map(Map.Entry::getKey).orElse("");
-            return Map.<String, Object>of(
-                    "date", e.getKey().toString(),
-                    "sourceType", "WEEK",
-                    "emotion", emotion,
-                    "valence", avg(g, true),
-                    "intensity", avg(g, false),
-                    "eventTags", List.of());
+            return new TrajectoryPoint(
+                    e.getKey().toString(),
+                    "WEEK",
+                    emotion,
+                    avg(g, true),
+                    avg(g, false),
+                    mapper.createArrayNode());
         }).toList();
     }
 
@@ -101,7 +106,7 @@ public class EmotionController {
      * M7 会升级为完整打卡表，本接口保持同一 sourceType 以兼容下游消费。
      */
     @PostMapping("/self-rating")
-    public ApiResponse<Map<String, Object>> selfRating(
+    public ApiResponse<SelfRatingResp> selfRating(
             @AuthenticationPrincipal AuthPrincipal p,
             @RequestBody SelfRatingReq req) {
         String emotion = req.emotion() == null ? "" : req.emotion().trim();
@@ -130,7 +135,7 @@ public class EmotionController {
         t.setIntensity(req.intensity().setScale(2, java.math.RoundingMode.HALF_UP));
         if (note != null) t.setEventTags(mapper.createArrayNode().add(note).toString());
         t = trajRepo.save(t);
-        return ApiResponse.ok(Map.of("id", t.getId(), "date", date.toString()));
+        return ApiResponse.ok(new SelfRatingResp(t.getId(), date.toString()));
     }
 
     public record SelfRatingReq(String emotion, BigDecimal valence, BigDecimal intensity,
@@ -138,35 +143,33 @@ public class EmotionController {
 
     /** O2：近 N 周参数（默认 12，钳制 1..52），DB 层 limit */
     @GetMapping("/profile")
-    public ApiResponse<Map<String, Object>> profile(
+    public ApiResponse<ProfileResp> profile(
             @AuthenticationPrincipal AuthPrincipal p,
             @RequestParam(defaultValue = "12") int weeks) {
-        List<Map<String, Object>> weekList = profileRepo.findByUserIdOrderByStatWeekDesc(
+        List<ProfileWeek> weekList = profileRepo.findByUserIdOrderByStatWeekDesc(
                         p.userId(), org.springframework.data.domain.PageRequest.of(
                                 0, Math.min(Math.max(weeks, 1), 52))).stream()
-                .map(w -> Map.<String, Object>of(
-                        "statWeek", w.getStatWeek(),
-                        "avgValence", w.getAvgValence() == null ? "" : w.getAvgValence(),
-                        "riskLevel", w.getRiskLevel(),
-                        "stressorTop", parseJson(w.getStressorTopJson()),
-                        "distortionTop", parseJson(w.getDistortionTopJson())))
+                .map(w -> new ProfileWeek(
+                        w.getStatWeek(),
+                        w.getAvgValence() == null ? "" : w.getAvgValence(),
+                        w.getRiskLevel(),
+                        parseJson(w.getStressorTopJson()),
+                        parseJson(w.getDistortionTopJson())))
                 .toList();
         String crisisState = userRepo.findById(p.userId())
                 .map(u -> CrisisState.parse(u.getCrisisState()).name())
                 .orElse(CrisisState.NORMAL.name());
         // crisisMode：处于危机生命周期任意活跃态（CRISIS 强干预 / COOLING 常驻横幅 / REVIEW 复核中）
-        return ApiResponse.ok(Map.of(
-                "crisisMode", CrisisState.parse(crisisState).active(),
-                "crisisState", crisisState,
-                "weeks", weekList));
+        return ApiResponse.ok(new ProfileResp(
+                CrisisState.parse(crisisState).active(), crisisState, weekList));
     }
 
-    private Object parseJson(String s) {
-        if (s == null || s.isBlank()) return List.of();
+    private com.fasterxml.jackson.databind.JsonNode parseJson(String s) {
+        if (s == null || s.isBlank()) return mapper.createArrayNode();
         try {
             return mapper.readTree(s);
         } catch (Exception e) {
-            return List.of();
+            return mapper.createArrayNode();
         }
     }
 }

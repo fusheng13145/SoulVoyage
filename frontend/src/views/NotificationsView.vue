@@ -4,7 +4,8 @@ import { useRouter } from 'vue-router'
 import SvNavBar from '@/components/ui/SvNavBar.vue'
 import SvCard from '@/components/ui/SvCard.vue'
 import SvIcon from '@/components/ui/SvIcon.vue'
-import http, { type ApiResp } from '@/api/http'
+import SvPageBody from '@/components/ui/SvPageBody.vue'
+import { notificationApi } from '@/api/domains/notification'
 import { toast } from '@/stores/ui'
 
 interface Notice {
@@ -44,14 +45,12 @@ const groups = computed(() => {
 async function load() {
   loading.value = true
   try {
-    const { data } = await http.get<ApiResp<{ items: Notice[]; total: number; unreadCount: number }>>(
-      '/notifications',
-      {
-        params: { page: 0, size: 50 },
-      },
-    )
-    items.value = data.data.items
-    unreadCount.value = data.data.unreadCount
+    const data = await notificationApi.list<{ items: Notice[]; total: number; unreadCount: number }>({
+      page: 0,
+      size: 50,
+    })
+    items.value = data.items
+    unreadCount.value = data.unreadCount
   } catch (e) {
     toast((e as Error).message || '通知没拉起来')
   } finally {
@@ -64,7 +63,7 @@ async function open(n: Notice) {
   if (!n.readAt) {
     n.readAt = new Date().toISOString()
     unreadCount.value = Math.max(0, unreadCount.value - 1)
-    http.post(`/notifications/${n.id}/read`, {}).catch(() => {
+    notificationApi.read(n.id).catch(() => {
       /* 置读失败下次再补 */
     })
   }
@@ -76,7 +75,7 @@ async function readAll() {
     n.readAt = n.readAt || new Date().toISOString()
   })
   unreadCount.value = 0
-  await http.post('/notifications/read-all', {}).catch(() => toast('操作失败'))
+  await notificationApi.readAll().catch(() => toast('操作失败'))
 }
 
 const fmt = (s: string) => (s ? s.slice(0, 16).replace('T', ' ') : '')
@@ -96,10 +95,10 @@ const fmt = (s: string) => (s ? s.slice(0, 16).replace('T', ' ') : '')
       </template>
     </SvNavBar>
 
-    <div class="body">
-      <p v-if="loading" class="sv-muted center">加载中…</p>
+    <SvPageBody>
+      <p v-if="loading" class="sv-muted sv-center tight">加载中…</p>
       <SvCard v-else-if="!items.length" class="empty">
-        <p class="sv-muted center">
+        <p class="sv-muted sv-center tight">
           这里很安静——提醒、计划、来信到时会轻轻出现在这里。<br />你不需要随时回来，它们会等你。
         </p>
       </SvCard>
@@ -118,23 +117,18 @@ const fmt = (s: string) => (s ? s.slice(0, 16).replace('T', ' ') : '')
           </button>
         </SvCard>
       </template>
-    </div>
+    </SvPageBody>
   </div>
 </template>
 
 <style scoped>
-.body {
-  padding: 0 var(--sv-s4);
-}
-.center {
-  text-align: center;
-  padding: var(--sv-s4) 0;
+.tight {
   line-height: 1.7;
 }
 .read-all {
   border: none;
   background: transparent;
-  color: var(--sv-indigo);
+  color: var(--sv-accent);
   font-size: var(--sv-fs-footnote);
   cursor: pointer;
   padding: 10px 14px;
@@ -143,16 +137,15 @@ const fmt = (s: string) => (s ? s.slice(0, 16).replace('T', ' ') : '')
 .grp {
   font-size: var(--sv-fs-caption1);
   color: var(--sv-label3);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
   margin: var(--sv-s4) 4px var(--sv-s2);
 }
 .row {
   display: flex;
   gap: var(--sv-s3);
-  align-items: flex-start;
+  align-items: center;
   width: 100%;
-  padding: 14px;
+  min-height: 60px;
+  padding: 12px 16px;
   border: none;
   border-bottom: 1px solid var(--sv-sep);
   background: transparent;
@@ -165,25 +158,34 @@ const fmt = (s: string) => (s ? s.slice(0, 16).replace('T', ' ') : '')
   border-bottom: none;
 }
 .r-ico {
+  position: relative;
   display: grid;
   place-items: center;
-  width: 34px;
-  height: 34px;
+  width: 24px;
+  height: 24px;
   flex: none;
-  border-radius: 10px;
-  background: var(--sv-indigo-soft);
-  color: var(--sv-indigo);
+  color: var(--sv-label3);
 }
 .unread .r-ico {
-  background: var(--sv-indigo);
-  color: #fff;
+  color: var(--sv-accent);
+}
+.unread .r-ico::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--sv-accent);
 }
 .r-txt {
   flex: 1;
   min-width: 0;
 }
 .r-txt b {
-  font-size: var(--sv-fs-subhead);
+  font-size: var(--sv-fs-body);
+  font-weight: 500;
   display: block;
 }
 .r-txt small {
@@ -191,12 +193,12 @@ const fmt = (s: string) => (s ? s.slice(0, 16).replace('T', ' ') : '')
   font-size: var(--sv-fs-footnote);
   display: block;
   margin-top: 3px;
-  line-height: 1.6;
+  line-height: var(--sv-lh-body);
 }
 .meta {
   font-style: normal;
   color: var(--sv-label3);
-  font-size: var(--sv-fs-caption2);
+  font-size: var(--sv-fs-caption1);
   display: block;
   margin-top: 5px;
 }

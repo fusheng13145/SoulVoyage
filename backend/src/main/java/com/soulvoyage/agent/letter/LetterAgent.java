@@ -10,6 +10,7 @@ import com.soulvoyage.domain.notify.NotificationService;
 import com.soulvoyage.llm.LlmClient;
 import com.soulvoyage.llm.OutputValidator;
 import com.soulvoyage.llm.PromptTemplates;
+import com.soulvoyage.orchestrator.AgentCode;
 import com.soulvoyage.orchestrator.agent.Agent;
 import com.soulvoyage.orchestrator.agent.AgentRuntime;
 import com.soulvoyage.orchestrator.agent.OutputInvalidException;
@@ -38,7 +39,7 @@ public class LetterAgent implements Agent {
     private final ObjectMapper mapper;
 
     @Override
-    public String code() { return "LETTER"; }
+    public AgentCode code() { return AgentCode.LETTER; }
 
     @Override
     public JsonNode run(AgentMessage request, AgentRuntime rt) {

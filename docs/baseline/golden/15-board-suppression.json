@@ -1,0 +1,39 @@
+{
+  "note": "群体看板 <10 人抑制",
+  "scenario": "board-suppression",
+  "steps": [
+    {
+      "name": "create",
+      "request": {
+        "name": "基线抑制组-mwd48rge"
+      },
+      "response": {
+        "id": "<redacted>"
+      }
+    },
+    {
+      "name": "members",
+      "request": {
+        "userIds": [
+          "<redacted>"
+        ]
+      },
+      "response": {
+        "added": 1
+      }
+    },
+    {
+      "name": "stats",
+      "response": {
+        "consentedCount": 0,
+        "groupId": "<redacted>",
+        "groupName": "基线抑制组-mwd48rge",
+        "memberCount": 1,
+        "reason": "群体内已授权参与群体统计的成员不足 10 人，看板保持抑制（防个体反推）",
+        "suppressed": true,
+        "threshold": 10,
+        "windowDays": 7
+      }
+    }
+  ]
+}

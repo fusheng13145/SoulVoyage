@@ -108,6 +108,12 @@ const router = createRouter({
       meta: { auth: true, depth: 1 },
     },
     {
+      path: '/tasks',
+      name: 'tasks',
+      component: () => import('@/views/TasksView.vue'),
+      meta: { auth: true, depth: 1 },
+    },
+    {
       path: '/account',
       name: 'account',
       component: () => import('@/views/AccountView.vue'),

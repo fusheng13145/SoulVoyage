@@ -35,47 +35,73 @@ async function quit() {
       </template>
     </SvNavBar>
 
-    <nav class="tabs" aria-label="管理端导航">
-      <router-link v-for="n in NAV" :key="n.to" :to="n.to" class="tab" :class="{ on: $route.path === n.to }">
-        <SvIcon :name="n.icon" :size="15" tone="inherit" /><span>{{ n.label }}</span>
-      </router-link>
-    </nav>
+    <div class="admin-main">
+      <nav class="tabs" aria-label="管理端导航">
+        <router-link
+          v-for="n in NAV"
+          :key="n.to"
+          :to="n.to"
+          class="tab"
+          :class="{ on: $route.path === n.to }"
+        >
+          <SvIcon :name="n.icon" :size="15" tone="inherit" /><span>{{ n.label }}</span>
+        </router-link>
+      </nav>
 
-    <div class="body">
-      <slot />
+      <div class="body">
+        <slot />
+      </div>
     </div>
   </div>
 </template>
 
 <style scoped>
+.admin-page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  height: 100%;
+}
+.admin-main {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
 .tabs {
   display: flex;
-  gap: 6px;
+  gap: var(--sv-s4);
   overflow-x: auto;
-  padding: var(--sv-s3) var(--sv-s4) 0;
+  padding: 0 var(--sv-s5);
+  border-bottom: 1px solid var(--sv-sep);
   scrollbar-width: none;
+}
+.tabs::-webkit-scrollbar {
+  display: none;
 }
 .tab {
   display: inline-flex;
   align-items: center;
   gap: 5px;
   flex: none;
-  padding: 8px 13px;
-  border-radius: 999px;
+  padding: 10px 0;
+  border-bottom: 1px solid transparent;
+  margin-bottom: -1px;
   text-decoration: none;
   color: var(--sv-label2);
-  background: var(--sv-card);
-  font-size: var(--sv-fs-footnote);
-  border: 1px solid var(--sv-sep);
+  background: transparent;
+  font-size: var(--sv-fs-subhead);
   white-space: nowrap;
 }
 .tab.on {
-  color: #fff;
-  background: var(--sv-indigo);
-  border-color: var(--sv-indigo);
+  color: var(--sv-accent);
+  border-bottom-color: var(--sv-accent);
 }
 .body {
-  padding: var(--sv-s4);
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--sv-s5);
 }
 .quit {
   border: none;
@@ -88,5 +114,34 @@ async function quit() {
   align-items: center;
   gap: 4px;
   padding: 10px 8px;
+}
+@media (min-width: 1024px) {
+  .admin-main {
+    flex-direction: row;
+  }
+  .tabs {
+    width: 200px;
+    flex: none;
+    flex-direction: column;
+    gap: 0;
+    padding: var(--sv-s3) var(--sv-s2);
+    border-right: 1px solid var(--sv-sep);
+    border-bottom: none;
+    overflow: visible;
+  }
+  .tab {
+    padding: 11px 12px;
+    border-bottom: none;
+    border-left: 1px solid transparent;
+    margin-bottom: 0;
+    min-height: 40px;
+  }
+  .tab.on {
+    border-left-color: var(--sv-accent);
+    background: var(--sv-accent-soft);
+  }
+  .body {
+    padding: var(--sv-s5) var(--sv-s6);
+  }
 }
 </style>

@@ -39,4 +39,9 @@ public class PlanItemEntity {
 
     @Column(length = 255)
     private String feedback;
+
+    /** B-09 乐观锁：多端同时勾选/反馈同一条目时防丢更新 */
+    @Version
+    @Column(name = "version", nullable = false)
+    private Long version;
 }

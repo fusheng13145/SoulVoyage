@@ -11,6 +11,7 @@ import com.soulvoyage.kg.KgSearchService;
 import com.soulvoyage.llm.LlmClient;
 import com.soulvoyage.llm.OutputValidator;
 import com.soulvoyage.llm.PromptTemplates;
+import com.soulvoyage.orchestrator.AgentCode;
 import com.soulvoyage.orchestrator.agent.Agent;
 import com.soulvoyage.orchestrator.agent.AgentRuntime;
 import com.soulvoyage.orchestrator.agent.OutputInvalidException;
@@ -43,7 +44,7 @@ public class TraceAgent implements Agent {
     private final BusinessCalendar cal;
 
     @Override
-    public String code() { return "TRACE"; }
+    public AgentCode code() { return AgentCode.TRACE; }
 
     @Override
     public JsonNode run(AgentMessage request, AgentRuntime rt) {

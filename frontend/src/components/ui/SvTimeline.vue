@@ -46,8 +46,8 @@ const emit = defineEmits<{ toggle: [agent: string] }>()
     <ol class="tl">
       <li v-for="s in steps" :key="s.agent" role="listitem" class="node" :class="s.state">
         <span class="n" aria-hidden="true">
-          <SvIcon v-if="s.state === 'done'" name="i-check" :size="11" tone="inherit" />
-          <SvIcon v-else-if="s.state === 'degraded'" name="i-alert" :size="11" tone="inherit" />
+          <SvIcon v-if="s.state === 'done'" name="i-check" :size="10" tone="inherit" />
+          <SvIcon v-else-if="s.state === 'degraded'" name="i-alert" :size="10" tone="inherit" />
         </span>
         <button
           class="cap"
@@ -86,14 +86,14 @@ const emit = defineEmits<{ toggle: [agent: string] }>()
   left: 8px;
   top: 8px;
   bottom: 8px;
-  width: 2px;
+  width: 1px;
   background: var(--sv-sep);
 }
 .node {
   position: relative;
   margin-bottom: 14px;
   opacity: 0.4;
-  transition: opacity 0.4s;
+  transition: opacity 0.18s;
 }
 .node.done,
 .node.running,
@@ -105,52 +105,50 @@ const emit = defineEmits<{ toggle: [agent: string] }>()
   position: absolute;
   left: -26px;
   top: 2px;
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   border-radius: 50%;
   background: var(--sv-card);
-  border: 2px solid var(--sv-label3);
+  border: 1px solid var(--sv-label3);
   display: grid;
   place-items: center;
   color: var(--sv-label2);
   z-index: 1;
 }
 .done .n {
-  background: var(--sv-mint);
-  border-color: var(--sv-mint);
-  color: #fff;
+  background: var(--sv-accent);
+  border-color: var(--sv-accent);
+  color: var(--sv-on-accent);
 }
 .degraded .n {
-  background: var(--sv-amber);
-  border-color: var(--sv-amber);
-  color: #fff;
+  background: var(--sv-warn);
+  border-color: var(--sv-warn);
+  color: var(--sv-on-accent);
 }
 .failed .n {
-  background: var(--sv-red);
-  border-color: var(--sv-red);
-  color: #fff;
+  background: var(--sv-danger);
+  border-color: var(--sv-danger);
+  color: var(--sv-on-accent);
 }
-/* running：呼吸光晕渐变球（DS3 核心视觉） */
+/* running：不发光，只做轻微呼吸 */
 .running .n {
-  border-color: var(--sv-indigo);
+  border-color: var(--sv-accent);
 }
 .running .n::after {
   content: '';
-  width: 10px;
-  height: 10px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
-  background: radial-gradient(circle at 35% 30%, var(--sv-indigo), var(--sv-blue));
-  animation: pulse 1.4s infinite;
+  background: var(--sv-accent);
+  animation: pulse 1.4s ease-in-out infinite;
 }
 @keyframes pulse {
   0%,
   100% {
-    transform: scale(0.7);
     opacity: 1;
   }
   50% {
-    transform: scale(1.15);
-    opacity: 0.4;
+    opacity: 0.35;
   }
 }
 .cap {
@@ -164,7 +162,7 @@ const emit = defineEmits<{ toggle: [agent: string] }>()
 }
 .cap b {
   font-size: var(--sv-fs-subhead);
-  font-weight: 600;
+  font-weight: 500;
   color: var(--sv-label);
   display: block;
 }
@@ -172,7 +170,7 @@ const emit = defineEmits<{ toggle: [agent: string] }>()
   cursor: pointer;
 }
 .cap.clickable b {
-  color: var(--sv-indigo);
+  color: var(--sv-accent);
 }
 .sub {
   display: block;
@@ -183,7 +181,7 @@ const emit = defineEmits<{ toggle: [agent: string] }>()
 .marquee {
   display: block;
   font-size: var(--sv-fs-caption1);
-  color: var(--sv-indigo);
+  color: var(--sv-accent);
   margin-top: 2px;
   max-width: 56ch;
   overflow: hidden;

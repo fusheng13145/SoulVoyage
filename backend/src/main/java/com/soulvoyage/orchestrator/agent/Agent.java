@@ -1,12 +1,13 @@
 package com.soulvoyage.orchestrator.agent;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.soulvoyage.orchestrator.AgentCode;
 import com.soulvoyage.orchestrator.protocol.AgentMessage;
 
 /** 业务推理单元统一抽象：按需唤起、无驻留会话、纯函数式 run(输入)→输出 */
 public interface Agent {
 
-    String code();
+    AgentCode code();
 
     /**
      * @param request type=REQUEST 的结构化消息

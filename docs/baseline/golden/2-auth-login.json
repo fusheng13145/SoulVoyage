@@ -1,0 +1,22 @@
+{
+  "note": "口令登录返回令牌对",
+  "scenario": "auth-login",
+  "steps": [
+    {
+      "name": "login",
+      "request": {
+        "password": "Passw0rd!2026",
+        "username": "<redacted>"
+      },
+      "response": {
+        "accessToken": "<redacted>",
+        "deletionPending": false,
+        "expiresIn": 1800,
+        "nickname": "<redacted>",
+        "refreshToken": "<redacted>",
+        "role": "USER",
+        "userId": "<redacted>"
+      }
+    }
+  ]
+}

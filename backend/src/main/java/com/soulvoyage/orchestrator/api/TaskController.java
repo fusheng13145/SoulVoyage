@@ -1,15 +1,17 @@
 package com.soulvoyage.orchestrator.api;
 
 import com.soulvoyage.auth.AuthPrincipal;
+import com.soulvoyage.audit.AuditService;
 import com.soulvoyage.common.api.ApiResponse;
 import com.soulvoyage.common.api.ErrorCode;
 import com.soulvoyage.common.api.PageReq;
 import com.soulvoyage.common.api.PageResp;
 import com.soulvoyage.common.exception.BizException;
-import com.soulvoyage.domain.diary.DiaryService;
 import com.soulvoyage.domain.task.TaskInstanceEntity;
 import com.soulvoyage.orchestrator.OrchestratorService;
+import com.soulvoyage.orchestrator.TaskTimelineStep;
 import com.soulvoyage.orchestrator.api.TaskDtos.SubmitReq;
+import com.soulvoyage.orchestrator.api.TaskDtos.SubmitResp;
 import com.soulvoyage.orchestrator.api.TaskDtos.TaskView;
 import com.soulvoyage.orchestrator.sse.TaskEventBus;
 import jakarta.validation.Valid;
@@ -20,6 +22,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -29,20 +32,16 @@ public class TaskController {
 
     private final OrchestratorService orchestrator;
     private final TaskEventBus bus;
-    private final com.soulvoyage.domain.diary.DiaryService diary;
-    private final com.soulvoyage.domain.task.TaskInstanceRepository tasks;
+    private final AuditService audit;
 
     @PostMapping
-    public ResponseEntity<ApiResponse<Map<String, String>>> submit(
+    public ResponseEntity<ApiResponse<SubmitResp>> submit(
             @AuthenticationPrincipal AuthPrincipal p, @Valid @RequestBody SubmitReq req) {
+        // 领域副作用（如日记落库）由 TaskSubmissionHook 在提交服务内完成（B-11）
         TaskInstanceEntity t = orchestrator.submit(p.userId(), req.pipelineCode(),
                 req.payload(), req.clientReqId());
-        // 下篇·C1：日记流水线提交即同步落库（clientReqId 幂等重放不会重复写）
-        if ("DIARY_PIPELINE".equals(req.pipelineCode()) && req.payload() != null) {
-            diary.attachTask(p.userId(), req.payload(), t);
-        }
         return ResponseEntity.accepted()
-                .body(ApiResponse.ok(Map.of("taskNo", t.getTaskNo(), "status", t.getStatus())));
+                .body(ApiResponse.ok(new SubmitResp(t.getTaskNo(), t.getStatus())));
     }
 
     /** C5 任务历史列表：pipelineCode/status 可选过滤（只回元信息，产物走 /tasks/{taskNo}）；O2 收敛 PageResp */
@@ -54,7 +53,7 @@ public class TaskController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
         PageReq req = PageReq.of(page, size);
-        var result = tasks.findUserTasks(p.userId(),
+        var result = orchestrator.listTasks(p.userId(),
                 blankToNull(pipelineCode), blankToNull(status), req.toRequest());
         var items = result.getContent().stream().map(t -> {
             Map<String, Object> n = new java.util.LinkedHashMap<String, Object>();
@@ -86,6 +85,23 @@ public class TaskController {
                              @RequestHeader(value = "Last-Event-ID", required = false) String lastEventId) {
         owned(p, taskNo);
         return bus.subscribe(taskNo, lastEventId);
+    }
+
+    /** H-01 步骤时间线：属主可读；断线重放仍走 /stream 的 Last-Event-ID */
+    @GetMapping("/{taskNo}/steps")
+    public ApiResponse<List<TaskTimelineStep>> steps(@AuthenticationPrincipal AuthPrincipal p,
+                                                 @PathVariable String taskNo) {
+        return ApiResponse.ok(orchestrator.steps(owned(p, taskNo)));
+    }
+
+    /** H-01 失败重试：仅 FAILED 可重试；复用断点续跑（从首个失败步续接） */
+    @PostMapping("/{taskNo}/retry")
+    public ApiResponse<SubmitResp> retryTask(@AuthenticationPrincipal AuthPrincipal p,
+                                             @PathVariable String taskNo) {
+        String retried = orchestrator.retryFailed(owned(p, taskNo));
+        audit.record(p.userId(), "TASK_RETRY", "task:" + retried, null);
+        // 执行体异步把状态推进到 RUNNING（与 AdminTask 重试回执一致）
+        return ApiResponse.ok(new SubmitResp(retried, "RUNNING"));
     }
 
     @PostMapping("/{taskNo}/cancel")

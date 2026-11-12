@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 type ReqCfg = { headers: Record<string, string> }
 
@@ -34,7 +34,7 @@ vi.mock('axios', () => {
 
 vi.mock('../router', () => ({ default: { push: H.routerPush } }))
 
-import { REFRESH_KEY, TOKEN_KEY } from './http'
+import { CONFLICT_CODE, REFRESH_KEY, TOKEN_KEY, authFetch, isConflict } from './http'
 
 /** 让 refreshOnce 的 finally 里那个 setTimeout(...,0) 有机会跑完，重置模块级 refreshing */
 const flushMacrotask = () => new Promise(r => setTimeout(r, 0))
@@ -209,4 +209,69 @@ describe('api/http 请求与响应拦截器', () => {
     }
     await expect(H.handlers.resErr!(err)).rejects.toBe(err)
   })
+
+  it('B-09：409 + 2003 被识别为乐观锁冲突，其他错误不误判', async () => {
+    const conflict = { response: { status: 409, data: { code: 2003 } }, config: { url: '/preferences' } }
+    await expect(H.handlers.resErr!(conflict)).rejects.toMatchObject({ code: CONFLICT_CODE })
+    expect(isConflict({ code: CONFLICT_CODE })).toBe(true)
+    expect(isConflict({ code: 4001 })).toBe(false)
+    expect(isConflict(new Error('x'))).toBe(false)
+    expect(isConflict(null)).toBe(false)
+  })
+
+  it('B-07 authFetch：401 后单飞刷新并带新令牌重试', async () => {
+    localStorage.setItem(TOKEN_KEY, 'old')
+    localStorage.setItem(REFRESH_KEY, 'rt-1')
+    H.refreshPost.mockResolvedValue({
+      data: { data: { accessToken: 'new', refreshToken: 'rt-2' } },
+    })
+    const auths: string[] = []
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((_u: string, init: { headers: HeadersInit }) => {
+        auths.push(new Headers(init.headers).get('Authorization') || '')
+        return Promise.resolve({ status: auths.length === 1 ? 401 : 200 } as Response)
+      }),
+    )
+
+    const res = await authFetch('/api/v1/tasks/T-1/stream')
+    expect(res.status).toBe(200)
+    expect(auths).toEqual(['Bearer old', 'Bearer new'])
+    expect(H.refreshPost).toHaveBeenCalledTimes(1)
+    expect(localStorage.getItem(TOKEN_KEY)).toBe('new')
+    await flushMacrotask()
+  })
+
+  it('B-07 并发 401 只刷新一次（跨调用单飞）', async () => {
+    localStorage.setItem(TOKEN_KEY, 'old')
+    localStorage.setItem(REFRESH_KEY, 'rt-1')
+    H.refreshPost.mockResolvedValue({
+      data: { data: { accessToken: 'new', refreshToken: 'rt-2' } },
+    })
+    let n = 0
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => Promise.resolve({ status: n++ < 2 ? 401 : 200 } as Response)),
+    )
+
+    const [a, b] = await Promise.all([authFetch('/a'), authFetch('/b')])
+    expect([a.status, b.status]).toEqual([200, 200])
+    expect(H.refreshPost).toHaveBeenCalledTimes(1)
+    await flushMacrotask()
+  })
+
+  it('B-07 authFetch：无 refresh 令牌时清空会话且不发刷新请求', async () => {
+    localStorage.setItem(TOKEN_KEY, 'only-access')
+    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve({ status: 401 } as Response)))
+
+    const res = await authFetch('/x')
+    expect(res.status).toBe(401)
+    expect(H.refreshPost).not.toHaveBeenCalled()
+    expect(localStorage.getItem(TOKEN_KEY)).toBeNull()
+    expect(localStorage.getItem(REFRESH_KEY)).toBeNull()
+  })
+})
+
+afterEach(() => {
+  vi.unstubAllGlobals()
 })

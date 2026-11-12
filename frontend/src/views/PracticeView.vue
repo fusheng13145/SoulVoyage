@@ -4,32 +4,15 @@ import { useRouter } from 'vue-router'
 import SvNavBar from '@/components/ui/SvNavBar.vue'
 import SvCard from '@/components/ui/SvCard.vue'
 import SvIcon from '@/components/ui/SvIcon.vue'
+import SvPageBody from '@/components/ui/SvPageBody.vue'
 import SvDisclaimer from '@/components/ui/SvDisclaimer.vue'
-import http, { type ApiResp } from '@/api/http'
+import { exerciseApi } from '@/api/domains/exercise'
+import { planApi } from '@/api/domains/plan'
 import { toast } from '@/stores/ui'
 import { useContentStore, type ExerciseDef } from '@/stores/content'
+import { businessDate, displayMonthDay } from '@/utils/date'
+import type { ActivePlanView, PlanDetailView, PlanItemView } from '@/types/domain'
 
-interface PlanItem {
-  seq: number
-  exerciseId: string
-  guidance: string
-  scheduledDate: string
-  doneAt: string | null
-  exerciseName: string
-  durationMin: number
-}
-interface PlanView {
-  planId: string
-  title: string
-  days: number
-  daysLeft: number
-  doneCount: number
-  totalCount: number
-  startDate: string
-  endDate: string
-  status: string
-  items: PlanItem[]
-}
 interface ExRecord {
   id: number
   exerciseName: string
@@ -42,24 +25,26 @@ const router = useRouter()
 const content = useContentStore()
 
 const exercises = computed<ExerciseDef[]>(() => content.exercises ?? [])
-const plan = ref<PlanView | null>(null)
-const allItems = ref<PlanItem[]>([])
+const plan = ref<ActivePlanView | null>(null)
+const allItems = ref<PlanItemView[]>([])
 const records = ref<ExRecord[]>([])
 const loading = ref(true)
 
 async function load() {
   loading.value = true
   try {
-    const [, rec, pl] = await Promise.all([
+    const [, rec, pl] = await Promise.allSettled([
       content.ensureExercises(),
-      http.get<ApiResp<ExRecord[]>>('/exercise-records', { params: { limit: 10 } }),
-      http.get<ApiResp<{ plan: PlanView | null }>>('/plans/active'),
+      exerciseApi.records<ExRecord[]>({ limit: 10 }),
+      planApi.active<{ plan: ActivePlanView | null }>(),
     ])
-    records.value = rec.data.data
-    plan.value = pl.data.data.plan
+    if (rec.status === 'fulfilled') records.value = rec.value
+    if (pl.status === 'fulfilled') plan.value = pl.value.plan
+    allItems.value = []
     if (plan.value) {
-      const d = await http.get<ApiResp<PlanView>>(`/plans/${plan.value.planId}`)
-      allItems.value = d.data.data.items
+      const planNo = Number(plan.value.planId.replace(/^pl_/, ''))
+      const d = await planApi.detail<PlanDetailView>(planNo).catch(() => null)
+      allItems.value = d?.items ?? []
     }
   } finally {
     loading.value = false
@@ -67,7 +52,7 @@ async function load() {
 }
 onMounted(() => load().catch(() => toast('加载失败')))
 
-function goFollow(item: PlanItem) {
+function goFollow(item: PlanItemView) {
   router.push(
     `/practice/room/${item.exerciseId}?planId=${plan.value?.planId || ''}&seq=${item.seq}&scheduled=${item.scheduledDate}`,
   )
@@ -76,8 +61,8 @@ function goFree(id: string) {
   router.push(`/practice/room/${id}`)
 }
 
-const today = () => new Date().toLocaleDateString('en-CA')
-const dayLabel = (d: string) => (d === today() ? '今天' : d.slice(5).replace('-', '/'))
+const today = () => businessDate()
+const dayLabel = (d: string) => (d === today() ? '今天' : displayMonthDay(d))
 const fmtTime = (s: string) => (s ? s.slice(0, 16).replace('T', ' ') : '')
 </script>
 
@@ -85,14 +70,14 @@ const fmtTime = (s: string) => (s ? s.slice(0, 16).replace('T', ' ') : '')
   <div class="practice">
     <SvNavBar title="练习" />
 
-    <div class="body">
+    <SvPageBody>
       <!-- 模拟训练入口 -->
       <SvCard :pad="false">
         <button class="hero" @click="router.push('/practice/sim')">
           <span class="h-ico"><SvIcon name="i-heart" :size="26" tone="inherit" /></span>
           <span class="h-txt">
             <b>人际模拟训练</b>
-            <small>和「数字人」安全地练一场不好开口的对话 · 4 场景 · NVO 逐轮复盘</small>
+            <small>和「数字人」安全地练一场不好开口的对话 · 多场景 · NVO 逐轮复盘</small>
           </span>
           <SvIcon name="i-arrow" :size="18" tone="label2" />
         </button>
@@ -101,7 +86,7 @@ const fmtTime = (s: string) => (s ? s.slice(0, 16).replace('T', ' ') : '')
       <!-- ① 进行中的小计划（G4） -->
       <SvCard v-if="plan">
         <div class="plan-head">
-          <h3 class="t">🌿 {{ plan.title }}</h3>
+          <h3 class="t">{{ plan.title }}</h3>
           <span class="sv-cap prog"
             >{{ plan.doneCount }}/{{ plan.totalCount }} · 剩 {{ plan.daysLeft }} 天</span
           >
@@ -140,6 +125,7 @@ const fmtTime = (s: string) => (s ? s.slice(0, 16).replace('T', ' ') : '')
       <SvCard>
         <h3 class="t">练习库</h3>
         <p v-if="loading" class="sv-muted">加载中…</p>
+        <p v-else-if="!exercises.length" class="sv-muted">练习库暂时没拉起来，稍后再试。</p>
         <div v-else class="lib">
           <div v-for="e in exercises" :key="e.id" class="lib-item">
             <div>
@@ -163,20 +149,17 @@ const fmtTime = (s: string) => (s ? s.slice(0, 16).replace('T', ' ') : '')
           </li>
         </ul>
       </SvCard>
-    </div>
+    </SvPageBody>
   </div>
 </template>
 
 <style scoped>
-.body {
-  padding: 0 var(--sv-s4);
-}
 .hero {
   display: flex;
   align-items: center;
   gap: var(--sv-s3);
   width: 100%;
-  padding: var(--sv-s4);
+  padding: var(--sv-s4) var(--sv-s5);
   border: none;
   background: transparent;
   cursor: pointer;
@@ -187,23 +170,25 @@ const fmtTime = (s: string) => (s ? s.slice(0, 16).replace('T', ' ') : '')
 .h-ico {
   display: grid;
   place-items: center;
-  width: 52px;
-  height: 52px;
+  width: 44px;
+  height: 44px;
   flex: none;
-  border-radius: 16px;
-  background: linear-gradient(140deg, var(--sv-pink), var(--sv-indigo));
-  color: #fff;
+  border: 1px solid var(--sv-sep);
+  border-radius: var(--sv-r-ctl);
+  background: var(--sv-card2);
+  color: var(--sv-accent);
 }
 .h-txt {
   flex: 1;
 }
 .h-txt b {
-  font-size: var(--sv-fs-callout);
+  font-size: var(--sv-fs-body);
+  font-weight: 500;
   display: block;
 }
 .h-txt small {
   color: var(--sv-label2);
-  font-size: var(--sv-fs-caption1);
+  font-size: var(--sv-fs-footnote);
   line-height: 1.5;
   display: block;
   margin-top: 2px;
@@ -223,6 +208,7 @@ const fmtTime = (s: string) => (s ? s.slice(0, 16).replace('T', ' ') : '')
 .prog {
   color: var(--sv-label2);
   margin-bottom: var(--sv-s3);
+  font-variant-numeric: tabular-nums;
 }
 .pitem {
   display: flex;
@@ -235,7 +221,7 @@ const fmtTime = (s: string) => (s ? s.slice(0, 16).replace('T', ' ') : '')
   margin-bottom: var(--sv-s2);
 }
 .pitem.on {
-  background: color-mix(in srgb, var(--sv-mint) 10%, var(--sv-card));
+  background: var(--sv-fill3);
 }
 .pi-left {
   display: flex;
@@ -246,10 +232,10 @@ const fmtTime = (s: string) => (s ? s.slice(0, 16).replace('T', ' ') : '')
 .sched {
   font-style: normal;
   font-size: var(--sv-fs-caption1);
-  background: var(--sv-indigo-soft);
-  color: var(--sv-indigo);
-  border-radius: var(--sv-r-pill);
-  padding: 1px 8px;
+  border: 1px solid var(--sv-sep);
+  color: var(--sv-label2);
+  border-radius: var(--sv-r-tag);
+  padding: 0 6px;
   flex: none;
 }
 .pi-txt {
@@ -257,18 +243,19 @@ const fmtTime = (s: string) => (s ? s.slice(0, 16).replace('T', ' ') : '')
 }
 .pi-txt b {
   display: block;
-  font-size: var(--sv-fs-footnote);
+  font-size: var(--sv-fs-body);
+  font-weight: 500;
 }
 .pi-txt small {
   color: var(--sv-label2);
-  font-size: var(--sv-fs-caption1);
+  font-size: var(--sv-fs-footnote);
   display: block;
   margin-top: 2px;
 }
 .ok {
-  color: var(--sv-mint);
-  font-weight: 700;
-  font-size: 18px;
+  color: var(--sv-ok);
+  font-weight: 600;
+  font-size: 16px;
 }
 .disc {
   margin-top: var(--sv-s3);
@@ -289,17 +276,17 @@ const fmtTime = (s: string) => (s ? s.slice(0, 16).replace('T', ' ') : '')
 }
 .lib-item b {
   display: block;
-  font-size: var(--sv-fs-footnote);
-  font-weight: 600;
+  font-size: var(--sv-fs-body);
+  font-weight: 500;
 }
 .lib-item small {
   color: var(--sv-label2);
-  font-size: var(--sv-fs-caption2);
+  font-size: var(--sv-fs-caption1);
 }
 .recs li {
   padding: 8px 0;
-  border-bottom: 1px dashed var(--sv-sep);
-  font-size: var(--sv-fs-footnote);
+  border-bottom: 1px solid var(--sv-sep);
+  font-size: var(--sv-fs-body);
   display: flex;
   gap: 8px;
   align-items: baseline;

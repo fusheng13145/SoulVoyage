@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import AdminShell from '@/components/AdminShell.vue'
 import SvCard from '@/components/ui/SvCard.vue'
@@ -96,7 +96,7 @@ const fmt = (s: string) => (s ? s.replace('T', ' ').slice(0, 19) : '—')
       </button>
     </div>
 
-    <p v-if="loading" class="muted center">加载中…</p>
+    <p v-if="loading" class="muted sv-center">加载中…</p>
     <template v-else-if="tab === 'audit'">
       <div class="filters">
         <input v-model="auditUserId" class="in" placeholder="用户 ID" @keyup.enter="load(0)" />
@@ -126,7 +126,7 @@ const fmt = (s: string) => (s ? s.replace('T', ' ').slice(0, 19) : '—')
           <small>用户 #{{ a.userId }} · {{ a.target || '—' }} · {{ a.ip || '—' }}</small>
           <em>{{ fmt(a.createdAt) }}</em>
         </div>
-        <p v-if="!audits.length" class="muted center">没有符合条件的审计记录。</p>
+        <p v-if="!audits.length" class="muted sv-center">没有符合条件的审计记录。</p>
       </SvCard>
       <div class="pager">
         <button class="pg" :disabled="auditPage === 0" @click="load(0)">首页</button>
@@ -157,7 +157,7 @@ const fmt = (s: string) => (s ? s.replace('T', ' ').slice(0, 19) : '—')
             </tr>
           </tbody>
         </table>
-        <p v-else class="muted center">还没有数据密钥。</p>
+        <p v-else class="muted sv-center">还没有数据密钥。</p>
       </SvCard>
       <p class="muted note">
         ACTIVE=新写入使用 · DECRYPT_ONLY=只解旧密文 ·
@@ -175,7 +175,7 @@ const fmt = (s: string) => (s ? s.replace('T', ' ').slice(0, 19) : '—')
             }}<template v-if="x.claimedAt"> · 领取 {{ fmt(x.claimedAt) }}</template></em
           >
         </div>
-        <p v-if="!exportsList.length" class="muted center">还没有导出记录。</p>
+        <p v-if="!exportsList.length" class="muted sv-center">还没有导出记录。</p>
       </SvCard>
       <div class="pager">
         <button class="pg" :disabled="expPage === 0" @click="expTo(0)">首页</button>
@@ -198,7 +198,7 @@ const fmt = (s: string) => (s ? s.replace('T', ' ').slice(0, 19) : '—')
   border: 1px solid var(--sv-sep);
   background: var(--sv-card);
   color: var(--sv-label2);
-  border-radius: 999px;
+  border-radius: var(--sv-r-tag);
   padding: 7px 14px;
   font-size: var(--sv-fs-footnote);
   cursor: pointer;
@@ -224,10 +224,6 @@ const fmt = (s: string) => (s ? s.replace('T', ' ').slice(0, 19) : '—')
   padding: 9px 12px;
   font-size: var(--sv-fs-footnote);
   font-family: inherit;
-}
-.center {
-  text-align: center;
-  padding: var(--sv-s4) 0;
 }
 .muted {
   color: var(--sv-label3);

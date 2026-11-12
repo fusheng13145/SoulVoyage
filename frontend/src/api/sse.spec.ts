@@ -3,7 +3,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import http from './http'
 import { postSse, streamTask, type SseEvent } from './sse'
 
-vi.mock('./http', () => ({ default: { get: vi.fn() }, TOKEN_KEY: 'sv_access' }))
+vi.mock('./http', () => ({
+  default: { get: vi.fn() },
+  // 测试里直接用真实 fetch 模拟 authFetch（401 刷新路径在 http.spec 覆盖）
+  authFetch: (url: string, init: RequestInit = {}) => fetch(url, init),
+}))
 
 const get = vi.mocked(http.get)
 
@@ -127,6 +131,19 @@ describe('api/sse SSE 流解析与可靠重连', () => {
     expect(String((events.at(-1)?.data as { message: string }).message)).toContain('超时')
   })
 
+  it.each(['CANCELLED', 'EXPIRED'])('轮询命中终态 %s 时补齐 done 事件', async status => {
+    vi.useFakeTimers()
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')))
+    get.mockResolvedValue({ data: { data: { status, payload: null } } } as never)
+
+    const events: SseEvent[] = []
+    const done = streamTask('T-6', e => events.push(e))
+    await vi.runAllTimersAsync()
+    await done
+
+    expect(events.at(-1)).toEqual({ event: 'done', data: { status, payload: null } })
+  })
+
   it('携带 AbortSignal 中止时抛出 aborted，而不是当作网络抖动重试', async () => {
     const controller = new AbortController()
     controller.abort()
@@ -137,9 +154,9 @@ describe('api/sse SSE 流解析与可靠重连', () => {
 
   it('记录流中的事件 id，重连时带 Last-Event-ID 请求补发，拿到终态即停止', async () => {
     vi.useFakeTimers()
-    const seen: Record<string, string>[] = []
-    const fetchMock = vi.fn((_url: string, init: { headers: Record<string, string> }) => {
-      seen.push(init.headers)
+    const seen: Headers[] = []
+    const fetchMock = vi.fn((_url: string, init: { headers: HeadersInit }) => {
+      seen.push(new Headers(init.headers))
       return Promise.resolve(
         seen.length === 1
           ? sseResponse(['id: 7\n', 'event: delta\ndata: {"n":1}\n\n'])
@@ -154,7 +171,7 @@ describe('api/sse SSE 流解析与可靠重连', () => {
     await done
 
     expect(fetchMock).toHaveBeenCalledTimes(2)
-    expect(seen[1]?.['Last-Event-ID']).toBe('7')
+    expect(seen[1]?.get('Last-Event-ID')).toBe('7')
     expect(events.at(-1)?.event).toBe('done')
     expect(get).not.toHaveBeenCalled()
   })

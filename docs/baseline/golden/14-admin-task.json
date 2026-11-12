@@ -1,0 +1,183 @@
+{
+  "note": "管理端任务列表/详情/失败任务重跑",
+  "scenario": "admin-task",
+  "steps": [
+    {
+      "name": "list",
+      "response": {
+        "items": [
+          {
+            "createdAt": "<redacted>",
+            "errorMsg": null,
+            "finishedAt": "<redacted>",
+            "pipelineCode": "COMPANION_PIPELINE",
+            "status": "SUCCESS",
+            "taskNo": "<redacted>",
+            "userId": "<redacted>"
+          },
+          {
+            "createdAt": "<redacted>",
+            "errorMsg": null,
+            "finishedAt": "<redacted>",
+            "pipelineCode": "SIMULATE_PIPELINE",
+            "status": "SUCCESS",
+            "taskNo": "<redacted>",
+            "userId": "<redacted>"
+          },
+          {
+            "createdAt": "<redacted>",
+            "errorMsg": null,
+            "finishedAt": "<redacted>",
+            "pipelineCode": "DIARY_PIPELINE",
+            "status": "SUCCESS",
+            "taskNo": "<redacted>",
+            "userId": "<redacted>"
+          },
+          {
+            "createdAt": "<redacted>",
+            "errorMsg": null,
+            "finishedAt": "<redacted>",
+            "pipelineCode": "DIARY_PIPELINE",
+            "status": "SUCCESS",
+            "taskNo": "<redacted>",
+            "userId": "<redacted>"
+          },
+          {
+            "createdAt": "<redacted>",
+            "errorMsg": null,
+            "finishedAt": "<redacted>",
+            "pipelineCode": "COMPANION_PIPELINE",
+            "status": "SUCCESS",
+            "taskNo": "<redacted>",
+            "userId": "<redacted>"
+          },
+          {
+            "createdAt": "<redacted>",
+            "errorMsg": null,
+            "finishedAt": "<redacted>",
+            "pipelineCode": "SIMULATE_PIPELINE",
+            "status": "SUCCESS",
+            "taskNo": "<redacted>",
+            "userId": "<redacted>"
+          },
+          {
+            "createdAt": "<redacted>",
+            "errorMsg": null,
+            "finishedAt": "<redacted>",
+            "pipelineCode": "DIARY_PIPELINE",
+            "status": "SUCCESS",
+            "taskNo": "<redacted>",
+            "userId": "<redacted>"
+          },
+          {
+            "createdAt": "<redacted>",
+            "errorMsg": null,
+            "finishedAt": "<redacted>",
+            "pipelineCode": "DIARY_PIPELINE",
+            "status": "SUCCESS",
+            "taskNo": "<redacted>",
+            "userId": "<redacted>"
+          },
+          {
+            "createdAt": "<redacted>",
+            "errorMsg": null,
+            "finishedAt": "<redacted>",
+            "pipelineCode": "COMPANION_PIPELINE",
+            "status": "SUCCESS",
+            "taskNo": "<redacted>",
+            "userId": "<redacted>"
+          },
+          {
+            "createdAt": "<redacted>",
+            "errorMsg": null,
+            "finishedAt": "<redacted>",
+            "pipelineCode": "SIMULATE_PIPELINE",
+            "status": "SUCCESS",
+            "taskNo": "<redacted>",
+            "userId": "<redacted>"
+          }
+        ],
+        "total": 536
+      }
+    },
+    {
+      "name": "detail",
+      "response": {
+        "clientReqId": "<redacted>",
+        "createdAt": "<redacted>",
+        "errorMsg": null,
+        "finishedAt": "<redacted>",
+        "pipelineCode": "DIARY_PIPELINE",
+        "startedAt": "<redacted>",
+        "status": "SUCCESS",
+        "steps": [
+          {
+            "agentCode": "EMOTION",
+            "attempt": 1,
+            "costMs": 339,
+            "createdAt": "<redacted>",
+            "errorMsg": null,
+            "llmCalls": 1,
+            "model": "mock-llm-v1",
+            "status": "SUCCESS",
+            "stepCode": "emotion",
+            "stepSeq": 1,
+            "tokensIn": 569,
+            "tokensOut": 100
+          },
+          {
+            "agentCode": "TRACE",
+            "attempt": 1,
+            "costMs": 376,
+            "createdAt": "<redacted>",
+            "errorMsg": null,
+            "llmCalls": 1,
+            "model": "mock-llm-v1",
+            "status": "SUCCESS",
+            "stepCode": "trace",
+            "stepSeq": 2,
+            "tokensIn": 971,
+            "tokensOut": 413
+          },
+          {
+            "agentCode": "SUPPORT",
+            "attempt": 1,
+            "costMs": 350,
+            "createdAt": "<redacted>",
+            "errorMsg": null,
+            "llmCalls": 1,
+            "model": "mock-llm-v1",
+            "status": "SUCCESS",
+            "stepCode": "support",
+            "stepSeq": 3,
+            "tokensIn": 1826,
+            "tokensOut": 338
+          },
+          {
+            "agentCode": "RISK_ARCHIVE",
+            "attempt": 1,
+            "costMs": 33,
+            "createdAt": "<redacted>",
+            "errorMsg": null,
+            "llmCalls": 0,
+            "model": null,
+            "status": "SUCCESS",
+            "stepCode": "risk",
+            "stepSeq": 4,
+            "tokensIn": null,
+            "tokensOut": null
+          }
+        ],
+        "taskNo": "<redacted>",
+        "userId": "<redacted>"
+      }
+    },
+    {
+      "name": "retry",
+      "response": {
+        "attempted": false,
+        "reason": "当前列表无 FAILED 任务，重跑接口留待有失败任务时验证"
+      }
+    }
+  ]
+}
