@@ -82,7 +82,7 @@
   - [x] 11.5 H-05 可观测与成本
   - [x] 11.6 H-06 无障碍与键盘
   - [x] 11.7 H-07 M15 上线收口（工程侧完成；真实密钥/域名/证书/AppID 待运维注入后跑 check_release）
-  - [ ] 11.8 中优/备选按审批结果排期
+  - [ ] 11.8 中优/备选按审批结果排期（评估完成：`.trae/specs/batch7-medium-assessment/assessment.md`；待逐项审批）
 
 # Task Dependencies
 
