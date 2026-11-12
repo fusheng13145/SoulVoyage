@@ -3183,6 +3183,34 @@
         }
       }
     },
+    "/api/v1/admin/metrics/guardrails" : {
+      "get" : {
+        "tags" : [ "admin-metrics-controller" ],
+        "operationId" : "guardrails",
+        "parameters" : [ {
+          "name" : "top",
+          "in" : "query",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 10
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponseGuardrailsResp"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/admin/content/snapshot/{type}/{code}" : {
       "get" : {
         "tags" : [ "content-admin-controller" ],
@@ -6932,6 +6960,228 @@
           "tokensOut" : {
             "type" : "integer",
             "format" : "int64"
+          }
+        }
+      },
+      "ApiResponseGuardrailsResp" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "msg" : {
+            "type" : "string"
+          },
+          "data" : {
+            "$ref" : "#/components/schemas/GuardrailsResp"
+          },
+          "traceId" : {
+            "type" : "string"
+          }
+        }
+      },
+      "CostBudget" : {
+        "type" : "object",
+        "properties" : {
+          "windowHours" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "tokensIn" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "tokensOut" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "totalTokens" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "tokenBudget" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "estimatedCost" : {
+            "type" : "number"
+          },
+          "costBudget" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "currency" : {
+            "type" : "string"
+          },
+          "usedPercent" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "level" : {
+            "type" : "string"
+          },
+          "message" : {
+            "type" : "string"
+          }
+        }
+      },
+      "FailedTaskView" : {
+        "type" : "object",
+        "properties" : {
+          "taskNo" : {
+            "type" : "string"
+          },
+          "pipelineCode" : {
+            "type" : "string"
+          },
+          "errorMsg" : {
+            "type" : "string"
+          },
+          "createdAt" : {
+            "type" : "string"
+          }
+        }
+      },
+      "FailureAlert" : {
+        "type" : "object",
+        "properties" : {
+          "level" : {
+            "type" : "string"
+          },
+          "message" : {
+            "type" : "string"
+          },
+          "failed" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "finished" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "failureRate" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "recent" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/FailedTaskView"
+            }
+          }
+        }
+      },
+      "GuardrailsResp" : {
+        "type" : "object",
+        "properties" : {
+          "generatedAt" : {
+            "type" : "string"
+          },
+          "failureAlert" : {
+            "$ref" : "#/components/schemas/FailureAlert"
+          },
+          "costBudget" : {
+            "$ref" : "#/components/schemas/CostBudget"
+          },
+          "qualitySample" : {
+            "$ref" : "#/components/schemas/QualitySample"
+          },
+          "slowRequests" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/SlowRequestView"
+            }
+          }
+        }
+      },
+      "QualityItem" : {
+        "type" : "object",
+        "properties" : {
+          "reportId" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "type" : {
+            "type" : "string"
+          },
+          "title" : {
+            "type" : "string"
+          },
+          "feedback" : {
+            "type" : "string"
+          },
+          "riskLevel" : {
+            "type" : "string"
+          },
+          "createdAt" : {
+            "type" : "string"
+          },
+          "needsReview" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "QualitySample" : {
+        "type" : "object",
+        "properties" : {
+          "sampled" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "rated" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "useful" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "unsure" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "unhelpful" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "unhelpfulRate" : {
+            "type" : "number",
+            "format" : "double"
+          },
+          "level" : {
+            "type" : "string"
+          },
+          "message" : {
+            "type" : "string"
+          },
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/QualityItem"
+            }
+          }
+        }
+      },
+      "SlowRequestView" : {
+        "type" : "object",
+        "properties" : {
+          "method" : {
+            "type" : "string"
+          },
+          "path" : {
+            "type" : "string"
+          },
+          "status" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "durationMs" : {
+            "type" : "integer",
+            "format" : "int64"
+          },
+          "at" : {
+            "type" : "string"
           }
         }
       },

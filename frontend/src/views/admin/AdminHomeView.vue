@@ -2,10 +2,11 @@
 import { computed, onMounted, ref } from 'vue'
 import AdminShell from '@/components/AdminShell.vue'
 import SvCard from '@/components/ui/SvCard.vue'
-import { getOverview, type Overview } from '@/api/admin'
+import { getOverview, getGuardrails, type Overview, type Guardrails } from '@/api/admin'
 import { toast } from '@/stores/ui'
 
 const data = ref<Overview | null>(null)
+const guardrails = ref<Guardrails | null>(null)
 const days = ref(7)
 const loading = ref(true)
 
@@ -21,7 +22,12 @@ const LEVEL_LABEL: Record<string, string> = { CRISIS: '危机', HIGH: '高', MED
 async function load() {
   loading.value = true
   try {
-    data.value = await getOverview(days.value)
+    const [ov, gd] = await Promise.all([
+      getOverview(days.value),
+      getGuardrails(10).catch(() => null),
+    ])
+    data.value = ov
+    guardrails.value = gd
   } catch (e) {
     toast((e as Error).message || '指标没拉起来')
   } finally {
@@ -70,6 +76,20 @@ function statusMix(m: Record<string, number>, labels = STATUS_LABEL) {
   return parts.length ? parts.join(' · ') : '暂无'
 }
 const fmt = (n: number | null | undefined) => (n == null ? '—' : n.toLocaleString())
+const fmtTime = (s: string) => (s ? s.replace('T', ' ').slice(0, 19) : '—')
+const GUARD_LEVEL_LABEL: Record<string, string> = {
+  OK: '正常',
+  WARN: '关注',
+  CRITICAL: '告警',
+  OVER: '超限',
+  INSUFFICIENT: '样本不足',
+}
+const levelLabel = (l: string) => GUARD_LEVEL_LABEL[l] || l
+const FEEDBACK_LABEL: Record<string, string> = {
+  USEFUL: '有用',
+  UNSURE: '不确定',
+  UNHELPFUL: '没用',
+}
 </script>
 
 <template>
@@ -151,6 +171,115 @@ const fmt = (n: number | null | undefined) => (n == null ? '—' : n.toLocaleStr
         </p>
         <p class="muted">本实例推理闸门：{{ data.runtime.llmGate }}</p>
       </SvCard>
+
+      <template v-if="guardrails">
+        <SvCard class="stat">
+          <h3>运行护栏（24h）</h3>
+          <div class="guard-grid">
+            <div class="guard" :class="guardrails.failureAlert.level.toLowerCase()">
+              <small>任务失败告警</small>
+              <b>{{ levelLabel(guardrails.failureAlert.level) }}</b>
+              <em>{{ guardrails.failureAlert.message }}</em>
+            </div>
+            <div class="guard" :class="guardrails.costBudget.level.toLowerCase()">
+              <small>LLM 成本预算</small>
+              <b>{{ guardrails.costBudget.usedPercent }}%</b>
+              <em>{{ guardrails.costBudget.message }}</em>
+            </div>
+            <div class="guard" :class="guardrails.qualitySample.level.toLowerCase()">
+              <small>内容质量抽检</small>
+              <b>{{
+                guardrails.qualitySample.unhelpfulRate == null
+                  ? '—'
+                  : `${guardrails.qualitySample.unhelpfulRate}%`
+              }}</b>
+              <em>{{ guardrails.qualitySample.message }}</em>
+            </div>
+          </div>
+          <div class="budget-bar">
+            <i :style="{ width: `${Math.min(100, guardrails.costBudget.usedPercent)}%` }" />
+          </div>
+          <p class="muted">
+            Token {{ fmt(guardrails.costBudget.totalTokens) }} /
+            {{ fmt(guardrails.costBudget.tokenBudget) }} · 估算成本
+            {{ guardrails.costBudget.estimatedCost }} {{ guardrails.costBudget.currency }}
+          </p>
+        </SvCard>
+
+        <SvCard v-if="guardrails.failureAlert.recent.length" :pad="false">
+          <h3 class="hd">最近失败任务</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>任务</th>
+                <th>管线</th>
+                <th>错误</th>
+                <th>时间</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="t in guardrails.failureAlert.recent" :key="t.taskNo">
+                <td>{{ t.taskNo }}</td>
+                <td>{{ t.pipelineCode }}</td>
+                <td class="err-cell">{{ t.errorMsg || '—' }}</td>
+                <td>{{ fmtTime(t.createdAt) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </SvCard>
+
+        <SvCard v-if="guardrails.qualitySample.items.length" :pad="false">
+          <h3 class="hd">质量抽检（近 7 天）</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>报告</th>
+                <th>类型</th>
+                <th>评级</th>
+                <th>风险</th>
+                <th>时间</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                v-for="r in guardrails.qualitySample.items"
+                :key="r.reportId"
+                :class="{ review: r.needsReview }"
+              >
+                <td>{{ r.title || `#${r.reportId}` }}</td>
+                <td>{{ r.type }}</td>
+                <td>{{ r.feedback ? FEEDBACK_LABEL[r.feedback] || r.feedback : '未评' }}</td>
+                <td>{{ r.riskLevel }}</td>
+                <td>{{ fmtTime(r.createdAt) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </SvCard>
+
+        <SvCard v-if="guardrails.slowRequests.length" :pad="false">
+          <h3 class="hd">慢请求 TopN（24h）</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>方法</th>
+                <th>路径</th>
+                <th>状态</th>
+                <th>耗时</th>
+                <th>时间</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="r in guardrails.slowRequests" :key="`${r.method}-${r.path}-${r.at}`">
+                <td>{{ r.method }}</td>
+                <td>{{ r.path }}</td>
+                <td>{{ r.status }}</td>
+                <td>{{ r.durationMs }}ms</td>
+                <td>{{ fmtTime(r.at) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </SvCard>
+      </template>
     </template>
   </AdminShell>
 </template>
@@ -202,6 +331,64 @@ const fmt = (n: number | null | undefined) => (n == null ? '—' : n.toLocaleStr
 .stat h3 {
   font-size: var(--sv-fs-subhead);
   margin-bottom: 6px;
+}
+.guard-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+.guard {
+  border: 1px solid var(--sv-sep);
+  border-radius: var(--sv-r-ctl);
+  padding: 10px;
+}
+.guard small {
+  display: block;
+  color: var(--sv-label3);
+  font-size: var(--sv-fs-caption1);
+}
+.guard b {
+  display: block;
+  margin-top: 2px;
+  font-size: var(--sv-fs-subhead);
+}
+.guard em {
+  display: block;
+  margin-top: 4px;
+  font-style: normal;
+  color: var(--sv-label2);
+  font-size: var(--sv-fs-caption2);
+  line-height: 1.5;
+}
+.guard.warn b {
+  color: var(--sv-warn);
+}
+.guard.critical b,
+.guard.over b {
+  color: var(--sv-danger);
+}
+.guard.insufficient b {
+  color: var(--sv-label3);
+}
+.budget-bar {
+  height: 6px;
+  background: var(--sv-sep);
+  border-radius: 3px;
+  margin: 12px 0 6px;
+  overflow: hidden;
+}
+.budget-bar i {
+  display: block;
+  height: 100%;
+  background: var(--sv-indigo);
+}
+.err-cell {
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+tr.review td {
+  background: color-mix(in srgb, var(--sv-danger) 8%, transparent);
 }
 .rt {
   font-size: var(--sv-fs-footnote);

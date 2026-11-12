@@ -73,6 +73,15 @@ soulvoyage:
     rate-per-minute: ${SV_LLM_RATE_PER_MIN:600}
     max-in-flight: ${SV_LLM_MAX_IN_FLIGHT:32}
     queue-wait: ${SV_LLM_QUEUE_WAIT:1500ms}
+    budget:                                   # H-05 成本护栏（只读聚合；不等同于计费）
+      daily-tokens: ${SV_LLM_DAILY_TOKENS:2000000}
+      price-in-per-1k: ${SV_LLM_PRICE_IN:0.001}
+      price-out-per-1k: ${SV_LLM_PRICE_OUT:0.002}
+      daily-cost: ${SV_LLM_DAILY_COST:10.0}
+      currency: ${SV_LLM_BUDGET_CURRENCY:CNY}
+      alert-percent: ${SV_LLM_BUDGET_ALERT_PERCENT:80}
+  observability:                              # H-05 慢请求 TopN（内存环形缓冲，重启清零）
+    slow-request-ms: ${SV_SLOW_REQUEST_MS:500}
   asr:                                        # M11 语音日记：与 llm 同构的供应商抽象（mock | openai）
     provider: ${SV_ASR_PROVIDER:mock}
     base-url: ${SV_ASR_BASE_URL:${SV_LLM_BASE_URL:}}     # 缺省沿用 LLM 那对凭据：同一家供应商通常一起开

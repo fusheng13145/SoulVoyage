@@ -1508,6 +1508,22 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/v1/admin/metrics/guardrails': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get: operations['guardrails']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/v1/admin/content/snapshot/{type}/{code}': {
     parameters: {
       query?: never
@@ -2995,6 +3011,93 @@ export interface components {
       tokensIn?: number
       /** Format: int64 */
       tokensOut?: number
+    }
+    ApiResponseGuardrailsResp: {
+      /** Format: int32 */
+      code?: number
+      msg?: string
+      data?: components['schemas']['GuardrailsResp']
+      traceId?: string
+    }
+    CostBudget: {
+      /** Format: int32 */
+      windowHours?: number
+      /** Format: int64 */
+      tokensIn?: number
+      /** Format: int64 */
+      tokensOut?: number
+      /** Format: int64 */
+      totalTokens?: number
+      /** Format: int64 */
+      tokenBudget?: number
+      estimatedCost?: number
+      /** Format: double */
+      costBudget?: number
+      currency?: string
+      /** Format: double */
+      usedPercent?: number
+      level?: string
+      message?: string
+    }
+    FailedTaskView: {
+      taskNo?: string
+      pipelineCode?: string
+      errorMsg?: string
+      createdAt?: string
+    }
+    FailureAlert: {
+      level?: string
+      message?: string
+      /** Format: int64 */
+      failed?: number
+      /** Format: int64 */
+      finished?: number
+      /** Format: double */
+      failureRate?: number
+      recent?: components['schemas']['FailedTaskView'][]
+    }
+    GuardrailsResp: {
+      generatedAt?: string
+      failureAlert?: components['schemas']['FailureAlert']
+      costBudget?: components['schemas']['CostBudget']
+      qualitySample?: components['schemas']['QualitySample']
+      slowRequests?: components['schemas']['SlowRequestView'][]
+    }
+    QualityItem: {
+      /** Format: int64 */
+      reportId?: number
+      type?: string
+      title?: string
+      feedback?: string
+      riskLevel?: string
+      createdAt?: string
+      needsReview?: boolean
+    }
+    QualitySample: {
+      /** Format: int32 */
+      sampled?: number
+      /** Format: int32 */
+      rated?: number
+      /** Format: int32 */
+      useful?: number
+      /** Format: int32 */
+      unsure?: number
+      /** Format: int32 */
+      unhelpful?: number
+      /** Format: double */
+      unhelpfulRate?: number
+      level?: string
+      message?: string
+      items?: components['schemas']['QualityItem'][]
+    }
+    SlowRequestView: {
+      method?: string
+      path?: string
+      /** Format: int32 */
+      status?: number
+      /** Format: int64 */
+      durationMs?: number
+      at?: string
     }
     ApiResponseListSceneCardEntity: {
       /** Format: int32 */
@@ -5688,6 +5791,28 @@ export interface operations {
         }
         content: {
           '*/*': components['schemas']['ApiResponseMetricsOverviewResp']
+        }
+      }
+    }
+  }
+  guardrails: {
+    parameters: {
+      query?: {
+        top?: number
+      }
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          '*/*': components['schemas']['ApiResponseGuardrailsResp']
         }
       }
     }

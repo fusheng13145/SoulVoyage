@@ -2,6 +2,7 @@ package com.soulvoyage.admin.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 
@@ -56,6 +57,29 @@ public class AdminDtos {
     public record MetricsOverviewResp(int windowDays, TaskOverview tasks, Map<String, Long> riskEvents,
                                       List<AgentStat> agents, List<TokensByDay> tokensByDay,
                                       Map<String, Long> reportFeedback, RuntimeView runtime) {}
+
+    // ---------------- H-05 可观测与成本护栏 ----------------
+
+    public record FailedTaskView(String taskNo, String pipelineCode, String errorMsg, String createdAt) {}
+
+    public record FailureAlert(String level, String message, long failed, long finished,
+                               Double failureRate, List<FailedTaskView> recent) {}
+
+    public record CostBudget(int windowHours, long tokensIn, long tokensOut, long totalTokens,
+                             long tokenBudget, BigDecimal estimatedCost, double costBudget,
+                             String currency, double usedPercent, String level, String message) {}
+
+    public record QualityItem(Long reportId, String type, String title, String feedback,
+                              String riskLevel, String createdAt, boolean needsReview) {}
+
+    public record QualitySample(int sampled, int rated, int useful, int unsure, int unhelpful,
+                                Double unhelpfulRate, String level, String message,
+                                List<QualityItem> items) {}
+
+    public record SlowRequestView(String method, String path, int status, long durationMs, String at) {}
+
+    public record GuardrailsResp(String generatedAt, FailureAlert failureAlert, CostBudget costBudget,
+                                 QualitySample qualitySample, List<SlowRequestView> slowRequests) {}
 
     public record RetryResp(String taskNo, String status) {}
 

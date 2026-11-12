@@ -56,6 +56,67 @@ export interface Overview {
 export const getOverview = (days = 7) =>
   http.get<ApiResp<Overview>>('/admin/metrics/overview', { params: { days } }).then(r => r.data.data)
 
+// —— H-05 可观测与成本护栏 ——
+export interface GuardrailsFailureAlert {
+  level: string
+  message: string
+  failed: number
+  finished: number
+  failureRate: number | null
+  recent: { taskNo: string; pipelineCode: string; errorMsg: string; createdAt: string }[]
+}
+export interface GuardrailsCostBudget {
+  windowHours: number
+  tokensIn: number
+  tokensOut: number
+  totalTokens: number
+  tokenBudget: number
+  estimatedCost: number
+  costBudget: number
+  currency: string
+  usedPercent: number
+  level: string
+  message: string
+}
+export interface GuardrailsQualityItem {
+  reportId: number
+  type: string
+  title: string
+  feedback: string | null
+  riskLevel: string
+  createdAt: string
+  needsReview: boolean
+}
+export interface GuardrailsQualitySample {
+  sampled: number
+  rated: number
+  useful: number
+  unsure: number
+  unhelpful: number
+  unhelpfulRate: number | null
+  level: string
+  message: string
+  items: GuardrailsQualityItem[]
+}
+export interface GuardrailsSlowRequest {
+  method: string
+  path: string
+  status: number
+  durationMs: number
+  at: string
+}
+export interface Guardrails {
+  generatedAt: string
+  failureAlert: GuardrailsFailureAlert
+  costBudget: GuardrailsCostBudget
+  qualitySample: GuardrailsQualitySample
+  slowRequests: GuardrailsSlowRequest[]
+}
+export const getGuardrails = (top = 10) =>
+  http
+    .get<ApiResp<Guardrails>>('/admin/metrics/guardrails', { params: { top } })
+    .then(r => r.data.data)
+
 // —— A1 任务监控 ——
 export interface TaskRow {
   taskNo: string

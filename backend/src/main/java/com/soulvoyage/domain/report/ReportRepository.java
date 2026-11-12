@@ -14,6 +14,10 @@ public interface ReportRepository extends org.springframework.data.jpa.repositor
         JpaSpecificationExecutor<ReportEntity> {
     Page<ReportEntity> findByUserIdAndDeletedAtIsNullOrderByCreatedAtDesc(Long userId, Pageable pageable);
 
+    /** H-05 质量抽检：时间窗内最近报告（只读元数据与 feedback，不解密正文） */
+    Page<ReportEntity> findByDeletedAtIsNullAndCreatedAtGreaterThanEqualOrderByCreatedAtDesc(
+            Instant from, Pageable pageable);
+
     Optional<ReportEntity> findByIdAndUserIdAndDeletedAtIsNull(Long id, Long userId);
 
     List<ReportEntity> findByTaskId(Long taskId);

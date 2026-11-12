@@ -47,4 +47,12 @@ public interface TaskInstanceRepository extends JpaRepository<TaskInstanceEntity
     /** O3 指标：时间窗内按状态分组计数 [status, count] */
     @Query("select t.status, count(t) from TaskInstanceEntity t where t.createdAt >= :from group by t.status")
     List<Object[]> countByStatusSince(@Param("from") Instant from);
+
+    /** H-05 失败告警：时间窗内最近失败任务 */
+    @Query("""
+            select t from TaskInstanceEntity t
+            where t.status = 'FAILED' and t.createdAt >= :from
+            order by t.id desc
+            """)
+    List<TaskInstanceEntity> findFailedSince(@Param("from") Instant from, Pageable pageable);
 }
