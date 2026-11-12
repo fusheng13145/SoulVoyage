@@ -819,6 +819,33 @@
         }
       }
     },
+    "/api/v1/plans/{id}/skip-today" : {
+      "post" : {
+        "tags" : [ "plan-controller" ],
+        "operationId" : "skipToday",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponsePlanView"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/plans/{id}/drop" : {
       "post" : {
         "tags" : [ "plan-controller" ],
@@ -839,6 +866,43 @@
               "*/*" : {
                 "schema" : {
                   "$ref" : "#/components/schemas/ApiResponseVoid"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/plans/{id}/adapt" : {
+      "post" : {
+        "tags" : [ "plan-controller" ],
+        "operationId" : "adapt",
+        "parameters" : [ {
+          "name" : "id",
+          "in" : "path",
+          "required" : true,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int64"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/AdaptReq"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "description" : "OK",
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ApiResponsePlanView"
                 }
               }
             }
@@ -3762,6 +3826,143 @@
           }
         }
       },
+      "ApiResponsePlanView" : {
+        "type" : "object",
+        "properties" : {
+          "code" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "msg" : {
+            "type" : "string"
+          },
+          "data" : {
+            "$ref" : "#/components/schemas/PlanView"
+          },
+          "traceId" : {
+            "type" : "string"
+          }
+        }
+      },
+      "PlanAdaptationView" : {
+        "type" : "object",
+        "properties" : {
+          "type" : {
+            "type" : "string"
+          },
+          "title" : {
+            "type" : "string"
+          },
+          "reason" : {
+            "type" : "string"
+          },
+          "actionLabel" : {
+            "type" : "string"
+          }
+        }
+      },
+      "PlanItemView" : {
+        "type" : "object",
+        "properties" : {
+          "seq" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "exerciseId" : {
+            "type" : "string"
+          },
+          "guidance" : {
+            "type" : "string"
+          },
+          "scheduledDate" : {
+            "type" : "string"
+          },
+          "doneAt" : {
+            "type" : "string"
+          },
+          "feedback" : {
+            "type" : "string"
+          },
+          "exerciseName" : {
+            "type" : "string"
+          },
+          "durationMin" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
+      "PlanView" : {
+        "type" : "object",
+        "properties" : {
+          "planId" : {
+            "type" : "string"
+          },
+          "title" : {
+            "type" : "string"
+          },
+          "days" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "status" : {
+            "type" : "string"
+          },
+          "startDate" : {
+            "type" : "string"
+          },
+          "endDate" : {
+            "type" : "string"
+          },
+          "daysLeft" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "doneCount" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "totalCount" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/PlanItemView"
+            }
+          },
+          "adaptation" : {
+            "$ref" : "#/components/schemas/PlanAdaptationView"
+          },
+          "completionRate" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "overdueCount" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "remainingCount" : {
+            "type" : "integer",
+            "format" : "int32"
+          },
+          "nextScheduledDate" : {
+            "type" : "string"
+          },
+          "todaySkipped" : {
+            "type" : "boolean"
+          }
+        }
+      },
+      "AdaptReq" : {
+        "type" : "object",
+        "properties" : {
+          "action" : {
+            "type" : "string"
+          }
+        }
+      },
       "CheckInReq" : {
         "required" : [ "emotion" ],
         "type" : "object",
@@ -5134,37 +5335,6 @@
           }
         }
       },
-      "PlanItemView" : {
-        "type" : "object",
-        "properties" : {
-          "seq" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
-          "exerciseId" : {
-            "type" : "string"
-          },
-          "guidance" : {
-            "type" : "string"
-          },
-          "scheduledDate" : {
-            "type" : "string"
-          },
-          "doneAt" : {
-            "type" : "string"
-          },
-          "feedback" : {
-            "type" : "string"
-          },
-          "exerciseName" : {
-            "type" : "string"
-          },
-          "durationMin" : {
-            "type" : "integer",
-            "format" : "int32"
-          }
-        }
-      },
       "PlanListResp" : {
         "type" : "object",
         "properties" : {
@@ -5173,66 +5343,6 @@
             "items" : {
               "$ref" : "#/components/schemas/PlanView"
             }
-          }
-        }
-      },
-      "PlanView" : {
-        "type" : "object",
-        "properties" : {
-          "planId" : {
-            "type" : "string"
-          },
-          "title" : {
-            "type" : "string"
-          },
-          "days" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
-          "status" : {
-            "type" : "string"
-          },
-          "startDate" : {
-            "type" : "string"
-          },
-          "endDate" : {
-            "type" : "string"
-          },
-          "daysLeft" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
-          "doneCount" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
-          "totalCount" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
-          "items" : {
-            "type" : "array",
-            "items" : {
-              "$ref" : "#/components/schemas/PlanItemView"
-            }
-          }
-        }
-      },
-      "ApiResponsePlanView" : {
-        "type" : "object",
-        "properties" : {
-          "code" : {
-            "type" : "integer",
-            "format" : "int32"
-          },
-          "msg" : {
-            "type" : "string"
-          },
-          "data" : {
-            "$ref" : "#/components/schemas/PlanView"
-          },
-          "traceId" : {
-            "type" : "string"
           }
         }
       },

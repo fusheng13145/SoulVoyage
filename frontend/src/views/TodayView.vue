@@ -20,7 +20,7 @@ import { readingApi } from '@/api/domains/reading'
 import { taskApi } from '@/api/domains/task'
 import { EMOTIONS } from '@/utils/emotions'
 import { PIPELINE_LABELS } from '@/constants/task'
-import { addBusinessDays, BUSINESS_TZ, businessDate, businessHour } from '@/utils/date'
+import { addBusinessDays, BUSINESS_TZ, businessDate, businessHour, displayMonthDay } from '@/utils/date'
 import type { ActivePlanView, EmotionPointView, PlanItemView } from '@/types/domain'
 import { toast } from '@/stores/ui'
 import { useAuthStore } from '@/stores/auth'
@@ -75,6 +75,7 @@ const days = ref<HeatDay[]>([])
 const todayCheckin = ref<CheckInView | null>(null)
 const streak = ref<StreakView | null>(null)
 const plan = ref<ActivePlanView | null>(null)
+const planSaving = ref(false)
 const companionActive = ref<CompanionActive | null>(null)
 const reading = ref<ReadingView | null>(null)
 const tasks = ref<TaskItem[]>([])
@@ -261,6 +262,22 @@ function goFollow(item: PlanItemView) {
 }
 
 const planItemDone = (it: PlanItemView) => !!it.doneAt
+const hasTodayUndone = computed(() => plan.value?.items.some(it => !it.doneAt) ?? false)
+
+async function skipTodayPlan() {
+  if (!plan.value || planSaving.value) return
+  planSaving.value = true
+  try {
+    const planNo = Number(plan.value.planId.replace(/^pl_/, ''))
+    await planApi.skipToday(planNo)
+    toast('今天不做也算数，计划已顺延')
+    await load()
+  } catch (e) {
+    toast((e as Error).message || '顺延失败')
+  } finally {
+    planSaving.value = false
+  }
+}
 
 /* 最近动态（C5）：任务历史聚合为 feed，用户对系统"做了什么对我"有掌控感 */
 const TASK_STATE: Record<string, { word: string; cls: string }> = {
@@ -371,8 +388,8 @@ async function toggleFavorite() {
           </p>
         </SvCard>
 
-        <!-- 今日小计划（G4） -->
-        <SvCard v-if="plan && plan.items.length">
+        <!-- 今日小计划（G4 / H-03 自适应） -->
+        <SvCard v-if="plan && (plan.items.length || plan.todaySkipped)">
           <div class="dial-head">
             <h2>{{ plan.title }}</h2>
             <span class="sv-cap prog"
@@ -387,7 +404,25 @@ async function toggleFavorite() {
             <button v-if="!planItemDone(it)" class="sv-btn sm" @click="goFollow(it)">去跟练</button>
             <span v-else class="ok" aria-label="已完成">✓</span>
           </div>
-          <router-link class="more" to="/practice">查看全部计划 →</router-link>
+          <p v-if="plan.todaySkipped" class="sv-muted rest">
+            今天休息也算数。下一次安排：{{
+              plan.nextScheduledDate ? displayMonthDay(plan.nextScheduledDate) : '待定'
+            }}
+          </p>
+          <router-link v-if="plan.adaptation" class="adapt-hint" to="/practice">
+            {{ plan.adaptation.reason }} 去调整 →
+          </router-link>
+          <div class="plan-foot">
+            <button
+              v-if="hasTodayUndone"
+              class="sv-btn ghost sm"
+              :disabled="planSaving"
+              @click="skipTodayPlan"
+            >
+              今天不做
+            </button>
+            <router-link class="more" to="/practice">查看全部计划 →</router-link>
+          </div>
         </SvCard>
 
         <!-- 漫聊 / 日记双入口（C0） -->
@@ -610,6 +645,23 @@ async function toggleFavorite() {
 }
 .prog {
   color: var(--sv-label2);
+}
+.rest {
+  margin: 8px 0 0;
+}
+.adapt-hint {
+  display: block;
+  margin-top: 8px;
+  font-size: var(--sv-fs-caption1);
+  color: var(--sv-indigo);
+  text-decoration: none;
+}
+.plan-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 10px;
 }
 .entry-row {
   display: flex;

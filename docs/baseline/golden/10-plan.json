@@ -6,6 +6,8 @@
       "name": "active",
       "response": {
         "plan": {
+          "adaptation": null,
+          "completionRate": 0,
           "days": 3,
           "daysLeft": 3,
           "doneCount": 0,
@@ -22,10 +24,14 @@
               "seq": 1
             }
           ],
+          "nextScheduledDate": "2026-11-12",
+          "overdueCount": 0,
           "planId": "<redacted>",
+          "remainingCount": 2,
           "startDate": "2026-11-12",
           "status": "ACTION",
           "title": "平静·今日轻量自助小方案",
+          "todaySkipped": false,
           "totalCount": 2
         }
       }
@@ -33,6 +39,8 @@
     {
       "name": "detail",
       "response": {
+        "adaptation": null,
+        "completionRate": 0,
         "days": 3,
         "daysLeft": 3,
         "doneCount": 0,
@@ -59,10 +67,14 @@
             "seq": 2
           }
         ],
+        "nextScheduledDate": "2026-11-12",
+        "overdueCount": 0,
         "planId": "<redacted>",
+        "remainingCount": 2,
         "startDate": "2026-11-12",
         "status": "ACTION",
         "title": "平静·今日轻量自助小方案",
+        "todaySkipped": false,
         "totalCount": 2
       }
     }

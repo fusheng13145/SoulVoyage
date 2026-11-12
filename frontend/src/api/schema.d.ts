@@ -324,6 +324,22 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/v1/plans/{id}/skip-today': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post: operations['skipToday']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/v1/plans/{id}/drop': {
     parameters: {
       query?: never
@@ -334,6 +350,22 @@ export interface paths {
     get?: never
     put?: never
     post: operations['drop']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/plans/{id}/adapt': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post: operations['adapt']
     delete?: never
     options?: never
     head?: never
@@ -1790,6 +1822,59 @@ export interface components {
       refCode?: string
       favorited?: boolean
     }
+    ApiResponsePlanView: {
+      /** Format: int32 */
+      code?: number
+      msg?: string
+      data?: components['schemas']['PlanView']
+      traceId?: string
+    }
+    PlanAdaptationView: {
+      type?: string
+      title?: string
+      reason?: string
+      actionLabel?: string
+    }
+    PlanItemView: {
+      /** Format: int32 */
+      seq?: number
+      exerciseId?: string
+      guidance?: string
+      scheduledDate?: string
+      doneAt?: string
+      feedback?: string
+      exerciseName?: string
+      /** Format: int32 */
+      durationMin?: number
+    }
+    PlanView: {
+      planId?: string
+      title?: string
+      /** Format: int32 */
+      days?: number
+      status?: string
+      startDate?: string
+      endDate?: string
+      /** Format: int32 */
+      daysLeft?: number
+      /** Format: int32 */
+      doneCount?: number
+      /** Format: int32 */
+      totalCount?: number
+      items?: components['schemas']['PlanItemView'][]
+      adaptation?: components['schemas']['PlanAdaptationView']
+      /** Format: int32 */
+      completionRate?: number
+      /** Format: int32 */
+      overdueCount?: number
+      /** Format: int32 */
+      remainingCount?: number
+      nextScheduledDate?: string
+      todaySkipped?: boolean
+    }
+    AdaptReq: {
+      action?: string
+    }
     CheckInReq: {
       emotion: string
       /** Format: int32 */
@@ -2314,43 +2399,8 @@ export interface components {
       data?: components['schemas']['PlanListResp']
       traceId?: string
     }
-    PlanItemView: {
-      /** Format: int32 */
-      seq?: number
-      exerciseId?: string
-      guidance?: string
-      scheduledDate?: string
-      doneAt?: string
-      feedback?: string
-      exerciseName?: string
-      /** Format: int32 */
-      durationMin?: number
-    }
     PlanListResp: {
       items?: components['schemas']['PlanView'][]
-    }
-    PlanView: {
-      planId?: string
-      title?: string
-      /** Format: int32 */
-      days?: number
-      status?: string
-      startDate?: string
-      endDate?: string
-      /** Format: int32 */
-      daysLeft?: number
-      /** Format: int32 */
-      doneCount?: number
-      /** Format: int32 */
-      totalCount?: number
-      items?: components['schemas']['PlanItemView'][]
-    }
-    ApiResponsePlanView: {
-      /** Format: int32 */
-      code?: number
-      msg?: string
-      data?: components['schemas']['PlanView']
-      traceId?: string
     }
     ActivePlanResp: {
       plan?: components['schemas']['PlanView']
@@ -3614,6 +3664,28 @@ export interface operations {
       }
     }
   }
+  skipToday: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: number
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          '*/*': components['schemas']['ApiResponsePlanView']
+        }
+      }
+    }
+  }
   drop: {
     parameters: {
       query?: never
@@ -3632,6 +3704,32 @@ export interface operations {
         }
         content: {
           '*/*': components['schemas']['ApiResponseVoid']
+        }
+      }
+    }
+  }
+  adapt: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: number
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['AdaptReq']
+      }
+    }
+    responses: {
+      /** @description OK */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          '*/*': components['schemas']['ApiResponsePlanView']
         }
       }
     }

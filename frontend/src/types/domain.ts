@@ -15,6 +15,14 @@ export interface PlanItemView {
   feedback: string | null
 }
 
+/** H-03 计划自适应建议 */
+export interface PlanAdaptationView {
+  type: 'POSTPONE' | 'REDUCE' | 'REPLACE'
+  title: string
+  reason: string
+  actionLabel: string
+}
+
 /** 今日计划卡（/plans/active 的 plan） */
 export interface ActivePlanView {
   planId: string
@@ -24,6 +32,12 @@ export interface ActivePlanView {
   doneCount: number
   totalCount: number
   items: PlanItemView[]
+  adaptation?: PlanAdaptationView | null
+  completionRate?: number
+  overdueCount?: number
+  remainingCount?: number
+  nextScheduledDate?: string | null
+  todaySkipped?: boolean
 }
 
 /** 计划详情（/plans/{id}）：在卡片字段上增加起止日期与状态 */

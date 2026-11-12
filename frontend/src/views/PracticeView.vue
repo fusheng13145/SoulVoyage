@@ -29,6 +29,7 @@ const plan = ref<ActivePlanView | null>(null)
 const allItems = ref<PlanItemView[]>([])
 const records = ref<ExRecord[]>([])
 const loading = ref(true)
+const adapting = ref(false)
 
 async function load() {
   loading.value = true
@@ -64,6 +65,39 @@ function goFree(id: string) {
 const today = () => businessDate()
 const dayLabel = (d: string) => (d === today() ? '今天' : displayMonthDay(d))
 const fmtTime = (s: string) => (s ? s.slice(0, 16).replace('T', ' ') : '')
+const hasTodayUndone = computed(() =>
+  allItems.value.some(it => it.scheduledDate === today() && !it.doneAt),
+)
+
+async function applyAdaptation() {
+  if (!plan.value?.adaptation || adapting.value) return
+  adapting.value = true
+  try {
+    const planNo = Number(plan.value.planId.replace(/^pl_/, ''))
+    await planApi.adapt(planNo, plan.value.adaptation.type)
+    toast('计划已调整，按新的节奏来')
+    await load()
+  } catch (e) {
+    toast((e as Error).message || '调整失败')
+  } finally {
+    adapting.value = false
+  }
+}
+
+async function skipTodayPlan() {
+  if (!plan.value || adapting.value) return
+  adapting.value = true
+  try {
+    const planNo = Number(plan.value.planId.replace(/^pl_/, ''))
+    await planApi.skipToday(planNo)
+    toast('今天不做也算数，计划已顺延')
+    await load()
+  } catch (e) {
+    toast((e as Error).message || '顺延失败')
+  } finally {
+    adapting.value = false
+  }
+}
 </script>
 
 <template>
@@ -108,6 +142,31 @@ const fmtTime = (s: string) => (s ? s.slice(0, 16).replace('T', ' ') : '')
             {{ it.scheduledDate === today() ? '去跟练' : '提前做' }}
           </button>
           <span v-else class="ok" aria-label="已完成">✓</span>
+        </div>
+        <p v-if="plan.todaySkipped" class="sv-muted rest">
+          今天休息也算数。下一次安排：{{
+            plan.nextScheduledDate ? dayLabel(plan.nextScheduledDate) : '待定'
+          }}
+        </p>
+        <div v-if="plan.adaptation" class="adapt">
+          <div class="adapt-txt">
+            <b>{{ plan.adaptation.title }}</b>
+            <small>{{ plan.adaptation.reason }}</small>
+          </div>
+          <button class="sv-btn sm" :disabled="adapting" @click="applyAdaptation">
+            {{ plan.adaptation.actionLabel }}
+          </button>
+        </div>
+        <div class="plan-foot">
+          <button
+            v-if="hasTodayUndone"
+            class="sv-btn ghost sm"
+            :disabled="adapting"
+            @click="skipTodayPlan"
+          >
+            今天不做
+          </button>
+          <span v-else class="sv-cap">按自己的节奏来就好</span>
         </div>
         <SvDisclaimer
           class="disc"
@@ -258,6 +317,40 @@ const fmtTime = (s: string) => (s ? s.slice(0, 16).replace('T', ' ') : '')
   font-size: 16px;
 }
 .disc {
+  margin-top: var(--sv-s3);
+}
+.rest {
+  margin: 8px 0 0;
+}
+.adapt {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid var(--sv-sep);
+  border-radius: var(--sv-r-ctl);
+  padding: 10px 12px;
+  margin-top: var(--sv-s3);
+}
+.adapt-txt {
+  min-width: 0;
+}
+.adapt-txt b {
+  display: block;
+  font-size: var(--sv-fs-body);
+  font-weight: 500;
+}
+.adapt-txt small {
+  display: block;
+  margin-top: 2px;
+  color: var(--sv-label2);
+  font-size: var(--sv-fs-caption1);
+}
+.plan-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   margin-top: var(--sv-s3);
 }
 .lib {

@@ -24,10 +24,15 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * 下篇·G4 成长计划：把 SUPPORT 输出物化成可执行载体（growth_plan + plan_item）。
@@ -118,16 +123,16 @@ public class PlanService {
         var plan = planRepo.findByUserIdAndStatusOrderByEndDateAsc(userId, "ACTION").stream()
                 .filter(p -> !today.isBefore(p.getStartDate()) && !today.isAfter(p.getEndDate()))
                 .findFirst().orElse(null);
-        return plan == null ? null : view(userId, plan, true);
+        return plan == null ? null : view(userId, plan, true, true);
     }
 
     public List<Map<String, Object>> list(long userId) {
         return planRepo.findByUserIdOrderByCreatedAtDesc(userId).stream()
-                .map(p -> view(userId, p, false)).toList();
+                .map(p -> view(userId, p, false, false)).toList();
     }
 
     public Map<String, Object> detail(long userId, long planId) {
-        return view(userId, owned(userId, planId), false);
+        return view(userId, owned(userId, planId), false, true);
     }
 
     /** 用户主动放弃计划：自主权优先，不追问 */
@@ -139,6 +144,44 @@ public class PlanService {
         }
         p.setStatus("DROPPED");
         planRepo.save(p);
+    }
+
+    /** H-03：应用一次计划自适应（POSTPONE / REDUCE / REPLACE）。 */
+    @Transactional
+    public Map<String, Object> adapt(long userId, long planId, String action) {
+        GrowthPlanEntity p = owned(userId, planId);
+        requireActive(p);
+        String act = action == null ? "" : action.trim().toUpperCase();
+        List<PlanItemEntity> all = itemRepo.findByPlanIdOrderBySeqAsc(planId);
+        LocalDate today = cal.today();
+        switch (act) {
+            case "POSTPONE" -> postpone(all, today);
+            case "REDUCE" -> reduce(all, today);
+            case "REPLACE" -> replace(all, today);
+            default -> throw new BizException(ErrorCode.BAD_PARAMS, "未知调整动作: " + action);
+        }
+        recalcSpan(p, all);
+        return view(userId, p, false, true);
+    }
+
+    /** H-03「今天不做」：今日未完成项顺延到未来最近可用日；幂等。 */
+    @Transactional
+    public Map<String, Object> skipToday(long userId, long planId) {
+        GrowthPlanEntity p = owned(userId, planId);
+        requireActive(p);
+        List<PlanItemEntity> all = itemRepo.findByPlanIdOrderBySeqAsc(planId);
+        LocalDate today = cal.today();
+        List<PlanItemEntity> moving = all.stream()
+                .filter(it -> it.getDoneAt() == null && today.equals(it.getScheduledDate()))
+                .sorted(Comparator.comparing(PlanItemEntity::getSeq))
+                .toList();
+        LocalDate cursor = today.plusDays(1);
+        for (PlanItemEntity it : moving) {
+            it.setScheduledDate(nextSlot(all, cursor));
+            itemRepo.save(it);
+        }
+        recalcSpan(p, all);
+        return view(userId, p, false, true);
     }
 
     /** C4 跟练完成回写：先做属主断言，再给计划条目盖章 */
@@ -296,11 +339,185 @@ public class PlanService {
         return out;
     }
 
-    /** todayOnly：仅展开今日条目，但完成度按全计划统计 */
-    private Map<String, Object> view(long userId, GrowthPlanEntity p, boolean todayOnly) {
+    private void requireActive(GrowthPlanEntity p) {
+        if (!"ACTION".equals(p.getStatus()) || cal.today().isAfter(p.getEndDate())) {
+            throw new BizException(ErrorCode.BAD_PARAMS, "这个计划已经结束啦");
+        }
+    }
+
+    /** 逾期未完成项放到今天起最近可用日；单日容量 2，已完成项不动。 */
+    private void postpone(List<PlanItemEntity> all, LocalDate today) {
+        List<PlanItemEntity> overdue = all.stream()
+                .filter(it -> it.getDoneAt() == null && it.getScheduledDate().isBefore(today))
+                .sorted(Comparator.comparing(PlanItemEntity::getSeq))
+                .toList();
+        LocalDate cursor = today;
+        for (PlanItemEntity it : overdue) {
+            it.setScheduledDate(nextSlot(all, cursor));
+            itemRepo.save(it);
+        }
+    }
+
+    /** 剩余未完成项压到每天最多 1 项；至少保留 1 项。 */
+    private void reduce(List<PlanItemEntity> all, LocalDate today) {
+        List<PlanItemEntity> remaining = all.stream()
+                .filter(it -> it.getDoneAt() == null && !it.getScheduledDate().isBefore(today))
+                .sorted(Comparator.comparing(PlanItemEntity::getScheduledDate)
+                        .thenComparing(PlanItemEntity::getSeq))
+                .toList();
+        if (remaining.size() <= 1) return;
+
+        Map<LocalDate, List<PlanItemEntity>> byDate = new LinkedHashMap<>();
+        for (PlanItemEntity it : remaining) {
+            byDate.computeIfAbsent(it.getScheduledDate(), k -> new ArrayList<>()).add(it);
+        }
+        List<PlanItemEntity> remove = new ArrayList<>();
+        for (List<PlanItemEntity> group : byDate.values()) {
+            if (group.size() > 1) remove.addAll(group.subList(1, group.size()));
+        }
+        if (remove.isEmpty()) remove.add(remaining.get(remaining.size() - 1));
+        for (PlanItemEntity it : remove) {
+            itemRepo.delete(it);
+            all.remove(it);
+        }
+    }
+
+    /** 把最早未完成项换成练习库中时长最短、且计划内未占用的练习。 */
+    private void replace(List<PlanItemEntity> all, LocalDate today) {
+        PlanItemEntity target = all.stream()
+                .filter(it -> it.getDoneAt() == null && !it.getScheduledDate().isBefore(today))
+                .min(Comparator.comparing(PlanItemEntity::getScheduledDate)
+                        .thenComparing(PlanItemEntity::getSeq))
+                .orElse(null);
+        if (target == null) return;
+
+        Set<String> used = all.stream()
+                .filter(it -> !it.getId().equals(target.getId()))
+                .map(PlanItemEntity::getExerciseCode)
+                .collect(Collectors.toSet());
+        int currentMin = exercises.exists(target.getExerciseCode())
+                ? exercises.require(target.getExerciseCode()).durationMin() : Integer.MAX_VALUE;
+        List<Exercise> candidates = exercises.list().stream()
+                .filter(e -> !e.id().equals(target.getExerciseCode()))
+                .filter(e -> e.durationMin() <= currentMin)
+                .sorted(Comparator.comparingInt(Exercise::durationMin).thenComparing(Exercise::id))
+                .toList();
+        Exercise pick = candidates.stream().filter(e -> !used.contains(e.id())).findFirst()
+                .orElse(candidates.isEmpty() ? null : candidates.get(0));
+        if (pick == null) return;
+        target.setExerciseCode(pick.id());
+        target.setGuidance("轻一点的版本：跟着步骤做完就好。");
+        itemRepo.save(target);
+    }
+
+    /** 从 from 起找单日条目数 <2 的最近可用日。 */
+    private LocalDate nextSlot(List<PlanItemEntity> all, LocalDate from) {
+        LocalDate d = from;
+        while (countOn(all, d) >= 2) {
+            d = d.plusDays(1);
+        }
+        return d;
+    }
+
+    private long countOn(List<PlanItemEntity> all, LocalDate date) {
+        return all.stream().filter(it -> date.equals(it.getScheduledDate())).count();
+    }
+
+    /** 计划跨度跟随实际排期：endDate 取最大排期日，days 同步。 */
+    private void recalcSpan(GrowthPlanEntity p, List<PlanItemEntity> all) {
+        LocalDate end = all.stream().map(PlanItemEntity::getScheduledDate)
+                .max(Comparator.naturalOrder()).orElse(p.getEndDate());
+        LocalDate today = cal.today();
+        if ("ACTION".equals(p.getStatus()) && end.isBefore(today)) end = today;
+        if (end.isBefore(p.getStartDate())) end = p.getStartDate();
+        p.setEndDate(end);
+        long days = ChronoUnit.DAYS.between(p.getStartDate(), end) + 1;
+        p.setDays((short) Math.min(Math.max(days, 1), 365));
+        planRepo.save(p);
+    }
+
+    /** 确定性建议：逾期 → 顺延；低完成率 → 减量；低情绪 → 替换。危机活跃态不主动建议。 */
+    private Map<String, Object> adaptation(long userId, GrowthPlanEntity p,
+                                           List<PlanItemEntity> all, LocalDate today) {
+        if (!"ACTION".equals(p.getStatus()) || today.isAfter(p.getEndDate())) return null;
+        boolean crisis = userRepo.findById(userId)
+                .map(u -> CrisisState.parse(u.getCrisisState()).active())
+                .orElse(false);
+        if (crisis) return null;
+
+        List<PlanItemEntity> undone = all.stream().filter(it -> it.getDoneAt() == null).toList();
+        if (undone.isEmpty()) return null;
+
+        long overdue = undone.stream().filter(it -> it.getScheduledDate().isBefore(today)).count();
+        if (overdue > 0) {
+            return adaptMap("POSTPONE", "把落下的练习顺延一下",
+                    "有 " + overdue + " 项练习落在了过去，顺延到今天起，不会记为失败。",
+                    "顺延到今天");
+        }
+
+        int dueTotal = (int) all.stream()
+                .filter(it -> !it.getScheduledDate().isAfter(today)).count();
+        int dueDone = (int) all.stream()
+                .filter(it -> !it.getScheduledDate().isAfter(today) && it.getDoneAt() != null).count();
+        int rate = dueTotal == 0 ? 0 : (int) Math.round(dueDone * 100.0 / dueTotal);
+        long elapsed = ChronoUnit.DAYS.between(p.getStartDate(), today) + 1;
+        if (undone.size() > 1 && rate < 40 && elapsed >= 2) {
+            return adaptMap("REDUCE", "把计划减轻一点",
+                    "最近到期完成率 " + rate + "%，可以把剩余练习压到每天最多一项。",
+                    "减到每天一项");
+        }
+
+        BigDecimal avg = recentValence(userId, today);
+        if (avg != null && avg.compareTo(new BigDecimal("-0.30")) <= 0) {
+            return adaptMap("REPLACE", "换一个更轻的练习",
+                    "近 7 天情绪均值偏低（" + avg.setScale(2, RoundingMode.HALF_UP).toPlainString()
+                            + "），下一项可以换成更短的练习。",
+                    "换轻一点");
+        }
+        return null;
+    }
+
+    private Map<String, Object> adaptMap(String type, String title, String reason, String actionLabel) {
+        Map<String, Object> m = new HashMap<>();
+        m.put("type", type);
+        m.put("title", title);
+        m.put("reason", reason);
+        m.put("actionLabel", actionLabel);
+        return m;
+    }
+
+    /** 近 7 天平均效价；少于 2 个记录日返回 null（避免单点过度解读）。 */
+    private BigDecimal recentValence(long userId, LocalDate today) {
+        List<EmotionTrajectoryEntity> rows = trajRepo
+                .findByUserIdAndRecordDateBetweenOrderByRecordDateAsc(
+                        userId, today.minusDays(6), today);
+        long days = rows.stream().map(EmotionTrajectoryEntity::getRecordDate).distinct().count();
+        if (days < 2) return null;
+        double avg = rows.stream().filter(t -> t.getValence() != null)
+                .mapToDouble(t -> t.getValence().doubleValue()).average().orElse(Double.NaN);
+        return Double.isNaN(avg) ? null : BigDecimal.valueOf(avg).setScale(3, RoundingMode.HALF_UP);
+    }
+
+    /** todayOnly：仅展开今日条目，但完成度按全计划统计；withAdaptation 仅 active/detail 计算建议 */
+    private Map<String, Object> view(long userId, GrowthPlanEntity p, boolean todayOnly,
+                                     boolean withAdaptation) {
         LocalDate today = cal.today();
         List<PlanItemEntity> all = itemRepo.findByPlanIdOrderBySeqAsc(p.getId());
         int done = (int) all.stream().filter(x -> x.getDoneAt() != null).count();
+        int dueTotal = (int) all.stream()
+                .filter(x -> !x.getScheduledDate().isAfter(today)).count();
+        int dueDone = (int) all.stream()
+                .filter(x -> !x.getScheduledDate().isAfter(today) && x.getDoneAt() != null).count();
+        int completionRate = dueTotal == 0 ? 0 : (int) Math.round(dueDone * 100.0 / dueTotal);
+        int overdueCount = (int) all.stream()
+                .filter(x -> x.getDoneAt() == null && x.getScheduledDate().isBefore(today)).count();
+        int remainingCount = (int) all.stream().filter(x -> x.getDoneAt() == null).count();
+        LocalDate next = all.stream().filter(x -> x.getDoneAt() == null)
+                .map(PlanItemEntity::getScheduledDate).min(Comparator.naturalOrder()).orElse(null);
+        boolean todaySkipped = "ACTION".equals(p.getStatus())
+                && all.stream().noneMatch(x -> today.equals(x.getScheduledDate()))
+                && remainingCount > 0;
+
         List<PlanItemEntity> shown = todayOnly
                 ? all.stream().filter(x -> today.equals(x.getScheduledDate())).toList() : all;
         var list = new ArrayList<Map<String, Object>>();
@@ -330,6 +547,12 @@ public class PlanService {
         out.put("doneCount", done);
         out.put("totalCount", all.size());
         out.put("items", list);
+        out.put("adaptation", withAdaptation ? adaptation(userId, p, all, today) : null);
+        out.put("completionRate", completionRate);
+        out.put("overdueCount", overdueCount);
+        out.put("remainingCount", remainingCount);
+        out.put("nextScheduledDate", next == null ? null : next.toString());
+        out.put("todaySkipped", todaySkipped);
         return out;
     }
 }
