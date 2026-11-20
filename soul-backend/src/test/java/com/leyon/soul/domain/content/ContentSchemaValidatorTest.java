@@ -143,4 +143,144 @@ class ContentSchemaValidatorTest {
         assertFalse(validator.validate(ContentType.KG, "", obj("{}")).valid());
         assertEquals(1, validator.codeErrors(ContentType.EXERCISE, "BAD").size());
     }
+
+    @Test
+    @DisplayName("空对象、null 输入、超长 code 与缺失 type/payload 覆盖全部入口分支")
+    void coversEmptyAndEntryBranches() {
+        assertFalse(validator.validate(ContentType.KG, "cd_x", null).valid(), "null 输入");
+        assertFalse(validator.validate(ContentType.KG, null, obj("{}")).valid(), "null code");
+        assertFalse(validator.validate(ContentType.KG, "cd_" + "a".repeat(50), obj("{}")).valid(),
+                "code 超过 48 字符");
+        assertFalse(validator.validate(ContentType.KG, "cd_x", obj("{}")).valid(),
+                "缺 type/name/payload");
+        assertFalse(validator.validate(ContentType.KG, "cd_x", obj("""
+                {"type":"OTHER","name":"n","payload":{}}
+                """)).valid(), "未知 type");
+        assertFalse(validator.validate(ContentType.KG, "cd_x", obj("""
+                {"type":"DISTORTION","name":"n"}
+                """)).valid(), "缺 payload");
+        assertFalse(validator.validate(ContentType.KG, "cd_x", obj("""
+                {"type":"DISTORTION","name":"n","payload":[]}
+                """)).valid(), "payload 非对象");
+        assertFalse(validator.validate(ContentType.SCENE, "H04_SCENE", obj("{}")).valid(),
+                "场景空对象");
+        assertFalse(validator.validate(ContentType.EXERCISE, "ex_x", obj("{}")).valid(),
+                "练习空对象");
+    }
+
+    @Test
+    @DisplayName("KG 可选字段、readingSec 越界与 payload 超长")
+    void coversKgOptionalAndLengthBranches() {
+        var distortion = validator.validate(ContentType.KG, "cd_test", obj("""
+                {"type":"DISTORTION","name":"灾难化","payload":{"definition":"d","socraticTemplates":["q"]}}
+                """));
+        assertTrue(distortion.valid());
+        assertTrue(distortion.warnings().stream().anyMatch(w -> w.contains("typicalSignature")));
+        assertTrue(distortion.warnings().stream().anyMatch(w -> w.contains("emotions")));
+
+        var psyNoReading = validator.validate(ContentType.KG, "psy_test", obj("""
+                {"type":"PSY_TOPIC","name":"主题","payload":{"summary":"s","microAction":"m","aboutTags":["焦虑"]}}
+                """));
+        assertTrue(psyNoReading.valid());
+        assertTrue(psyNoReading.warnings().stream().anyMatch(w -> w.contains("readingSec")));
+
+        assertFalse(validator.validate(ContentType.KG, "psy_test", obj("""
+                {"type":"PSY_TOPIC","name":"主题","payload":{"summary":"s","microAction":"m",
+                 "aboutTags":["焦虑"],"readingSec":5}}
+                """)).valid(), "readingSec 小于 10");
+        assertFalse(validator.validate(ContentType.KG, "psy_test", obj("""
+                {"type":"PSY_TOPIC","name":"主题","payload":{"summary":"s","microAction":"m",
+                 "aboutTags":["焦虑"],"readingSec":400}}
+                """)).valid(), "readingSec 大于 300");
+
+        var tech = validator.validate(ContentType.KG, "st_test", obj("""
+                {"type":"STRENGTH_TECH","name":"技巧","payload":{"description":"d","whenToUse":"w","steps":["一步"]}}
+                """));
+        assertTrue(tech.valid());
+        assertTrue(tech.warnings().stream().anyMatch(w -> w.contains("emotions")));
+
+        assertFalse(validator.validate(ContentType.KG, "cd_test", obj("""
+                {"type":"DISTORTION","name":"灾难化","payload":{"definition":"d","socraticTemplates":["q"],
+                 "blob":"%s"}}
+                """.formatted("x".repeat(5000)))).valid(), "payload 超过 4000 字符");
+    }
+
+    @Test
+    @DisplayName("场景：persona/opening 非对象、闭集越界、默认值、长度与空压力源字典")
+    void coversSceneEdgeBranches() {
+        String base = """
+                {"title":"宿舍冲突","description":"和室友谈边界","difficulties":["MILD","NORMAL"],
+                 "npcName":"小磊","relation":"室友","persona":[] ,"openingLines":[],
+                 "goalDimensions":["LISTEN","BOUNDARY"],"maxTurns":0,
+                 "tags":["%s"],"recommendedFor":["%s"],"status":1}
+                """.formatted("t".repeat(200), "r".repeat(200));
+        assertFalse(validator.validate(ContentType.SCENE, "H04_SCENE", obj(base)).valid(),
+                "persona/opening 非对象、tags/recommendedFor 超长、maxTurns 越界");
+
+        assertFalse(validator.validate(ContentType.SCENE, "H04_SCENE", obj("""
+                {"title":"标题","description":"描述","difficulties":["EASY"],"npcName":"n","relation":"r",
+                 "persona":{"motivation":"m","bottomLine":"b","triggers":"t","style":"s"},
+                 "openingLines":{"EASY":"开场"},"goalDimensions":["BAD"],"maxTurns":20,"status":1}
+                """)).valid(), "未知难度与未知目标维度");
+
+        assertFalse(validator.validate(ContentType.SCENE, "H04_SCENE", obj("""
+                {"title":"标题","description":"描述","difficulties":["MILD","NORMAL"],"npcName":"n","relation":"r",
+                 "persona":{"motivation":"m","bottomLine":"b","triggers":"t","style":"s"},
+                 "openingLines":{"MILD":"开场"},"goalDimensions":["LISTEN"],"maxTurns":20,"status":1}
+                """)).valid(), "缺 NORMAL 开场白");
+
+        when(store.stressorDefinitions()).thenReturn(Map.of());
+        var noDict = validator.validate(ContentType.SCENE, "H04_SCENE", obj("""
+                {"title":"标题","description":"描述","difficulties":["MILD"],"npcName":"n","relation":"r",
+                 "persona":{"motivation":"m","bottomLine":"b","triggers":"t","style":"s"},
+                 "openingLines":{"MILD":"开场"},"goalDimensions":["LISTEN"],"maxTurns":20,
+                 "recommendedFor":["人际冲突"],"status":1}
+                """));
+        assertTrue(noDict.valid());
+        assertTrue(noDict.warnings().stream().anyMatch(w -> w.contains("压力源字典")));
+
+        String huge = """
+                {"title":"标题","description":"描述","difficulties":["MILD"],"npcName":"n","relation":"r",
+                 "persona":{"motivation":"m","bottomLine":"b","triggers":"t","style":"s"},
+                 "openingLines":{"MILD":"开场"},"goalDimensions":["LISTEN"],"maxTurns":20,
+                 "blob":"%s","status":1}
+                """.formatted("x".repeat(5000));
+        assertFalse(validator.validate(ContentType.SCENE, "H04_SCENE", obj(huge)).valid(), "场景卡超过 4000 字符");
+    }
+
+    @Test
+    @DisplayName("练习：steps 非数组/空数组/非对象/空字段、时长越界与超长数组")
+    void coversExerciseEdgeBranches() {
+        assertFalse(validator.validate(ContentType.EXERCISE, "ex_test", obj("""
+                {"name":"呼吸","applyEmotions":["ANXIETY"],"steps":{},"durationMin":5}
+                """)).valid(), "steps 非数组");
+        assertFalse(validator.validate(ContentType.EXERCISE, "ex_test", obj("""
+                {"name":"呼吸","applyEmotions":["ANXIETY"],"steps":[],"durationMin":5}
+                """)).valid(), "steps 空数组");
+        assertFalse(validator.validate(ContentType.EXERCISE, "ex_test", obj("""
+                {"name":"呼吸","applyEmotions":["ANXIETY"],"steps":["x"],"durationMin":5}
+                """)).valid(), "steps 非对象");
+        assertFalse(validator.validate(ContentType.EXERCISE, "ex_test", obj("""
+                {"name":"呼吸","applyEmotions":["ANXIETY"],"steps":[{"step":"","desc":""}],"durationMin":5}
+                """)).valid(), "steps 字段为空");
+
+        var unknownEmotion = validator.validate(ContentType.EXERCISE, "ex_test", obj("""
+                {"name":"呼吸","applyEmotions":["UNKNOWN"],"steps":[{"step":"吸气","desc":"4 秒"}],"durationMin":5}
+                """));
+        assertTrue(unknownEmotion.valid());
+        assertTrue(unknownEmotion.warnings().stream().anyMatch(w -> w.contains("未登记标签")));
+
+        assertFalse(validator.validate(ContentType.EXERCISE, "ex_test", obj("""
+                {"name":"呼吸","applyEmotions":["%s"],"steps":[{"step":"吸气","desc":"4 秒"}],"durationMin":5}
+                """.formatted("A".repeat(300)))).valid(), "applyEmotions 超过 256 字符");
+
+        assertFalse(validator.validate(ContentType.EXERCISE, "ex_test", obj("""
+                {"name":"呼吸","applyEmotions":["ANXIETY"],"steps":[{"step":"吸气","desc":"4 秒"}],"durationMin":70}
+                """)).valid(), "durationMin 大于 60");
+
+        String hugeSteps = """
+                {"name":"呼吸","applyEmotions":["ANXIETY"],"steps":[{"step":"吸气","desc":"%s"}],"durationMin":5}
+                """.formatted("x".repeat(5000));
+        assertFalse(validator.validate(ContentType.EXERCISE, "ex_test", obj(hugeSteps)).valid(), "steps 超过 4000 字符");
+    }
 }
