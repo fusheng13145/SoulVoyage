@@ -113,9 +113,7 @@ export interface Guardrails {
   slowRequests: GuardrailsSlowRequest[]
 }
 export const getGuardrails = (top = 10) =>
-  http
-    .get<ApiResp<Guardrails>>('/admin/metrics/guardrails', { params: { top } })
-    .then(r => r.data.data)
+  http.get<ApiResp<Guardrails>>('/admin/metrics/guardrails', { params: { top } }).then(r => r.data.data)
 
 // —— A1 任务监控 ——
 export interface TaskRow {
@@ -307,10 +305,7 @@ export const saveContentDraft = (
   type: string,
   code: string,
   body: { payload: unknown; baseRevisionId?: number | null; note?: string },
-) =>
-  http
-    .put<ApiResp<ContentDraft>>(`/admin/content/drafts/${type}/${code}`, body)
-    .then(r => r.data.data)
+) => http.put<ApiResp<ContentDraft>>(`/admin/content/drafts/${type}/${code}`, body).then(r => r.data.data)
 export const deleteContentDraft = (type: string, code: string) =>
   http.delete<ApiResp<null>>(`/admin/content/drafts/${type}/${code}`).then(r => r.data.data)
 export const previewContentDraft = (type: string, code: string) =>
@@ -322,15 +317,10 @@ export const publishContentDraft = (type: string, code: string) =>
     .post<ApiResp<ContentPublish>>(`/admin/content/drafts/${type}/${code}/publish`, {})
     .then(r => r.data.data)
 export const listContentRevisions = (type: string, code: string) =>
-  http
-    .get<ApiResp<ContentRevision[]>>(`/admin/content/revisions/${type}/${code}`)
-    .then(r => r.data.data)
+  http.get<ApiResp<ContentRevision[]>>(`/admin/content/revisions/${type}/${code}`).then(r => r.data.data)
 export const rollbackContentRevision = (type: string, code: string, revisionId: number) =>
   http
-    .post<ApiResp<ContentPublish>>(
-      `/admin/content/revisions/${type}/${code}/${revisionId}/rollback`,
-      {},
-    )
+    .post<ApiResp<ContentPublish>>(`/admin/content/revisions/${type}/${code}/${revisionId}/rollback`, {})
     .then(r => r.data.data)
 export type PreviewReq = Body<
   { template: string; user: string; vars?: Record<string, string> },

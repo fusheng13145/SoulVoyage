@@ -204,8 +204,9 @@ function doPrint() {
         <p class="ph-kicker">心屿漫行 · {{ TYPE_LABELS[report.type] || report.type }}</p>
         <h1>{{ report.title }}</h1>
         <p>
-          {{ report.createdAt ? report.createdAt.slice(0, 16).replace('T', ' ') : '' }} ·
-          风险档：{{ riskChip.label }}
+          {{ report.createdAt ? report.createdAt.slice(0, 16).replace('T', ' ') : '' }} · 风险档：{{
+            riskChip.label
+          }}
         </p>
       </div>
 

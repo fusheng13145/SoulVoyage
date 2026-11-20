@@ -65,9 +65,7 @@ function goFree(id: string) {
 const today = () => businessDate()
 const dayLabel = (d: string) => (d === today() ? '今天' : displayMonthDay(d))
 const fmtTime = (s: string) => (s ? s.slice(0, 16).replace('T', ' ') : '')
-const hasTodayUndone = computed(() =>
-  allItems.value.some(it => it.scheduledDate === today() && !it.doneAt),
-)
+const hasTodayUndone = computed(() => allItems.value.some(it => it.scheduledDate === today() && !it.doneAt))
 
 async function applyAdaptation() {
   if (!plan.value?.adaptation || adapting.value) return
@@ -131,9 +129,7 @@ async function skipTodayPlan() {
             <div class="pi-txt">
               <b>{{ it.exerciseName }}</b>
               <small>{{ it.guidance || `约 ${it.durationMin} 分钟` }}</small>
-              <small v-if="it.reasons?.length" class="why"
-                >为什么是它：{{ it.reasons.join('；') }}</small
-              >
+              <small v-if="it.reasons?.length" class="why">为什么是它：{{ it.reasons.join('；') }}</small>
             </div>
           </div>
           <button
@@ -147,9 +143,7 @@ async function skipTodayPlan() {
           <span v-else class="ok" aria-label="已完成">✓</span>
         </div>
         <p v-if="plan.todaySkipped" class="sv-muted rest">
-          今天休息也算数。下一次安排：{{
-            plan.nextScheduledDate ? dayLabel(plan.nextScheduledDate) : '待定'
-          }}
+          今天休息也算数。下一次安排：{{ plan.nextScheduledDate ? dayLabel(plan.nextScheduledDate) : '待定' }}
         </p>
         <div v-if="plan.adaptation" class="adapt">
           <div class="adapt-txt">
@@ -161,12 +155,7 @@ async function skipTodayPlan() {
           </button>
         </div>
         <div class="plan-foot">
-          <button
-            v-if="hasTodayUndone"
-            class="sv-btn ghost sm"
-            :disabled="adapting"
-            @click="skipTodayPlan"
-          >
+          <button v-if="hasTodayUndone" class="sv-btn ghost sm" :disabled="adapting" @click="skipTodayPlan">
             今天不做
           </button>
           <span v-else class="sv-cap">按自己的节奏来就好</span>

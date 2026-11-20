@@ -22,10 +22,7 @@ const LEVEL_LABEL: Record<string, string> = { CRISIS: '危机', HIGH: '高', MED
 async function load() {
   loading.value = true
   try {
-    const [ov, gd] = await Promise.all([
-      getOverview(days.value),
-      getGuardrails(10).catch(() => null),
-    ])
+    const [ov, gd] = await Promise.all([getOverview(days.value), getGuardrails(10).catch(() => null)])
     data.value = ov
     guardrails.value = gd
   } catch (e) {
@@ -201,8 +198,8 @@ const FEEDBACK_LABEL: Record<string, string> = {
           </div>
           <p class="muted">
             Token {{ fmt(guardrails.costBudget.totalTokens) }} /
-            {{ fmt(guardrails.costBudget.tokenBudget) }} · 估算成本
-            {{ guardrails.costBudget.estimatedCost }} {{ guardrails.costBudget.currency }}
+            {{ fmt(guardrails.costBudget.tokenBudget) }} · 估算成本 {{ guardrails.costBudget.estimatedCost }}
+            {{ guardrails.costBudget.currency }}
           </p>
         </SvCard>
 

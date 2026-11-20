@@ -76,11 +76,9 @@ function withRefreshLock<T>(fn: () => Promise<T>): Promise<T> {
 /** 真正调刷新接口：只回填 access，refresh 由响应里的 Set-Cookie 轮换，JS 不参与 */
 async function doRefresh(): Promise<boolean> {
   try {
-    const { data } = await axios.post<ApiResp<{ accessToken: string }>>(
-      '/api/v1/auth/refresh',
-      null,
-      { withCredentials: true },
-    )
+    const { data } = await axios.post<ApiResp<{ accessToken: string }>>('/api/v1/auth/refresh', null, {
+      withCredentials: true,
+    })
     setAccessToken(data.data.accessToken)
     return true
   } catch {

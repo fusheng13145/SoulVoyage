@@ -38,8 +38,7 @@ export const taskApi = {
   }) => http.get<ApiResp<T>>('/tasks', { params }).then(r => r.data.data),
   get: <T = { status: string; payload: unknown }>(taskNo: string) =>
     http.get<ApiResp<T>>(`/tasks/${taskNo}`).then(r => r.data.data),
-  steps: (taskNo: string) =>
-    http.get<ApiResp<TaskStep[]>>(`/tasks/${taskNo}/steps`).then(r => r.data.data),
+  steps: (taskNo: string) => http.get<ApiResp<TaskStep[]>>(`/tasks/${taskNo}/steps`).then(r => r.data.data),
   retry: (taskNo: string) =>
     http.post<ApiResp<{ taskNo: string; status: string }>>(`/tasks/${taskNo}/retry`).then(r => r.data.data),
 }

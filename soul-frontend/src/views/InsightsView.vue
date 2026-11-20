@@ -39,9 +39,7 @@ const points = ref<EmotionPointView[]>([])
 const empty = computed(() => points.value.length === 0)
 const insight = ref<EmotionInsightView | null>(null)
 const latestDigest = computed<WeeklyDigestView | null>(() => insight.value?.weekly[0] ?? null)
-const digestByWeek = computed(
-  () => new Map((insight.value?.weekly ?? []).map(w => [w.statWeek, w])),
-)
+const digestByWeek = computed(() => new Map((insight.value?.weekly ?? []).map(w => [w.statWeek, w])))
 
 const curveEl = ref<HTMLElement | null>(null)
 const pieEl = ref<HTMLElement | null>(null)

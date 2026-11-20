@@ -57,13 +57,7 @@ onUnmounted(() => {
 <template>
   <Teleport to="#sv-layer">
     <transition name="sheet">
-      <div
-        v-if="modelValue"
-        class="root"
-        role="dialog"
-        aria-modal="true"
-        :aria-label="title || '底部面板'"
-      >
+      <div v-if="modelValue" class="root" role="dialog" aria-modal="true" :aria-label="title || '底部面板'">
         <div class="dim" @click="close" />
         <div
           ref="panelEl"

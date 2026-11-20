@@ -94,11 +94,7 @@ describe('api/http 请求与响应拦截器（memory access + HttpOnly refresh�
 
     expect(H.refreshPost).toHaveBeenCalledTimes(1)
     // refresh 不带 body，靠浏览器自动附 Cookie
-    expect(H.refreshPost).toHaveBeenCalledWith(
-      '/api/v1/auth/refresh',
-      null,
-      { withCredentials: true },
-    )
+    expect(H.refreshPost).toHaveBeenCalledWith('/api/v1/auth/refresh', null, { withCredentials: true })
     expect(getAccessToken()).toBe('at-2')
     expect(original._retried).toBe(true)
     expect(result).toEqual(original)
@@ -279,7 +275,10 @@ describe('api/http authFetch（SSE 带鉴权）', () => {
   it('B-07 authFetch：刷新失败时清空内存会话并保留 401', async () => {
     setAccessToken('only-access')
     H.refreshPost.mockRejectedValue(new Error('no cookie'))
-    vi.stubGlobal('fetch', vi.fn(() => Promise.resolve({ status: 401 } as Response)))
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() => Promise.resolve({ status: 401 } as Response)),
+    )
 
     const res = await authFetch('/x')
     expect(res.status).toBe(401)

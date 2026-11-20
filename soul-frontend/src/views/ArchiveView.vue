@@ -188,9 +188,15 @@ function doPrint() {
         <nav class="toc" aria-label="档案目录">
           <h2>目录</h2>
           <ol>
-            <li><a href="#snap-reports">报告（{{ snapshot.reports.length }} 份）</a></li>
-            <li><a href="#snap-profiles">周画像（{{ snapshot.profiles.length }} 周）</a></li>
-            <li><a href="#snap-emotions">情绪记录（{{ snapshot.emotionPoints.length }} 点）</a></li>
+            <li>
+              <a href="#snap-reports">报告（{{ snapshot.reports.length }} 份）</a>
+            </li>
+            <li>
+              <a href="#snap-profiles">周画像（{{ snapshot.profiles.length }} 周）</a>
+            </li>
+            <li>
+              <a href="#snap-emotions">情绪记录（{{ snapshot.emotionPoints.length }} 点）</a>
+            </li>
           </ol>
         </nav>
 
@@ -210,7 +216,9 @@ function doPrint() {
                   {{ r.content.report.insight }}
                 </p>
                 <p v-if="r.content.planTitle" class="insight sv-muted">{{ r.content.planTitle }}</p>
-                <p v-if="r.content.overall" class="insight sv-muted">沟通分 {{ r.content.overall.avgScore }}</p>
+                <p v-if="r.content.overall" class="insight sv-muted">
+                  沟通分 {{ r.content.overall.avgScore }}
+                </p>
               </template>
             </div>
           </SvCard>
@@ -253,7 +261,8 @@ function doPrint() {
         </section>
 
         <footer class="print-only print-foot">
-          生成时间 {{ snapshot.generatedAt.slice(0, 16).replace('T', ' ') }} UTC · 本档案为自助记录汇总，不构成任何医学诊断。
+          生成时间 {{ snapshot.generatedAt.slice(0, 16).replace('T', ' ') }} UTC ·
+          本档案为自助记录汇总，不构成任何医学诊断。
         </footer>
         <button class="sv-btn no-print" @click="doPrint">
           <SvIcon name="i-download" :size="18" tone="inherit" /> 打印 / 存为 PDF

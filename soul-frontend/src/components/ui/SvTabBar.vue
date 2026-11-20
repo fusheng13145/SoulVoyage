@@ -12,9 +12,7 @@ const tabs = [
 
 function onKey(e: KeyboardEvent) {
   if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return
-  const links = Array.from(
-    (e.currentTarget as HTMLElement).querySelectorAll<HTMLElement>('.tab'),
-  )
+  const links = Array.from((e.currentTarget as HTMLElement).querySelectorAll<HTMLElement>('.tab'))
   const idx = links.indexOf(document.activeElement as HTMLElement)
   if (idx < 0) return
   e.preventDefault()

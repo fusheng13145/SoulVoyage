@@ -202,9 +202,7 @@ onUnmounted(stopFollow)
         <span class="chev" aria-hidden="true">›</span>
       </button>
 
-      <button v-if="items.length < total" class="sv-btn ghost more" @click="loadMore">
-        加载更多
-      </button>
+      <button v-if="items.length < total" class="sv-btn ghost more" @click="loadMore">加载更多</button>
     </SvPageBody>
 
     <SvSheet
@@ -217,9 +215,18 @@ onUnmounted(stopFollow)
           <span v-if="following" class="live">实时跟随中</span>
         </div>
         <dl class="meta">
-          <div><dt>任务号</dt><dd>{{ detail.taskNo }}</dd></div>
-          <div><dt>创建</dt><dd>{{ fmt(detail.createdAt) }}</dd></div>
-          <div><dt>结束</dt><dd>{{ fmt(detail.finishedAt) }}</dd></div>
+          <div>
+            <dt>任务号</dt>
+            <dd>{{ detail.taskNo }}</dd>
+          </div>
+          <div>
+            <dt>创建</dt>
+            <dd>{{ fmt(detail.createdAt) }}</dd>
+          </div>
+          <div>
+            <dt>结束</dt>
+            <dd>{{ fmt(detail.finishedAt) }}</dd>
+          </div>
         </dl>
         <p v-if="detail.errorMsg" class="error">{{ detail.errorMsg }}</p>
 

@@ -47,9 +47,7 @@ const drafts = ref<ContentDraft[]>([])
 
 const typePath = (t: Tab) => (t === 'kg' ? 'kg' : t === 'scenes' ? 'scene' : 'exercise')
 const contentTypeOf = (t: Tab) => (t === 'kg' ? 'KG' : t === 'scenes' ? 'SCENE' : 'EXERCISE')
-const draftMap = computed(
-  () => new Map(drafts.value.map(d => [`${d.contentType}:${d.code}`, d])),
-)
+const draftMap = computed(() => new Map(drafts.value.map(d => [`${d.contentType}:${d.code}`, d])))
 const draftOf = (t: Tab, code: string) => draftMap.value.get(`${contentTypeOf(t)}:${code}`)
 
 const KG_TYPES = ['DISTORTION', 'PSY_TOPIC', 'COMM_CASE', 'STRENGTH_TECH']
@@ -164,9 +162,7 @@ function parseEditor(): unknown | null {
 
 async function loadRevisions() {
   if (!editorOpen.value) return
-  editorRevisions.value = await listContentRevisions(editorType.value, editorCode.value).catch(
-    () => [],
-  )
+  editorRevisions.value = await listContentRevisions(editorType.value, editorCode.value).catch(() => [])
 }
 
 async function persistDraft(): Promise<boolean> {
@@ -188,10 +184,7 @@ async function saveDraft() {
       toast('草稿已保存')
       await load()
       await loadRevisions()
-      editorPreview.value = await previewContentDraft(
-        editorType.value,
-        editorCode.value,
-      ).catch(() => null)
+      editorPreview.value = await previewContentDraft(editorType.value, editorCode.value).catch(() => null)
     }
   } catch (e) {
     toast((e as Error).message || '保存草稿失败')
@@ -407,9 +400,7 @@ async function preview() {
         <p class="muted">
           {{ editorPreview.summary }} · {{ editorPreview.valid ? '校验通过' : '校验未通过' }}
         </p>
-        <p v-if="editorPreview.conflict" class="err">
-          线上内容已被他人更新，请关闭后重新载入最新版本。
-        </p>
+        <p v-if="editorPreview.conflict" class="err">线上内容已被他人更新，请关闭后重新载入最新版本。</p>
         <ul v-if="editorPreview.errors.length" class="errs">
           <li v-for="e in editorPreview.errors" :key="e">{{ e }}</li>
         </ul>
