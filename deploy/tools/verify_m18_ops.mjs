@@ -1,3 +1,4 @@
+import { PW } from './env.mjs';
 // M18 · G8（图运行时可观测）+ G9（DB↔图对账）的真机验收。
 //
 // 这两个能力都是"管理端看得见"的性质：G8 让运维一句话读出 KG 当前跑在图侧还是回落 DB、
@@ -20,7 +21,6 @@ function apiVal(name) {
 
 const BASE = (apiVal('--base') || 'http://localhost:8080') + '/api/v1';
 const EXPECT = apiVal('--expect-kg') || 'any';
-const PW = 'Passw0rd!2026';
 
 const failures = [];
 const check = (ok, msg) => {

@@ -1,3 +1,4 @@
+import { PW } from './env.mjs';
 // M9 视觉走查：管理端六页（总览/任务监控/风险复核/内容管理/用户支持/审计密钥）深浅两态
 // + 非管理员访问 /admin 的守卫回跳。
 // 用法：后端 :8080、前端 :5173 起好后 `node deploy/tools/shots_m9.mjs`
@@ -12,7 +13,6 @@ const BASE = 'http://localhost:8080/api/v1';
 const APP = 'http://localhost:5173';
 const SHOTS = 'docs/screenshots';
 mkdirSync(SHOTS, { recursive: true });
-const PW = 'Passw0rd!2026';
 
 async function api(method, p, body, token) {
   const res = await fetch(BASE + p, {

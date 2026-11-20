@@ -33,7 +33,7 @@ class OptimisticLockTest {
         UserEntity u = new UserEntity();
         u.setUsername("ol" + System.nanoTime());
         u.setNickname("t");
-        u.setPasswordHash(encoder.encode("Passw0rd!2026"));
+        u.setPasswordHash(encoder.encode("SvFixture!2026"));
         return users.save(u).getId();
     }
 

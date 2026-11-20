@@ -4594,7 +4594,7 @@ export interface operations {
       path?: never
       cookie?: never
     }
-    requestBody: {
+    requestBody?: {
       content: {
         'application/json': components['schemas']['RefreshReq']
       }
@@ -4614,8 +4614,8 @@ export interface operations {
   logout: {
     parameters: {
       query?: never
-      header: {
-        Authorization: string
+      header?: {
+        Authorization?: string
       }
       path?: never
       cookie?: never

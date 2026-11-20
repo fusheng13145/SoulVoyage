@@ -1,3 +1,4 @@
+import { PW } from './env.mjs';
 // M5 真机冒烟：S3 认证加固 → S4 SSE 断点重放 → C1 日记本全链路 → S2 导出+注销端到端
 // 用法：后端起在 :8080 后 `node deploy/tools/smoke_m5.mjs`
 const BASE = 'http://localhost:8080/api/v1';
@@ -79,7 +80,6 @@ async function waitTask(taskNo, timeoutMs = 120000) {
   }
 }
 
-const PW = 'Passw0rd!2026';
 const newName = () => 'smoke_m5_' + Date.now().toString(36).slice(-6) + Math.floor(Math.random() * 1e3);
 
 // ---------------- S3 认证加固 ----------------

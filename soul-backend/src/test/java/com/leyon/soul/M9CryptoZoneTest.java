@@ -38,7 +38,7 @@ class M9CryptoZoneTest {
         UserEntity u = new UserEntity();
         u.setUsername("cz" + System.nanoTime());
         u.setNickname("t");
-        u.setPasswordHash(encoder.encode("Passw0rd!2026"));
+        u.setPasswordHash(encoder.encode("SvFixture!2026"));
         return userRepo.save(u).getId();
     }
 

@@ -46,7 +46,7 @@ import static org.junit.jupiter.api.Assertions.*;
 @ActiveProfiles("test")
 class M14WechatAuthTest {
 
-    private static final String PWD = "Passw0rd!2026";
+    private static final String PWD = "SvFixture!2026";
     private static final String WX = "/api/v1/auth/wechat";
     /** 信封里的成功码是 0（ApiResponse.ok），不是 HTTP 200 */
     private static final int OK = 0;

@@ -1,3 +1,4 @@
+import { PW } from './env.mjs';
 // M6 Lighthouse 无障碍：登录态三页 a11y 评分（用法：node deploy/tools/a11y_m6.mjs <username>）
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -9,7 +10,6 @@ const lighthouse = (await import(pathToFileURL(require.resolve('lighthouse')).hr
 
 const BASE = 'http://localhost:8080/api/v1';
 const APP = 'http://localhost:5174';
-const PW = 'Passw0rd!2026';
 
 const login = async () => {
   const res = await fetch(BASE + '/auth/login', {

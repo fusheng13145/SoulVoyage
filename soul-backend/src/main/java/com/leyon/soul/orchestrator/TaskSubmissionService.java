@@ -2,20 +2,16 @@ package com.leyon.soul.orchestrator;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.leyon.soul.common.api.ErrorCode;
-import com.leyon.soul.common.exception.BizException;
-import com.leyon.soul.common.util.Ulid;
 import com.leyon.soul.domain.task.TaskInstanceEntity;
 import com.leyon.soul.domain.task.TaskInstanceRepository;
 import com.leyon.soul.orchestrator.pipeline.PipelineRegistry;
-import io.micrometer.core.instrument.MeterRegistry;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 
 /**
- * 任务提交服务（B-03）：幂等、并发上限、落库、task_created 与派发。
+ * 任务提交服务（B-03）：幂等、并发上限（下沉到 {@link TaskGateService}）、落库、task_created 与派发。
  * 编排引擎的"入口"职责从执行循环中剥离，Controller 只与门面交互。
  */
 @Slf4j
@@ -25,10 +21,10 @@ public class TaskSubmissionService {
 
     private final PipelineRegistry pipelines;
     private final TaskInstanceRepository taskRepo;
+    private final TaskGateService gate;
     private final TaskEventPublisher events;
     private final TaskDispatcher dispatcher;
     private final TaskExecutionService execution;
-    private final MeterRegistry registry;
     private final ObjectMapper mapper;
     /** 延迟解析：钩子实现位于领域层，直接注入会与 DiaryService→OrchestratorService 形成构造环 */
     private final ObjectProvider<TaskSubmissionHook> hooks;
@@ -47,17 +43,10 @@ public class TaskSubmissionService {
             var exist = taskRepo.findByUserIdAndClientReqId(userId, clientReqId);
             if (exist.isPresent()) return exist.get();
         }
-        if (taskRepo.countActive(userId) >= 2) {
-            throw new BizException(ErrorCode.TASK_CONCURRENCY_LIMIT);
-        }
-
-        TaskInstanceEntity t = new TaskInstanceEntity();
-        t.setTaskNo(Ulid.next());
-        t.setUserId(userId);
-        t.setPipelineCode(code.name());
-        t.setClientReqId(blankToNull(clientReqId));
-        final TaskInstanceEntity saved = taskRepo.save(t);
-        registry.counter("sv.task.submit", "pipeline", code.name()).increment();
+        // 并发上限与落库在同一个短事务里完成（见 TaskGateService）：原先 countActive 后 save 非原子，可被并发穿透
+        final TaskInstanceEntity saved = gate.create(userId, code, blankToNull(clientReqId));
+        log.info("task submitted taskNo={} pipeline={} userId={} origin={}",
+                saved.getTaskNo(), code.name(), userId, origin);
 
         events.created(saved);
         JsonNode inputCopy = input == null ? mapper.createObjectNode() : input;

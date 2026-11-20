@@ -106,7 +106,7 @@ class PipelineContractTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(mapper.writeValueAsString(Map.of(
                                 "username", "pipe_" + System.nanoTime(),
-                                "password", "Passw0rd!2026",
+                                "password", "SvFixture!2026",
                                 "nickname", "流水线契约"))))
                 .andExpect(status().isOk())
                 .andReturn();

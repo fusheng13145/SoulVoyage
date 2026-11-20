@@ -1,3 +1,4 @@
+import { PW } from './env.mjs';
 // M13 真机走查（无头 Edge，dev 真机 MySQL + Redis，SV_DISTRIBUTED=true）：
 //   多节点开关是运维口径，界面只新增一处可观测——管理端首页必须写明"闸门到底跑在哪一侧"。
 //   ① /admin 的"推理闸门"一行读出 gate=redis（否则运维只能猜配了没生效）
@@ -13,7 +14,6 @@ const puppeteer = require('puppeteer-core')
 const BASE = 'http://localhost:8080/api/v1'
 const APP = 'http://localhost:5173'
 const SHOTS = 'docs/screenshots'
-const PW = 'Passw0rd!2026'
 
 mkdirSync(SHOTS, { recursive: true })
 const sleep = ms => new Promise(r => setTimeout(r, ms))

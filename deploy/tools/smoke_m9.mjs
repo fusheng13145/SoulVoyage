@@ -1,10 +1,10 @@
+import { PW } from './env.mjs';
 // M9 真机冒烟（管理端 + 生产化，中文接口链路）：
 // 角色守卫 / O3 指标总览 / A1 任务监控+重跑闸门 / A2 风险复核 SOP（二次授权拒绝→解密→结案联动 S1）/
 // A3 内容预览试跑+热更新 / A4 用户支持（搜索·冻结断会话·解冻·危机看板）/ A5 审计链校验+密钥看板+导出记录。
 // 前置：dev 后端起在 :8080，且库中有 role='ADMIN' 的 admin 账号（见脚本内提示）。
 // 用法：node deploy/tools/smoke_m9.mjs
 const BASE = (process.argv[2] || 'http://localhost:8080') + '/api/v1';
-const PW = 'Passw0rd!2026';
 let userToken = '';
 let adminToken = '';
 

@@ -1,3 +1,4 @@
+import { PW } from './env.mjs';
 // Batch 0 golden 采集：按 Spec §3.6 的 15 个场景调用真实后端，结果脱敏后写入 docs/baseline/golden/
 // 前置：MySQL/Redis 已起；后端已起在 :8080（可用 SV_ORIGIN 覆盖）；admin 账号可登录（不可用时 14/15 记 SKIPPED）
 // 用法：node deploy/tools/snapshot_batch0.mjs
@@ -6,7 +7,6 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 
 const BASE = (process.env.SV_ORIGIN || 'http://localhost:8080') + '/api/v1';
 const OUT = 'docs/baseline/golden';
-const PW = 'Passw0rd!2026';
 const EN_CA = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Shanghai' });
 const today = () => EN_CA.format(new Date());
 const daysAgo = (n) => EN_CA.format(new Date(Date.now() - n * 864e5));
@@ -25,7 +25,7 @@ function save(name, payload) {
 /** 脱敏：键排序 + 去除随机/时间/身份字段（与 manifest 的忽略清单保持一致） */
 const REDACT_KEYS = new Set([
   'id', 'userId', 'sessionId', 'simulateId', 'turnId', 'fileId', 'taskId', 'groupId', 'planId', 'riskEventId',
-  'accessToken', 'refreshToken', 'token', 'bindTicket', 'openid', 'wxOpenid', 'username', 'nickname',
+  'accessToken', 'refreshToken', 'token', 'bindTicket', 'openid', 'wxOpenid', 'username', 'nickname', 'password',
   'taskNo', 'traceId', 'clientReqId',
 ]);
 function sanitize(v) {

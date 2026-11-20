@@ -5,7 +5,7 @@
     {
       "name": "login",
       "request": {
-        "password": "Passw0rd!2026",
+        "password": "<redacted>",
         "username": "<redacted>"
       },
       "response": {

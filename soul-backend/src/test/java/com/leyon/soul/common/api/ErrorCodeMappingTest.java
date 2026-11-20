@@ -42,7 +42,8 @@ class ErrorCodeMappingTest {
             Map.entry(ErrorCode.ASR_FAILED, HttpStatus.BAD_GATEWAY),
             Map.entry(ErrorCode.INTERNAL_ERROR, HttpStatus.INTERNAL_SERVER_ERROR),
             Map.entry(ErrorCode.CRISIS_MODE_RESTRICTED, HttpStatus.FORBIDDEN),
-            Map.entry(ErrorCode.DEPENDENCY_UNAVAILABLE, HttpStatus.SERVICE_UNAVAILABLE));
+            Map.entry(ErrorCode.DEPENDENCY_UNAVAILABLE, HttpStatus.SERVICE_UNAVAILABLE),
+            Map.entry(ErrorCode.RATE_LIMITED, HttpStatus.TOO_MANY_REQUESTS));
 
     private static final Map<ErrorCode, Integer> PINNED_VALUES = Map.ofEntries(
             Map.entry(ErrorCode.UNAUTHORIZED, 1001),
@@ -63,7 +64,8 @@ class ErrorCodeMappingTest {
             Map.entry(ErrorCode.ASR_FAILED, 4004),
             Map.entry(ErrorCode.INTERNAL_ERROR, 5000),
             Map.entry(ErrorCode.CRISIS_MODE_RESTRICTED, 5001),
-            Map.entry(ErrorCode.DEPENDENCY_UNAVAILABLE, 5002));
+            Map.entry(ErrorCode.DEPENDENCY_UNAVAILABLE, 5002),
+            Map.entry(ErrorCode.RATE_LIMITED, 1007));
 
     @Test
     @DisplayName("错误码只增不改：码值与 HTTP 映射全量冻结")
@@ -128,6 +130,18 @@ class ErrorCodeMappingTest {
         assertEquals(HttpStatus.CONFLICT, res.getStatusCode());
         assertEquals(ErrorCode.CONFLICT.code(), res.getBody().getCode());
         assertEquals(ErrorCode.CONFLICT.defaultMsg(), res.getBody().getMsg());
+    }
+
+    @Test
+    @DisplayName("Content-Type 不支持：HTTP 415 + 2001，不落 500")
+    void unsupportedMediaTypeBecomes415() {
+        var res = new GlobalExceptionHandler()
+                .unsupportedMediaType(new org.springframework.web.HttpMediaTypeNotSupportedException(
+                        MediaType.APPLICATION_FORM_URLENCODED, java.util.List.of(MediaType.APPLICATION_JSON)));
+
+        assertEquals(HttpStatus.UNSUPPORTED_MEDIA_TYPE, res.getStatusCode());
+        assertEquals(ErrorCode.BAD_PARAMS.code(), res.getBody().getCode());
+        assertTrue(res.getBody().getMsg().contains("application/json"));
     }
 
     @Test

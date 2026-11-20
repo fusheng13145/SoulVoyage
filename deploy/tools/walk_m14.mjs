@@ -1,3 +1,4 @@
+import { PW } from './env.mjs';
 // M14 真机走查：小程序端首版页面集（觉察-陪伴闭环）的界面不变量（无头 Edge，dev 真机 MySQL + mock 微信）
 //   ① 登录：本端没有"用户名+口令"直登分支；微信授权后只在这一步要一次口令（绑定既有账号）
 //   ② 今日：16 情绪盘 → 能量/一句话 → 打卡回执 → 近两周条与连续天数（数据来自真库不是组件态）
@@ -18,7 +19,6 @@ const puppeteer = require('puppeteer-core')
 const BASE = process.env.SV_ORIGIN ? process.env.SV_ORIGIN + '/api/v1' : 'http://localhost:8081/api/v1'
 const APP = process.env.SV_APP || 'http://localhost:5181'
 const SHOTS = 'docs/screenshots'
-const PW = 'Passw0rd!2026'
 const DIARY_TEXT =
   '今天下午答辩排练又卡在同一页上，我嘴上说没事，心里却一直往下沉。晚饭时导师发消息说还要再改一版，我盯着那行字很久没有动，连打开电脑的力气都像被谁收走了。夜里躺在床上把白天说错的那两句翻来覆去地想，越想越觉得自己不适合读这个专业。'
 const CRISIS_TEXT = '我真的不想活了，感觉撑不下去。'

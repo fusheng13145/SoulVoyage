@@ -1,3 +1,4 @@
+import { PW } from './env.mjs';
 // M3 UC2 真机冒烟：注册 → 场景 → 开场 → 两轮 SSE 对话 → 危机兜底 → 复盘 → 报告
 // 用法：node deploy/tools/smoke_m3.mjs
 const BASE = 'http://localhost:8080/api/v1';
@@ -57,7 +58,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const username = 'smoke_m3_' + Date.now().toString(36).slice(-6);
 console.log('== register', username);
 token = (await api('POST', '/auth/register',
-  { username, password: 'Passw0rd!2026', nickname: '冒烟测试' })).accessToken;
+  { username, password: PW, nickname: '冒烟测试' })).accessToken;
 
 const sceneList = await api('GET', '/scenes');
 console.log('== scenes:', sceneList.map((s) => `${s.code}/${s.difficulties.join('|')}`).join('  '));

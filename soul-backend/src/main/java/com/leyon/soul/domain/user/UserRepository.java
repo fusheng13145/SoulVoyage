@@ -1,8 +1,10 @@
 package com.leyon.soul.domain.user;
 
+import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -13,6 +15,17 @@ import java.util.Optional;
 public interface UserRepository extends JpaRepository<UserEntity, Long> {
     Optional<UserEntity> findByUsernameAndDeletedAtIsNull(String username);
     Optional<UserEntity> findByIdAndDeletedAtIsNull(Long id);
+
+    /**
+     * 同用户串行化点（2026-11-20 并发审查修复）：任务并发上限与每日打卡都靠"先读后写"，
+     * 而 count-then-insert / find-or-create 在多请求下不是原子的（实测 60 并发可穿透 2 个活跃任务上限、
+     * 10 并发同日打卡有 7 个撞唯一键 500）。这里借用户行锁把同一用户的这类写操作排队，
+     * 不引入新表、不依赖 Redis，H2 与 MySQL 都支持 SELECT ... FOR UPDATE。
+     * 必须在事务内调用，否则锁随语句结束即释放。
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select u from UserEntity u where u.id = :id")
+    Optional<UserEntity> lockById(@Param("id") Long id);
 
     /** M14 微信登录：openid → 已绑定的在册账号 */
     Optional<UserEntity> findByWxOpenidAndDeletedAtIsNull(String wxOpenid);

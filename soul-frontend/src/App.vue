@@ -8,7 +8,6 @@ import SvSheet from '@/components/ui/SvSheet.vue'
 import SvCrisisBanner from '@/components/SvCrisisBanner.vue'
 import { useAuthStore } from '@/stores/auth'
 import { dialogState, overlayDepth } from '@/stores/ui'
-import { TOKEN_KEY } from '@/api/http'
 
 const route = useRoute()
 const router = useRouter()
@@ -22,7 +21,7 @@ provide('svScrollRoot', scrollRoot)
 
 const showTab = computed(() => !!route.meta.tab)
 const isAdmin = computed(() => !!route.meta.admin)
-const isAuthed = computed(() => !!localStorage.getItem(TOKEN_KEY))
+const isAuthed = computed(() => auth.authed)
 
 const PAGE_LABELS: Record<string, string> = {
   today: '今日',
@@ -96,10 +95,10 @@ router.afterEach((to, from) => {
 onMounted(() => window.addEventListener('keydown', onGlobalKey))
 onUnmounted(() => window.removeEventListener('keydown', onGlobalKey))
 
-if (isAuthed.value && !auth.me)
-  auth.fetchMe().catch(() => {
-    /* 401 由拦截器处理 */
-  })
+// 启动即尝试用 HttpOnly Cookie 静默续期一次，再决定是否拉档案
+auth.restore().catch(() => {
+  /* 401 由拦截器处理 */
+})
 watch(isAuthed, v => {
   if (v && !auth.me) auth.fetchMe().catch(() => {})
 })
@@ -112,13 +111,7 @@ watch(isAuthed, v => {
       <div id="sv-layer" />
       <div class="sr-only" aria-live="polite">{{ pageTitle }}</div>
       <SvCrisisBanner v-if="isAuthed && !isAdmin && route.path !== '/crisis'" class="print-hide" />
-      <main
-        id="sv-main"
-        ref="mainEl"
-        class="screen sv-scroll"
-        tabindex="-1"
-        aria-label="页面主要内容"
-      >
+      <main id="sv-main" ref="mainEl" class="screen sv-scroll" tabindex="-1" aria-label="页面主要内容">
         <router-view v-slot="{ Component }">
           <transition :name="transitionName" mode="out-in">
             <component :is="Component" />

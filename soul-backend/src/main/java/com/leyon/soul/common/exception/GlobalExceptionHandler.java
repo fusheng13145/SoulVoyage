@@ -22,6 +22,7 @@ import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 
 import java.io.IOException;
@@ -69,6 +70,14 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MissingServletRequestParameterException.class)
     public ResponseEntity<ApiResponse<Void>> missingParam(MissingServletRequestParameterException e) {
         return badRequest("缺少参数: " + e.getParameterName());
+    }
+
+    /** Content-Type 不被支持：415，而不是掉进 500——客户端用错编码时能直接看懂要改什么 */
+    @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
+    public ResponseEntity<ApiResponse<Void>> unsupportedMediaType(HttpMediaTypeNotSupportedException e) {
+        log.debug("unsupported media type: {}", e.getContentType());
+        return json(HttpStatus.UNSUPPORTED_MEDIA_TYPE)
+                .body(ApiResponse.fail(ErrorCode.BAD_PARAMS, "请求体类型不支持，请用 application/json"));
     }
 
     @ExceptionHandler(MethodArgumentTypeMismatchException.class)

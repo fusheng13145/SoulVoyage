@@ -81,7 +81,7 @@ class M10ForgottenDeletionTest {
     @Value("${soul.account.deletion-cooldown}")
     private Duration cooldown;
 
-    private static final String PWD = "Passw0rd!2026";
+    private static final String PWD = "SvFixture!2026";
     private static final String CANARY = "这句只有我自己看得到";
 
     /** 各域各落一条含金丝雀的密文（companion/report 走真实写入口），返回 (域标签, 密文) */

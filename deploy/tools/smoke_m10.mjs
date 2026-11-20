@@ -1,3 +1,4 @@
+import { PW } from './env.mjs';
 // M10 冒烟（dev 真机 MySQL + Redis）：上线门禁收口 + OpenAI 兼容真协议链路。
 // 用法：
 //   node deploy/tools/smoke_m10.mjs          # 门禁段（provider=mock 的后端即可）
@@ -8,7 +9,6 @@
 const BASE = 'http://localhost:8080/api/v1';
 const STUB = 'http://127.0.0.1:8787';
 const LLM = process.argv.includes('--llm');
-const PW = 'Passw0rd!2026';
 const ADMIN = { username: 'admin', password: PW };
 
 let pass = 0;

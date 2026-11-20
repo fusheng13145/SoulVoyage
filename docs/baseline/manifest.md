@@ -24,7 +24,7 @@
 
 | 文件 | 来源 | SHA-256 |
 |---|---|---|
-| `openapi.json` | `soul-backend/openapi/openapi.json` | `25FBFA93532CA7E00915D40BBB8A9F5F037BD201E4A0B2E2E6AF380C7BF4639C` |
+| `openapi-batch0-snapshot.json`（原 `openapi.json`） | `soul-backend/openapi/openapi.json`（Batch 0 时的副本） | `25FBFA93532CA7E00915D40BBB8A9F5F037BD201E4A0B2E2E6AF380C7BF4639C` |
 | `schema.sql` | `deploy/sql/schema.sql`（只读副本，不改语义） | `545C44325A71A824349153B70B7B35E3ADADEAD035DD2C94EEB0B761C1444505` |
 | `schema.web.d.ts` | `soul-frontend/src/api/schema.d.ts` | `7EC6B01076228A1EBBEE1E10963CFFFAAEB69FEA197EBE4D7C63C2422ACADC0D` |
 | `schema.miniprogram.d.ts` | `miniprogram/src/api/schema.d.ts` | `7EC6B01076228A1EBBEE1E10963CFFFAAEB69FEA197EBE4D7C63C2422ACADC0D` |
@@ -41,6 +41,7 @@
 | 后端 Failures / Errors | 0 / 0 | 同上 |
 | 后端 Skipped | 9（`Neo4jKgContractTest`，无真图实例） | 同上 |
 | 前端覆盖率 | 100%（lines/branches/functions/statements，逻辑层口径） | `reports/coverage-summary.json` |
+| 压测/负载快照 | M9/M10/M18 四份 JSON（历史证据，非当前口径） | `reports/load_m9_results.json`、`load_m10_results.json`、`load_m18_db_results.json`、`load_m18_graph_results.json` |
 
 ## 4. 运行时 golden（15 个场景）
 
@@ -87,7 +88,7 @@
 
 采集时已做**键排序 + 脱敏**，以下键统一替换为 `"<redacted>"`（值为 `null` / `""` 时保留原值）：
 
-- 身份/凭证：`id`、`userId`、`sessionId`、`simulateId`、`turnId`、`fileId`、`taskId`、`groupId`、`planId`、`riskEventId`、`accessToken`、`refreshToken`、`token`、`bindTicket`、`openid`、`wxOpenid`、`username`、`nickname`
+- 身份/凭证：`id`、`userId`、`sessionId`、`simulateId`、`turnId`、`fileId`、`taskId`、`groupId`、`planId`、`riskEventId`、`accessToken`、`refreshToken`、`token`、`bindTicket`、`openid`、`wxOpenid`、`username`、`nickname`、`password`
 - 随机/幂等：`taskNo`、`traceId`、`clientReqId`
 - 时间：所有以 `At` 结尾的键（`createdAt`、`finishedAt`、`deletionRequestedAt`、`doneAt` 等）
 

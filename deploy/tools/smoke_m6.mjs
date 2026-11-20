@@ -1,3 +1,4 @@
+import { PW } from './env.mjs';
 // M6 真机冒烟：轻量打卡 POST /emotions/self-rating → SELF_RATING 轨迹可查 + 参数校验
 // 用法：后端起在 :8080 后 `node deploy/tools/smoke_m6.mjs`
 const BASE = 'http://localhost:8080/api/v1';
@@ -19,7 +20,6 @@ async function api(method, path, body) {
 function expect(cond, msg) { if (!cond) throw new Error('断言失败: ' + msg); }
 const ok = (name) => console.log('  ✔', name);
 
-const PW = 'Passw0rd!2026';
 
 // 等后端就绪（最多 60s）
 for (let i = 0; ; i++) {

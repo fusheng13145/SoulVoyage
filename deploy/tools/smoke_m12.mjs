@@ -1,3 +1,4 @@
+import { PW } from './env.mjs';
 // M12 冒烟（dev 真机 MySQL + Redis）：辅导员群体看板——三道隐私闸走真接口：
 //   权限（@perms 表闸门）、授权默认关（无偏好行=不参与）、<10 人整块抑制 + 单日贡献者下限。
 // 前置：dev 后端起在 :8080（SV_LLM_PROVIDER=mock 即可，看板不碰模型）；
@@ -5,7 +6,6 @@
 // 中文一律走 fetch（Git Bash 的 curl 会把中文编成 GBK 字节，后端只会回 400/2001）。
 
 const BASE = 'http://localhost:8080/api/v1';
-const PW = 'Passw0rd!2026';
 const ADMIN = { username: 'admin', password: PW };
 const SECRET_NOTE = '这段备注是密文，看板永远不许读到它';
 

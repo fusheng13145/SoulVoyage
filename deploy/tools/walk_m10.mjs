@@ -1,3 +1,4 @@
+import { PW } from './env.mjs';
 // M10 上线门禁走查：375×812 与 430×932 两端窄屏全页面（此前固定 430×932 单一视口）
 //   ① 横向溢出  ② 可点件被遮挡（只判真正落在滚动容器可视区内的件）  ③ 键盘弹出（视口压到 500 高）后输入框仍在可视区内
 //   ④ 安全区 token 覆盖面（env() 定义 + var(--sv-safe-*) 消费点 + viewport-fit=cover）  ⑤ 触控目标尺寸（信息项）
@@ -13,7 +14,6 @@ const puppeteer = require('puppeteer-core')
 const BASE = 'http://localhost:8080/api/v1'
 const APP = 'http://localhost:5173'
 const SHOTS = 'docs/screenshots'
-const PW = 'Passw0rd!2026'
 const W = 375
 const H = 812
 const KB_H = 500

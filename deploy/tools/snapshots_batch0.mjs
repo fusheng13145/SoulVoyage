@@ -1,3 +1,4 @@
+import { PW } from './env.mjs';
 // Batch 0 截图采集：4 宽度 × 明暗 × 7 路由，写入 docs/baseline/screenshots/
 // 前置：后端 :8080、前端 :5174（可用 SV_APP 覆盖）已启动；本机 Edge 可用
 // 用法：node deploy/tools/snapshots_batch0.mjs
@@ -12,7 +13,6 @@ const puppeteer = require('puppeteer-core');
 const BASE = (process.env.SV_ORIGIN || 'http://localhost:8080') + '/api/v1';
 const APP = process.env.SV_APP || 'http://localhost:5174';
 const OUT = process.env.SV_SHOT_OUT || 'docs/baseline/screenshots';
-const PW = 'Passw0rd!2026';
 const EDGE = 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe';
 const EN_CA = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Shanghai' });
 

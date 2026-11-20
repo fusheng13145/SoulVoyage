@@ -1,3 +1,4 @@
+import { PW } from './env.mjs';
 // M13 冒烟（dev 真机 MySQL + Redis，双实例冒充两个节点）：技术债第 2 条「状态跨节点」真机验证。
 // 前置：deploy/local.env 基础上加 SV_DISTRIBUTED=true 起两个实例（同一 MySQL、同一 Redis）——
 //   set -a; . deploy/local.env; set +a
@@ -10,7 +11,6 @@
 
 const A = 'http://localhost:8081/api/v1';
 const B = 'http://localhost:8082/api/v1';
-const PW = 'Passw0rd!2026';
 const ADMIN = { username: 'admin', password: PW };
 const SECRET_NOTE = '这段明文绝不该出现在 Redis 里';
 

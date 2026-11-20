@@ -1,3 +1,4 @@
+import { PW } from './env.mjs';
 // M16 真机降级验证：Neo4j 不可用时，KG 检索须回落 DbKgService，Agent 链路不得失败。
 //
 // 验证方式（故障注入）：本脚本需要在「Neo4j 停止」与「Neo4j 运行」两种状态下各跑一次——
@@ -15,7 +16,6 @@
 // 前置：dev 后端(:8080)已启动，且 SV_NEO4J_ENABLED=true。
 // 用法：node deploy/tools/verify_m16_fallback.mjs
 const BASE = 'http://127.0.0.1:8080/api/v1';
-const PW = 'Passw0rd!2026';
 let token = '';
 
 const label = process.argv[2] || 'baseline';

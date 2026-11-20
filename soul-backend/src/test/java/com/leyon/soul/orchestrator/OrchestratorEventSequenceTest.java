@@ -79,8 +79,9 @@ class OrchestratorEventSequenceTest {
         TaskStepRunner runner = new TaskStepRunner(agents, stepRepo, msgRepo, crypto, mapper, registry, publisher);
         execution = new TaskExecutionService(pipelines, taskRepo, stepRepo, userRepo, registry,
                 runner, publisher, dispatcher, codec, mapper);
-        submission = new TaskSubmissionService(pipelines, taskRepo, publisher, dispatcher, execution,
-                registry, mapper, hooks);
+        submission = new TaskSubmissionService(pipelines, taskRepo,
+                new TaskGateService(taskRepo, userRepo, registry),
+                publisher, dispatcher, execution, mapper, hooks);
         lenient().when(hooks.orderedStream()).thenReturn(java.util.stream.Stream.empty());
 
         TaskDefinition definition = mock(TaskDefinition.class);

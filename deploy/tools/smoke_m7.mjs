@@ -1,3 +1,4 @@
+import { PW } from './env.mjs';
 // M7 真机冒烟（中文接口链路）：打卡/补签/streak → 漫聊 SSE（含高危当轮拦截/这句别分析/收段）
 // → 认知书写→TRACE 任务 → 跟练记录 → 成就/通知/偏好。
 // 用法：dev 后端起在 :8080 后 `node deploy/tools/smoke_m7.mjs`
@@ -51,7 +52,6 @@ async function sse(path, body) {
 function expect(cond, msg) { if (!cond) throw new Error('断言失败: ' + msg); }
 const ok = (name) => console.log('  ✔', name);
 
-const PW = 'Passw0rd!2026';
 const today = new Date().toLocaleDateString('en-CA');
 
 // 等后端就绪（最多 60s；启动期 ECONNREFUSED 属正常，吞掉重试）

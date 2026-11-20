@@ -1,3 +1,4 @@
+import { PW } from './env.mjs';
 // M4 真机冒烟：四步日记流水线（含危机双轨+关怀模式）→ 转介资源 → 练习打卡 → 轨迹/画像 → 限时导出 → 模拟复盘风险尾巴
 // 用法：node deploy/tools/smoke_m4.mjs
 const BASE = 'http://localhost:8080/api/v1';
@@ -35,7 +36,7 @@ const assert = (cond, msg) => { if (!cond) throw new Error('ASSERT FAILED: ' + m
 const username = 'smoke_m4_' + Date.now().toString(36).slice(-6);
 console.log('== register', username);
 token = (await api('POST', '/auth/register',
-  { username, password: 'Passw0rd!2026', nickname: 'M4冒烟' })).accessToken;
+  { username, password: PW, nickname: 'M4冒烟' })).accessToken;
 
 let t = await runTask('DIARY_PIPELINE', {
   diaryText: '今天要交三份报告，还有小组作业没推进，一想到就做不完我就特别焦虑，心脏怦怦跳。',

@@ -6,7 +6,7 @@
       "name": "register",
       "request": {
         "nickname": "<redacted>",
-        "password": "Passw0rd!2026",
+        "password": "<redacted>",
         "username": "<redacted>"
       },
       "response": {

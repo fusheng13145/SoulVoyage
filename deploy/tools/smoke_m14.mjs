@@ -1,3 +1,4 @@
+import { PW } from './env.mjs';
 // M14 冒烟（dev 真机 MySQL + Redis）：微信小程序端登录链路走真接口——
 //   未绑定只回票 / 错口令不烧票 / 一号一微信双向 / 注册复用 Web 校验 / 解绑即时生效 / 匿名口 IP 窗。
 // 前置：dev 后端起在 :8080（SV_WX_PROVIDER 缺省即 mock，无需 AppID）；已执行 deploy/sql/migrate_m14.sql。
@@ -6,7 +7,6 @@
 // 说明：限流键取 X-Forwarded-For，每段用独立出口 IP，段与段之间不互相牵连（真机没有反向代理时这就是唯一可信来源）。
 
 const BASE = (process.env.SV_ORIGIN || 'http://localhost:8080') + '/api/v1';
-const PW = 'Passw0rd!2026';
 
 let pass = 0;
 const fails = [];

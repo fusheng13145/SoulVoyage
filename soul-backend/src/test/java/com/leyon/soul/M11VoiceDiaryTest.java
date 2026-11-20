@@ -57,7 +57,7 @@ import static org.junit.jupiter.api.Assertions.*;
 @ActiveProfiles("test")
 class M11VoiceDiaryTest {
 
-    private static final String PWD = "Passw0rd!2026";
+    private static final String PWD = "SvFixture!2026";
     private static final String CRISIS_TEXT = "感觉一切都完了，真的撑不下去，活着没意思。";
     private static final long MAX_BYTES = 5L * 1024 * 1024;
 

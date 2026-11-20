@@ -55,7 +55,7 @@ class GrowthRhythmTest {
         UserEntity u = new UserEntity();
         u.setUsername("gr" + System.nanoTime());
         u.setNickname("t");
-        u.setPasswordHash(encoder.encode("Passw0rd!2026"));
+        u.setPasswordHash(encoder.encode("SvFixture!2026"));
         return userRepo.save(u).getId();
     }
 

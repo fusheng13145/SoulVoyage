@@ -9,6 +9,7 @@ import com.leyon.soul.domain.achievement.AchievementService;
 import com.leyon.soul.domain.emotion.EmotionCatalog;
 import com.leyon.soul.domain.emotion.EmotionTrajectoryEntity;
 import com.leyon.soul.domain.emotion.EmotionTrajectoryRepository;
+import com.leyon.soul.domain.user.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -39,6 +40,7 @@ public class CheckInService {
     private final ObjectMapper mapper;
     private final StreakService streak;
     private final AchievementService achievements;
+    private final UserRepository userRepo;
 
     public record CheckInReq(String emotion, Integer rating, Integer energy, String note) {}
 
@@ -90,6 +92,11 @@ public class CheckInService {
         if (note != null && note.isEmpty()) note = null;
         if (note != null && note.length() > 200)
             throw new BizException(ErrorCode.BAD_PARAMS, "一句话最多 200 字");
+
+        // 幂等修复：同日并发打卡原先会各自 find-not-found 后同时 insert，撞 uk_user_check(user_id, check_date)
+        // 直接 500（实测 10 并发 7 个 500），而接口语义是"每日一条可改"。这里先拿用户行锁把同一用户排队，
+        // 后到者必然读到先到者已提交（或已入本事务）的那一行，走更新分支。
+        userRepo.lockById(userId);
 
         MoodCheckInEntity c = repo.findByUserIdAndCheckDate(userId, d).orElseGet(() -> {
             MoodCheckInEntity n = new MoodCheckInEntity();

@@ -1,3 +1,4 @@
+import { PW } from './env.mjs';
 // M8 真机冒烟（中文接口链路）：N1 场景扩容+标签 / N3 每日一读+收藏 / N4 管理端热更新即时生效 /
 // C3 中断续练+训练档案 / C5 任务历史分页。
 // 前置：dev 后端起在 :8080；admin 角色需已在库中提权（见脚本内提示）。
@@ -80,7 +81,6 @@ async function sseGet(path) {
 function expect(cond, msg) { if (!cond) throw new Error('断言失败: ' + msg); }
 const ok = (name) => console.log('  ✔', name);
 
-const PW = 'Passw0rd!2026';
 
 // 等后端就绪（最多 60s）
 for (let i = 0; ; i++) {

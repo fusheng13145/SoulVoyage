@@ -11,7 +11,7 @@ import {
   type TokenResp,
   type WxLoginResp,
 } from '@/api/auth'
-import { clearTokens, getRefreshToken, getToken, setTokens } from '@/api/http'
+import { clearTokens, ensureSession, getRefreshToken, getToken, setTokens } from '@/api/http'
 import { wxJsCode } from '@/api/wx'
 
 /** 会话唯一事实源（对齐 Web 端 stores/auth）：令牌只经这一处进出存储，页面不直接碰 storage。
@@ -41,9 +41,10 @@ export const useAuthStore = defineStore('auth', () => {
     me.value = null
   }
 
-  /** 冷启动：有令牌就先认一次人，认不过（401）由网络层统一登出，这里只负责不拦住首屏 */
+  /** 冷启动：先确保有 access（H5 端靠 Cookie 静默续期），再认一次人。
+   *  认不过（401）由网络层统一登出，这里只负责不拦住首屏 */
   async function bootstrap() {
-    if (!getToken()) {
+    if (!(await ensureSession())) {
       ready.value = true
       return null
     }
@@ -95,7 +96,8 @@ export const useAuthStore = defineStore('auth', () => {
 
   async function signOut() {
     try {
-      await logoutApi(getRefreshToken())
+      // H5 端 refresh 在 Cookie 里，getRefreshToken() 为空，后端会回落读 Cookie 并下发清除
+      await logoutApi(getRefreshToken() || undefined)
     } catch {
       /* 服务端吊销失败也要本地登出：留着半死不活的会话更糟 */
     }

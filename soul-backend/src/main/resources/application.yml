@@ -1,7 +1,11 @@
 server:
   port: 8080
   shutdown: graceful
-  forward-headers-strategy: framework   # 信任 nginx X-Forwarded-Proto/Host
+  # 必须 none：framework 会注册 ForwardedHeaderFilter，把 getRemoteAddr() 改写成 X-Forwarded-For 的
+  # **第一段**（客户端可自填），等于在框架层把 IP 伪造重新放回来，ClientIpResolver 的判断随之失真。
+  # 本项目没有任何代码依赖 getScheme()/getServerName() 生成对外 URL（已全量 grep），
+  # 因此这里关掉框架级改写，IP 只由 ClientIpResolver 按"内网来源 + X-Real-IP"规则解析。
+  forward-headers-strategy: none
   error:
     include-message: never
     include-stacktrace: never
@@ -14,7 +18,9 @@ spring:
     timeout-per-shutdown-phase: 20s
   datasource:
     # 本机 MySQL 8.4（后续切换 docker-compose 时仅改此处，见 deploy/docker-compose.yml）
-    url: jdbc:mysql://${SV_MYSQL_HOST:127.0.0.1}:${SV_MYSQL_PORT:3306}/soul_voyage?useSSL=false&serverTimezone=UTC&characterEncoding=utf8&allowPublicKeyRetrieval=true
+    # TLS 相关两项做成 env：跨主机部署必须 SV_DB_USE_SSL=true 且 SV_DB_ALLOW_PUBLIC_KEY_RETRIEVAL=false
+    # （后者会允许明文交换 RSA 公钥，等于把 TLS 的意义削掉一半）；同机/同 compose 网络保持默认即可。
+    url: jdbc:mysql://${SV_MYSQL_HOST:127.0.0.1}:${SV_MYSQL_PORT:3306}/${SV_MYSQL_DB:soul_voyage}?useSSL=${SV_DB_USE_SSL:false}&serverTimezone=UTC&characterEncoding=utf8&allowPublicKeyRetrieval=${SV_DB_ALLOW_PUBLIC_KEY_RETRIEVAL:true}
     username: ${SV_MYSQL_USER:soul_voyage}
     password: ${SV_MYSQL_PASS:CHANGE_ME_local_dev}
     hikari:
@@ -60,14 +66,33 @@ soul:
     deletion-cooldown: 7d                            # S2 注销冷静期（期满销毁用户 DEK）
   security:
     jwt:
-      secret: ${SV_JWT_SECRET:DEV_ONLY_CHANGE_ME_DEV_ONLY_CHANGE_ME_32B+}   # ≥32字节
+      # 生产必须由 SV_JWT_SECRET 注入 ≥32 字节随机串；这里刻意没有默认值：
+      # 一旦留默认值，忘记配置的部署就会用"公开在仓库里的密钥"签发令牌，等于任何人都能伪造登录。
+      secret: ${SV_JWT_SECRET:}
       access-ttl: 30m
       refresh-ttl: 7d
     login-lock:                                      # S3 登录失败锁定
-      max-fail: 5
+      max-fail: 5                                    # 单 username+IP（硬锁，防的是"同一出口爆破"）
+      account-max-fail: ${SV_LOGIN_ACCOUNT_MAX_FAIL:50}   # 单账号跨 IP 累计：达阈值后只减速、不硬锁（避免被恶意锁死）
+      account-hot-delay: ${SV_ACCOUNT_HOT_DELAY:500ms}
       window: 15m
+    # 2026-11-20 审查 04：refresh 改 HttpOnly Cookie；HTTPS 部署必须设 SV_COOKIE_SECURE=true
+    refresh-cookie:
+      secure: ${SV_COOKIE_SECURE:false}
+    # 2026-11-20 审查 04：Redis 降级时，写操作与管理端 fail-closed（读接口仍降级）
+    fail-closed-on-redis-degraded: ${SV_FAIL_CLOSED_ON_REDIS:true}
+    # S3 补强：入口类接口的频率上限（注册 = 造号，刷新 = 白拿新令牌）
+    register-limit:
+      per-hour: ${SV_REGISTER_PER_HOUR:5}
+      per-day: ${SV_REGISTER_PER_DAY:20}
+    refresh-limit:
+      per-minute: ${SV_REFRESH_PER_MINUTE:30}
+    # 反向代理头信任：只有"请求来自本机/内网"时才采信 X-Real-IP / X-Forwarded-For。
+    # nginx 用 $proxy_add_x_forwarded_for 把客户端自填值放在最前，直接取第一段会被伪造；
+    # 直连公网（remoteAddr 非内网）时一律忽略这些头。
+    trust-proxy-headers: ${SV_TRUST_PROXY_HEADERS:true}
     cors-allowed-origins: ${SV_CORS_ORIGINS:http://localhost:5173,http://localhost:5174}   # 5173=Web 端，5174=小程序 H5 目标（M14）
-    master-key: ${SV_MASTER_KEY:}          # Base64 32字节主密钥 MK；为空则启动时生成临时密钥并告警（仅限开发）
+    master-key: ${SV_MASTER_KEY:}          # Base64 32字节主密钥 MK；非 dev/test 下为空即启动失败（见 MasterKeyStartupGuard）
   llm:
     provider: ${SV_LLM_PROVIDER:mock}      # mock | openai（DashScope compatible-mode 等）
     base-url: ${SV_LLM_BASE_URL:}
@@ -114,7 +139,7 @@ logging:
   pattern:
     console: "%d{HH:mm:ss.SSS} %-5level [%X{traceId:-}] %logger{36} - %msg%n"
   level:
-    com.leyon.soul: DEBUG
+    com.leyon.soul: ${SV_LOG_LEVEL:INFO}   # 生产默认 INFO；排查时可临时设 DEBUG
 
 management:
   endpoints:

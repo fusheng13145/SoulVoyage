@@ -85,4 +85,4 @@ npm install && npm run dev:h5                # 构建产物 build:mp-weixin（�
   - **G7 压测**：同参数（80 虚拟用户 / think 36s / 5 分钟，LLM 走真 HTTP/SSE 桩）DB 轮 803 请求 · 2.55 rps · p95 246ms，图轮 837 请求 · 2.65 rps · p95 258.9ms，错误率均 0%
   - 真机三态验证抓出并修复一处缺陷（图不可达时对账接口 500/code 2001 → 现返回同构的 `available=false` 降级响应），并**证伪一处误判**：复盘 `PARTIAL_SUCCESS` 源于 LLM 输出校验而非 KG 降级（对照实验：图可用与图不可用在 openai 桩下步骤明细完全相同，mock 口径下为 SUCCESS）
 
-测试基线：H2 回归 **151 例 · 0 失败 · 9 跳过**（32 个测试类；跳过的 9 例均为 `Neo4jKgContractTest`，需真图实例，无实例时按设计跳过，即 142 例实际执行全绿），四条输入路径危机一票拦截各有集成测试；压测 803（DB）/ 837（图）请求均 0% 错误率，明细 `deploy/load_m18_db_results.json`、`deploy/load_m18_graph_results.json`（M10 基线见 `deploy/load_m10_results.json`）。技术债 8 条全部清偿（手册下篇九）。
+测试基线：H2 回归 **151 例 · 0 失败 · 9 跳过**（32 个测试类；跳过的 9 例均为 `Neo4jKgContractTest`，需真图实例，无实例时按设计跳过，即 142 例实际执行全绿），四条输入路径危机一票拦截各有集成测试；压测 803（DB）/ 837（图）请求均 0% 错误率，明细 `docs/baseline/reports/load_m18_db_results.json`、`docs/baseline/reports/load_m18_graph_results.json`（M10 基线见 `docs/baseline/reports/load_m10_results.json`）。技术债 8 条全部清偿（手册下篇九）。

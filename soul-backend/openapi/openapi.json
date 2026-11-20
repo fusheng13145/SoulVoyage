@@ -1604,8 +1604,7 @@
                 "$ref" : "#/components/schemas/RefreshReq"
               }
             }
-          },
-          "required" : true
+          }
         },
         "responses" : {
           "200" : {
@@ -1628,7 +1627,7 @@
         "parameters" : [ {
           "name" : "Authorization",
           "in" : "header",
-          "required" : true,
+          "required" : false,
           "schema" : {
             "type" : "string"
           }

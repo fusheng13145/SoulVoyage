@@ -1,5 +1,4 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import { TOKEN_KEY } from '@/api/http'
 
 /* 路由分层（下篇六）：tab 深度 0，push 页面深度 1/2；转场由 App.vue 按 depth 判定 */
 const router = createRouter({
@@ -181,9 +180,15 @@ const router = createRouter({
 })
 
 router.beforeEach(async to => {
-  if (to.meta.auth && !localStorage.getItem(TOKEN_KEY)) return '/login'
-  if (to.meta.admin) {
+  if (to.meta.auth) {
     // 动态引入避开 router ⇄ http ⇄ auth 的模块环
+    const { useAuthStore } = await import('@/stores/auth')
+    const auth = useAuthStore()
+    // access 只在内存：页面刷新后先用 HttpOnly Cookie 静默续期，再决定放不放行
+    if (!auth.authed) await auth.restore()
+    if (!auth.authed) return '/login'
+  }
+  if (to.meta.admin) {
     const { useAuthStore } = await import('@/stores/auth')
     try {
       const me = await useAuthStore().fetchMe()

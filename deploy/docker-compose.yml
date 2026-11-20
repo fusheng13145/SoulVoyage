@@ -63,12 +63,25 @@ services:
       neo4j: { condition: service_started }
     restart: unless-stopped
     environment:
+      # 必须显式声明 profile：MasterKeyStartupGuard 只对 dev/test/local 放行空 MK，
+      # 之前这里没设 profile，守卫压根没生效（详见安全审查报告 B-08）
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-prod}
       SV_MYSQL_HOST: mysql
       SV_MYSQL_PASS: ${SV_MYSQL_PASS:?}
+      # 同 compose 网络内可保持 false/true；一旦 MySQL 挪到别的机器，必须改成 true/false（见 check_release.mjs）
+      SV_DB_USE_SSL: ${SV_DB_USE_SSL:-false}
+      SV_DB_ALLOW_PUBLIC_KEY_RETRIEVAL: ${SV_DB_ALLOW_PUBLIC_KEY_RETRIEVAL:-true}
       SV_REDIS_HOST: redis
       SV_REDIS_PASS: ${SV_REDIS_PASS:?}
       SV_MASTER_KEY: ${SV_MASTER_KEY:?}
       SV_JWT_SECRET: ${SV_JWT_SECRET:?}
+      # 应用只在 127.0.0.1:8080 与 nginx 同 docker 网络暴露，代理头可信；改直连公网时请设 false
+      SV_TRUST_PROXY_HEADERS: ${SV_TRUST_PROXY_HEADERS:-true}
+      SV_LOG_LEVEL: ${SV_LOG_LEVEL:-INFO}
+      # refresh 走 HttpOnly Cookie：HTTPS 部署（docker-compose.tls.yml）必须为 true，否则浏览器不保存 Cookie
+      SV_COOKIE_SECURE: ${SV_COOKIE_SECURE:-false}
+      # Redis 抖动时写接口与管理端 fail-closed；极少数纯读场景想整体降级可设 false
+      SV_FAIL_CLOSED_ON_REDIS: ${SV_FAIL_CLOSED_ON_REDIS:-true}
       SV_LLM_PROVIDER: ${SV_LLM_PROVIDER:?}   # 生产必须显式选 provider，禁默认 mock
       SV_LLM_BASE_URL: ${SV_LLM_BASE_URL:-}
       SV_LLM_MODEL: ${SV_LLM_MODEL:-}

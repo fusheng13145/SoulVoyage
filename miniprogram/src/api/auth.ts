@@ -13,7 +13,8 @@ type Body<B extends object, K extends keyof components['schemas']> = B & [B] ext
 /** 后端 TokenResp：deletionPending=true 表示账号在注销冷静期，登录后要立刻提示撤回 */
 export interface TokenResp {
   accessToken: string
-  refreshToken: string
+  /** H5/浏览器端为 null（refresh 在 HttpOnly Cookie 里），只有原生小程序才拿得到 */
+  refreshToken: string | null
   userId: number
   nickname: string
   role: string
@@ -64,6 +65,7 @@ export const wechatUnbind = () => del<null>('/auth/wechat/binding')
 
 export const fetchMe = () => get<Me>('/auth/me')
 
-/** 登出要把 refreshToken 一起交回去：只拉黑 access 的话，旧 refresh 还能再换一副新令牌 */
-export const logout = (refreshToken: string) =>
-  post<null>('/auth/logout', { refreshToken } satisfies Body<{ refreshToken: string }, 'RefreshReq'>)
+/** 登出要把 refreshToken 一起交回去：只拉黑 access 的话，旧 refresh 还能再换一副新令牌。
+ *  H5 端 refresh 在 Cookie 里，body 传空即可，后端会回落读 Cookie 并下发清除。 */
+export const logout = (refreshToken?: string) =>
+  post<null>('/auth/logout', refreshToken ? { refreshToken } : {})

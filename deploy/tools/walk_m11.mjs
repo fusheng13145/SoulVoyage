@@ -1,3 +1,4 @@
+import { PW } from './env.mjs';
 // M11 真机走查：语音日记的录音 UI 与三种降级态（无头 Edge 用假麦克风，真链路假音频）
 //   ① 空闲/录音/转写回文 三态的可见文案与无障碍名（aria-live 播报、role=alert/status）
 //   ② 转写文本"追加不覆盖"——用户先手敲的几句不能被机器吞掉
@@ -19,7 +20,6 @@ const puppeteer = require('puppeteer-core')
 const BASE = 'http://localhost:8080/api/v1'
 const APP = 'http://localhost:5173'
 const SHOTS = 'docs/screenshots'
-const PW = 'Passw0rd!2026'
 const ASR_URL = '/diaries/voice-transcriptions'
 const HAND_TEXT = '先手写一句：今天下午本来不想说话。'
 

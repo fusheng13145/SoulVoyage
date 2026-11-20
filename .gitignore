@@ -1,5 +1,8 @@
 # --- Java / Maven ---
 soul-backend/target/
+# 解包 fat jar 时误落在源码树里的 BOOT-INF（运行时只认 target/classes，这份是残留）
+soul-backend/BOOT-INF/
+# archunit_store/ 例外：它是 ArchitectureTest 的冻结清单，必须入库
 # 本机直跑用的临时类路径（mvn dependency:build-classpath 生成），不入库
 soul-backend/cp.txt
 *.class

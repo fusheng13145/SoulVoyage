@@ -1,3 +1,4 @@
+import { PW } from './env.mjs';
 // M9 压测（O4/手册验收：1k DAU 首轮数据）。
 // 模型：1k DAU 集中在活跃小时，均值 ≈ 1k×8req / 3600s ≈ 2.2 req/s；本机资源有限，
 // 默认 --users 40 --think 36s（≈1.1 req/s）等效一半流量，参数可放大到全速。
@@ -5,13 +6,12 @@
 // 前置：dev 后端起在 :8080；admin 需已提权（脚本自动探测并给出提示）。
 // 用法：node deploy/tools/load_m9.mjs [--users 40] [--think 36] [--duration 300] [--base http://localhost:8080]
 //      [--out 落盘路径] [--llm 下游口径] [--note 备注]——M10 复测真协议下游：
-//      node deploy/tools/load_m9.mjs --out deploy/load_m10_results.json \
+//      node deploy/tools/load_m9.mjs --out docs/baseline/reports/load_m10_results.json \
 //        --llm "openai-compat stub @127.0.0.1:8787" --note "LLM 走真 HTTP/SSE，含桩侧 120ms 首包 + 15ms/块"
 const BASE = (apiVal('--base') || 'http://localhost:8080') + '/api/v1';
 const USERS = Number(apiVal('--users') || 40);
 const THINK_MS = Number(apiVal('--think') || 36000);
 const DURATION_MS = Number(apiVal('--duration') || 300000);
-const PW = 'Passw0rd!2026';
 
 function apiVal(name) {
   const i = process.argv.indexOf(name);
@@ -248,7 +248,7 @@ const summary = {
   model: '1k DAU ≈ 2.2 req/s（活跃小时均值）；本轮按参数折算' + (+(totalN / elapsed / 2.2).toFixed(2)) + 'x 目标流量',
   perEndpoint: rows,
 };
-const out = apiVal('--out') || 'deploy/load_m9_results.json';
+const out = apiVal('--out') || 'docs/baseline/reports/load_m9_results.json';
 const { writeFileSync } = await import('node:fs');
 writeFileSync(out, JSON.stringify(summary, null, 2));
 console.table(rows.map(({ endpoint, n, errRate, p50, p95, p99, max }) => ({ endpoint, n, errRate, p50, p95, p99, max })));

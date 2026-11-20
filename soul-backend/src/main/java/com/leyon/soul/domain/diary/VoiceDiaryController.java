@@ -84,7 +84,7 @@ public class VoiceDiaryController {
         reg.counter("sv.asr.call", "model", r.model() == null ? "unknown" : r.model()).increment();
         reg.timer("sv.asr.latency").record(Duration.ofMillis(r.costMs()));
         log.info("voice transcribed user={} bytes={} chars={} cost={}ms",
-                file.getSize(), audio.length, r.text().length(), r.costMs());
+                p.userId(), audio.length, r.text().length(), r.costMs());
 
         return ApiResponse.ok(new VoiceTranscriptionResp(
                 r.text(), r.model(), r.costMs(), durationMs == null ? 0 : durationMs));

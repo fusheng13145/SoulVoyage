@@ -11,7 +11,8 @@ export interface Me {
 
 export interface TokenResp {
   accessToken: string
-  refreshToken: string
+  /** 浏览器端恒为 null（refresh 走 HttpOnly Cookie），只有原生小程序客户端才拿得到 */
+  refreshToken: string | null
   userId: number
   nickname: string
   role: string

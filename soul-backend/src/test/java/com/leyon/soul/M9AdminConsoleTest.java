@@ -71,7 +71,7 @@ class M9AdminConsoleTest {
     @Autowired PasswordEncoder encoder;
     @Autowired ObjectMapper mapper;
 
-    private static final String PWD = "Passw0rd!2026";
+    private static final String PWD = "SvFixture!2026";
 
     private long newUser(String role) {
         UserEntity u = new UserEntity();

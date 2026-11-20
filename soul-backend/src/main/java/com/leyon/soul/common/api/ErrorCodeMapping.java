@@ -18,7 +18,7 @@ public final class ErrorCodeMapping {
             case FORBIDDEN, CRISIS_MODE_RESTRICTED -> HttpStatus.FORBIDDEN;
             case USERNAME_EXISTS, TASK_CONCURRENCY_LIMIT, CONFLICT -> HttpStatus.CONFLICT;
             case NOT_FOUND, TASK_NOT_FOUND -> HttpStatus.NOT_FOUND;
-            case LLM_RATE_LIMIT -> HttpStatus.TOO_MANY_REQUESTS;
+            case LLM_RATE_LIMIT, RATE_LIMITED -> HttpStatus.TOO_MANY_REQUESTS;
             case LLM_TIMEOUT, DEPENDENCY_UNAVAILABLE -> HttpStatus.SERVICE_UNAVAILABLE;
             case ASR_FAILED, WX_LOGIN_FAILED, LLM_OUTPUT_INVALID -> HttpStatus.BAD_GATEWAY;
             case INTERNAL_ERROR -> HttpStatus.INTERNAL_SERVER_ERROR;

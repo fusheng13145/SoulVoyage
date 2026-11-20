@@ -24,7 +24,7 @@ import static org.junit.jupiter.api.Assertions.*;
 @ActiveProfiles("test")
 class AuthHardeningTest {
 
-    private static final String PWD = "Passw0rd!2026";
+    private static final String PWD = "SvFixture!2026";
 
     @Autowired AuthService auth;
     @Autowired JwtService jwt;
@@ -91,7 +91,7 @@ class AuthHardeningTest {
         assertTrue(t2.deletionPending());
         account.cancelDeletion(uid, "test");
 
-        account.changePassword(uid, PWD, "NewPassw0rd!2026", "test");
+        account.changePassword(uid, PWD, "NewSvFixture!2026", "test");
         assertThrows(BizException.class, () -> jwt.verify(t2.accessToken(), JwtService.TYPE_ACCESS));
     }
 }

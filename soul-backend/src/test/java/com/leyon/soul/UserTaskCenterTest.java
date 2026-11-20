@@ -109,7 +109,7 @@ class UserTaskCenterTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(mapper.writeValueAsString(Map.of(
                                 "username", prefix + "_" + System.nanoTime(),
-                                "password", "Passw0rd!2026",
+                                "password", "SvFixture!2026",
                                 "nickname", "任务中心"))))
                 .andReturn();
         assertEquals(200, res.getResponse().getStatus());

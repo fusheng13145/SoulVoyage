@@ -64,7 +64,7 @@ class M10IdorMatrixTest {
     private static final List<String> CANARIES =
             List.of(DIARY_CANARY, DIARY_EDITED, REPORT_CANARY, CHAT_CANARY, SIM_CANARY, NOTE_CANARY);
 
-    private static final String PWD = "Passw0rd!2026";
+    private static final String PWD = "SvFixture!2026";
     private static final String INTRUDER_TEXT = "hello from another account";
 
     @Autowired TestRestTemplate rest;

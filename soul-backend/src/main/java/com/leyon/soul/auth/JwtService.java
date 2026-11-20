@@ -40,8 +40,13 @@ public class JwtService {
                       @Value("${soul.security.jwt.refresh-ttl}") Duration refreshTtl,
                       StringRedisTemplate redis,
                       RedisGuard guard) {
+        if (secret == null || secret.isBlank()) {
+            throw new IllegalStateException(
+                    "SV_JWT_SECRET 未配置：必须通过环境变量提供 ≥32 字节随机串（仓库内不再提供默认密钥，"
+                            + "否则任何拿到源码的人都能伪造登录令牌）");
+        }
         if (secret.getBytes(StandardCharsets.UTF_8).length < 32) {
-            throw new IllegalStateException("SV_JWT_SECRET must be >= 32 bytes");
+            throw new IllegalStateException("SV_JWT_SECRET 长度不足 32 字节");
         }
         this.key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
         this.accessTtl = accessTtl;

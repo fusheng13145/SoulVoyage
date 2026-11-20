@@ -24,8 +24,19 @@ import java.util.function.Supplier;
 @RequiredArgsConstructor
 public class RedisGuard {
 
+    /** 降级窗口：最近一次失败后的 60s 内认为"吊销状态不可信"（供 fail-closed 策略判定） */
+    private static final long DEGRADED_WINDOW_MS = 60_000L;
+
     private final StringRedisTemplate redis;
     private final MeterRegistry registry;
+
+    /** 最近一次降级的截止时刻（volatile：过滤器线程与业务线程跨线程读） */
+    private volatile long degradedUntil = 0L;
+
+    /** 是否处于"刚刚故障过"的窗口内：写入/管理端据此 fail-closed（普通读接口仍降级放行） */
+    public boolean degradedRecently() {
+        return System.currentTimeMillis() < degradedUntil;
+    }
 
     /** 降级读：故障返回 null，由调用方按"无记录"处理 */
     public <T> T read(String op, Supplier<T> supplier) {
@@ -57,6 +68,7 @@ public class RedisGuard {
     }
 
     private void degraded(String op, String mode, Exception e) {
+        degradedUntil = System.currentTimeMillis() + DEGRADED_WINDOW_MS;
         registry.counter("sv.redis.degraded", "op", op, "mode", mode).increment();
         log.warn("redis {} degraded ({}): {}", mode, op, e.getMessage());
     }

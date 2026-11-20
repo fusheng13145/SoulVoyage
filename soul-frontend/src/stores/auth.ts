@@ -1,23 +1,25 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { TOKEN_KEY, REFRESH_KEY } from '@/api/http'
+import { clearAccessToken, ensureSession, setAccessToken } from '@/api/http'
 import { authApi, type Me } from '@/api/domains/auth'
 
 export type { Me, TokenResp } from '@/api/domains/auth'
 
-/** 会话唯一事实源：token 存取、/auth/me、注销冷静期标记 */
+/** 会话唯一事实源：access 内存令牌、/auth/me、注销冷静期标记 */
 export const useAuthStore = defineStore('auth', () => {
   const me = ref<Me | null>(null)
   const loaded = ref(false)
+  /** refresh 已交出 HttpOnly Cookie，前端只能靠 access 是否存在判断登录态 */
+  const authed = ref(false)
 
-  function setTokens(t: { accessToken: string; refreshToken: string }) {
-    localStorage.setItem(TOKEN_KEY, t.accessToken)
-    localStorage.setItem(REFRESH_KEY, t.refreshToken)
+  function adopt(t: { accessToken: string }) {
+    setAccessToken(t.accessToken)
+    authed.value = true
   }
 
   async function login(username: string, password: string) {
     const t = await authApi.login(username, password)
-    setTokens(t)
+    adopt(t)
     flagDeletion(t.deletionPending)
     me.value = null
     await fetchMe()
@@ -25,10 +27,20 @@ export const useAuthStore = defineStore('auth', () => {
 
   async function register(username: string, password: string, nickname: string) {
     const t = await authApi.register(username, password, nickname)
-    setTokens(t)
+    adopt(t)
     flagDeletion(t.deletionPending)
     me.value = null
     await fetchMe()
+  }
+
+  /** 页面刷新后恢复会话：内存 access 已丢，用 Cookie 静默续期一次 */
+  async function restore() {
+    if (authed.value) return
+    if (!(await ensureSession())) return
+    authed.value = true
+    await fetchMe().catch(() => {
+      /* 401 交给拦截器统一处理 */
+    })
   }
 
   function flagDeletion(pending: boolean) {
@@ -44,14 +56,15 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   function clear() {
-    localStorage.removeItem(TOKEN_KEY)
-    localStorage.removeItem(REFRESH_KEY)
+    clearAccessToken()
+    authed.value = false
     sessionStorage.removeItem('sv_del_pending')
     me.value = null
   }
 
   async function logout() {
     try {
+      // 服务端会同时作废 refresh 并下发 Max-Age=0 的 Set-Cookie
       await authApi.logout()
     } catch {
       /* 服务端吊销失败也要本地登出 */
@@ -59,5 +72,5 @@ export const useAuthStore = defineStore('auth', () => {
     clear()
   }
 
-  return { me, loaded, login, register, fetchMe, logout, clear, flagDeletion }
+  return { me, loaded, authed, login, register, restore, fetchMe, logout, clear, flagDeletion }
 })

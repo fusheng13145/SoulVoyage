@@ -52,6 +52,7 @@ public class AccountService {
         userRepo.save(u);
         jwt.revokeAll(userId);                       // 所有已发 access/refresh 立即失效
         audit.record(userId, "DELETE_REQUEST", "user:" + userId, ip);
+        log.info("account deletion requested userId={} ip={} (cooling period starts)", userId, ip);
     }
 
     /** 冷静期撤回：登录（status=3 放行）后显式调用 */
@@ -85,6 +86,7 @@ public class AccountService {
         userRepo.save(u);
         jwt.revokeAll(userId);
         audit.record(userId, "PASSWORD_CHANGED", "user:" + userId, ip);
+        log.info("password changed userId={} ip={} (all sessions revoked)", userId, ip);
     }
 
     /** 冷静期到期的注销执行（DailySweeper 每日调用）：密钥销毁 + 匿名化 + deleted_at */

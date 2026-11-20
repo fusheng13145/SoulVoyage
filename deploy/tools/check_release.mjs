@@ -95,6 +95,31 @@ try {
 check('SV_MASTER_KEY', masterOk, '需为 base64 编码的 32 字节主密钥')
 check('SV_JWT_SECRET', secret(env.SV_JWT_SECRET, 32), '长度需 ≥32')
 
+// 2026-11-20 审查 04：refresh 只走 HttpOnly Cookie，https 下必须 Secure 才会被浏览器回传
+check('SV_COOKIE_SECURE', String(env.SV_COOKIE_SECURE || '').toLowerCase() === 'true', '生产 https 必须为 true')
+check(
+  'SV_FAIL_CLOSED_ON_REDIS',
+  String(env.SV_FAIL_CLOSED_ON_REDIS || 'true').toLowerCase() === 'true',
+  '不得为 false（Redis 降级时写操作必须 fail-closed）',
+)
+
+// 15：MySQL 跨主机时强制 TLS；同 compose 网络（host=mysql）或本机不强制
+const dbHost = String(env.SV_MYSQL_HOST || '').trim().toLowerCase()
+const dbCrossHost = !!dbHost && !['mysql', '127.0.0.1', 'localhost', '::1'].includes(dbHost)
+const dbSslOn = String(env.SV_DB_USE_SSL || '').toLowerCase() === 'true'
+const publicKeyOff =
+  String(env.SV_DB_ALLOW_PUBLIC_KEY_RETRIEVAL || 'true').toLowerCase() === 'false'
+check(
+  dbCrossHost ? 'SV_DB_USE_SSL' : 'SV_DB_USE_SSL（同机可 false）',
+  dbCrossHost ? dbSslOn : true,
+  '跨主机（host=' + dbHost + '）必须为 true',
+)
+check(
+  dbCrossHost ? 'SV_DB_ALLOW_PUBLIC_KEY_RETRIEVAL' : 'SV_DB_ALLOW_PUBLIC_KEY_RETRIEVAL（同机可 true）',
+  dbCrossHost ? publicKeyOff : true,
+  '跨主机必须为 false',
+)
+
 check('SV_NEO4J_ENABLED', String(env.SV_NEO4J_ENABLED || '').toLowerCase() === 'true', '生产需开启图侧')
 check('SV_NEO4J_URI', /^(bolt|neo4j):\/\//i.test(env.SV_NEO4J_URI || ''), '需为 bolt:// 或 neo4j://')
 check('SV_NEO4J_PASS', !placeholder(env.SV_NEO4J_PASS), '需填写 Neo4j 密码')

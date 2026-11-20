@@ -6,10 +6,12 @@ import com.leyon.soul.domain.diary.DiaryService;
 import com.leyon.soul.domain.diary.DiarySubmissionHook;
 import com.leyon.soul.domain.task.TaskInstanceEntity;
 import com.leyon.soul.domain.task.TaskInstanceRepository;
+import com.leyon.soul.domain.user.UserRepository;
 import com.leyon.soul.orchestrator.PipelineCode;
 import com.leyon.soul.orchestrator.TaskDispatcher;
 import com.leyon.soul.orchestrator.TaskEventPublisher;
 import com.leyon.soul.orchestrator.TaskExecutionService;
+import com.leyon.soul.orchestrator.TaskGateService;
 import com.leyon.soul.orchestrator.TaskSubmissionHook;
 import com.leyon.soul.orchestrator.TaskSubmissionService;
 import com.leyon.soul.orchestrator.pipeline.PipelineRegistry;
@@ -65,8 +67,9 @@ class DiaryTaskSubmissionTest {
 
     @BeforeEach
     void setUp() {
-        service = new TaskSubmissionService(pipelines, taskRepo, events, dispatcher, execution,
-                new SimpleMeterRegistry(), mapper, hooks);
+        service = new TaskSubmissionService(pipelines, taskRepo,
+                new TaskGateService(taskRepo, mock(UserRepository.class), new SimpleMeterRegistry()),
+                events, dispatcher, execution, mapper, hooks);
         when(pipelines.require(PipelineCode.DIARY_PIPELINE)).thenReturn(definition);
         when(taskRepo.countActive(anyLong())).thenReturn(0L);
         when(taskRepo.save(any(TaskInstanceEntity.class))).thenAnswer(inv -> {

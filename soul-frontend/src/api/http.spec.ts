@@ -34,21 +34,29 @@ vi.mock('axios', () => {
 
 vi.mock('../router', () => ({ default: { push: H.routerPush } }))
 
-import { CONFLICT_CODE, REFRESH_KEY, TOKEN_KEY, authFetch, isConflict } from './http'
+import {
+  CONFLICT_CODE,
+  authFetch,
+  clearAccessToken,
+  ensureSession,
+  getAccessToken,
+  isConflict,
+  setAccessToken,
+} from './http'
 
 /** 让 refreshOnce 的 finally 里那个 setTimeout(...,0) 有机会跑完，重置模块级 refreshing */
 const flushMacrotask = () => new Promise(r => setTimeout(r, 0))
 
-describe('api/http 请求与响应拦截器', () => {
+describe('api/http 请求与响应拦截器（memory access + HttpOnly refresh）', () => {
   beforeEach(() => {
-    localStorage.clear()
+    clearAccessToken()
     H.routerPush.mockClear()
     H.refreshPost.mockReset()
     expect(H.handlers.req, '拦截器应已注册').toBeTypeOf('function')
   })
 
-  it('请求拦截器：有 token 时注入 Bearer 头', () => {
-    localStorage.setItem(TOKEN_KEY, 'tk-1')
+  it('请求拦截器：内存里有 access 时注入 Bearer 头', () => {
+    setAccessToken('tk-1')
     const cfg: ReqCfg = { headers: {} }
     H.handlers.req!(cfg)
     expect(cfg.headers.Authorization).toBe('Bearer tk-1')
@@ -58,6 +66,12 @@ describe('api/http 请求与响应拦截器', () => {
     const cfg: ReqCfg = { headers: {} }
     H.handlers.req!(cfg)
     expect(cfg.headers.Authorization).toBeUndefined()
+  })
+
+  it('408 前提：令牌绝不写 localStorage（XSS 拿不到长效凭证）', () => {
+    setAccessToken('tk-1')
+    expect(localStorage.getItem('sv_access')).toBeNull()
+    expect(localStorage.getItem('sv_refresh')).toBeNull()
   })
 
   it('成功响应：code === 0 原样放行', () => {
@@ -72,51 +86,48 @@ describe('api/http 请求与响应拦截器', () => {
     })
   })
 
-  it('401 且非 auth 路径：刷新成功后带新 token 重放原请求', async () => {
-    localStorage.setItem(REFRESH_KEY, 'rt-1')
-    H.refreshPost.mockResolvedValue({
-      data: { data: { accessToken: 'at-2', refreshToken: 'rt-2' } },
-    })
+  it('401 且非 auth 路径：Cookie 刷新成功后带新 access 重放原请求', async () => {
+    H.refreshPost.mockResolvedValue({ data: { data: { accessToken: 'at-2', refreshToken: null } } })
     const original: Record<string, unknown> = { url: '/diaries' }
 
     const result = await H.handlers.resErr!({ response: { status: 401 }, config: original })
 
     expect(H.refreshPost).toHaveBeenCalledTimes(1)
-    expect(localStorage.getItem(TOKEN_KEY)).toBe('at-2')
-    expect(localStorage.getItem(REFRESH_KEY)).toBe('rt-2')
+    // refresh 不带 body，靠浏览器自动附 Cookie
+    expect(H.refreshPost).toHaveBeenCalledWith(
+      '/api/v1/auth/refresh',
+      null,
+      { withCredentials: true },
+    )
+    expect(getAccessToken()).toBe('at-2')
     expect(original._retried).toBe(true)
     expect(result).toEqual(original)
     await flushMacrotask()
   })
 
-  it('401 且刷新失败：清空令牌并跳登录页', async () => {
-    localStorage.setItem(TOKEN_KEY, 'at-1')
-    localStorage.setItem(REFRESH_KEY, 'rt-1')
+  it('401 且刷新失败：清空内存 access 并跳登录页', async () => {
+    setAccessToken('at-1')
     H.refreshPost.mockRejectedValue(new Error('refresh rejected'))
 
     await expect(
       H.handlers.resErr!({ response: { status: 401 }, config: { url: '/diaries' } }),
     ).rejects.toBeTruthy()
 
-    expect(localStorage.getItem(TOKEN_KEY)).toBeNull()
+    expect(getAccessToken()).toBeNull()
     expect(H.routerPush).toHaveBeenCalledWith('/login')
     await flushMacrotask()
   })
 
   it('auth 路径的 401 不触发全局登出（登录失败不该把用户踢出去）', async () => {
-    localStorage.setItem(REFRESH_KEY, 'rt-1')
-
     await expect(
       H.handlers.resErr!({ response: { status: 401 }, config: { url: '/auth/login' } }),
     ).rejects.toBeTruthy()
 
     expect(H.routerPush).not.toHaveBeenCalled()
-    expect(localStorage.getItem(REFRESH_KEY)).toBe('rt-1')
     await flushMacrotask()
   })
 
   it('已重放过的请求再 401 时不进入刷新循环', async () => {
-    localStorage.setItem(REFRESH_KEY, 'rt-1')
     const original: Record<string, unknown> = { url: '/diaries', _retried: true }
 
     await expect(H.handlers.resErr!({ response: { status: 401 }, config: original })).rejects.toBeTruthy()
@@ -140,10 +151,7 @@ describe('api/http 请求与响应拦截器', () => {
   })
 
   it('并发 401 共享同一次刷新（旧 refresh 用两次会被后端判失窃）', async () => {
-    localStorage.setItem(REFRESH_KEY, 'rt-1')
-    H.refreshPost.mockResolvedValue({
-      data: { data: { accessToken: 'at-9', refreshToken: 'rt-9' } },
-    })
+    H.refreshPost.mockResolvedValue({ data: { data: { accessToken: 'at-9' } } })
 
     await Promise.all([
       H.handlers.resErr!({ response: { status: 401 }, config: { url: '/a' } }),
@@ -154,23 +162,8 @@ describe('api/http 请求与响应拦截器', () => {
     await flushMacrotask()
   })
 
-  it('401 但本地无 refreshToken 时不尝试刷新，直接清会话并跳登录', async () => {
-    localStorage.setItem(TOKEN_KEY, 'at-1')
-
-    await expect(
-      H.handlers.resErr!({ response: { status: 401 }, config: { url: '/diaries' } }),
-    ).rejects.toBeTruthy()
-
-    expect(H.refreshPost).not.toHaveBeenCalled()
-    expect(localStorage.getItem(TOKEN_KEY)).toBeNull()
-    expect(H.routerPush).toHaveBeenCalledWith('/login')
-  })
-
   it('401 响应缺少 config 时仍能刷新并重放（不因取不到原请求而崩）', async () => {
-    localStorage.setItem(REFRESH_KEY, 'rt-1')
-    H.refreshPost.mockResolvedValue({
-      data: { data: { accessToken: 'at-3', refreshToken: 'rt-3' } },
-    })
+    H.refreshPost.mockResolvedValue({ data: { data: { accessToken: 'at-3' } } })
 
     const result = await H.handlers.resErr!({ response: { status: 401 } })
 
@@ -219,12 +212,38 @@ describe('api/http 请求与响应拦截器', () => {
     expect(isConflict(null)).toBe(false)
   })
 
+  it('ensureSession：无 access 时静默续期一次并回填内存', async () => {
+    H.refreshPost.mockResolvedValue({ data: { data: { accessToken: 'boot' } } })
+
+    await expect(ensureSession()).resolves.toBe(true)
+    expect(getAccessToken()).toBe('boot')
+    H.refreshPost.mockClear()
+
+    // 已有 access 不再打接口
+    await expect(ensureSession()).resolves.toBe(true)
+    expect(H.refreshPost).not.toHaveBeenCalled()
+    await flushMacrotask()
+  })
+
+  it('ensureSession：Cookie 也已失效时只探测一次，之后直接返回 false', async () => {
+    H.refreshPost.mockRejectedValue(new Error('401'))
+
+    await expect(ensureSession()).resolves.toBe(false)
+    await expect(ensureSession()).resolves.toBe(false)
+    expect(H.refreshPost).toHaveBeenCalledTimes(1)
+    await flushMacrotask()
+  })
+})
+
+describe('api/http authFetch（SSE 带鉴权）', () => {
+  beforeEach(() => {
+    clearAccessToken()
+    H.refreshPost.mockReset()
+  })
+
   it('B-07 authFetch：401 后单飞刷新并带新令牌重试', async () => {
-    localStorage.setItem(TOKEN_KEY, 'old')
-    localStorage.setItem(REFRESH_KEY, 'rt-1')
-    H.refreshPost.mockResolvedValue({
-      data: { data: { accessToken: 'new', refreshToken: 'rt-2' } },
-    })
+    setAccessToken('old')
+    H.refreshPost.mockResolvedValue({ data: { data: { accessToken: 'new' } } })
     const auths: string[] = []
     vi.stubGlobal(
       'fetch',
@@ -238,16 +257,13 @@ describe('api/http 请求与响应拦截器', () => {
     expect(res.status).toBe(200)
     expect(auths).toEqual(['Bearer old', 'Bearer new'])
     expect(H.refreshPost).toHaveBeenCalledTimes(1)
-    expect(localStorage.getItem(TOKEN_KEY)).toBe('new')
+    expect(getAccessToken()).toBe('new')
     await flushMacrotask()
   })
 
   it('B-07 并发 401 只刷新一次（跨调用单飞）', async () => {
-    localStorage.setItem(TOKEN_KEY, 'old')
-    localStorage.setItem(REFRESH_KEY, 'rt-1')
-    H.refreshPost.mockResolvedValue({
-      data: { data: { accessToken: 'new', refreshToken: 'rt-2' } },
-    })
+    setAccessToken('old')
+    H.refreshPost.mockResolvedValue({ data: { data: { accessToken: 'new' } } })
     let n = 0
     vi.stubGlobal(
       'fetch',
@@ -260,15 +276,16 @@ describe('api/http 请求与响应拦截器', () => {
     await flushMacrotask()
   })
 
-  it('B-07 authFetch：无 refresh 令牌时清空会话且不发刷新请求', async () => {
-    localStorage.setItem(TOKEN_KEY, 'only-access')
+  it('B-07 authFetch：刷新失败时清空内存会话并保留 401', async () => {
+    setAccessToken('only-access')
+    H.refreshPost.mockRejectedValue(new Error('no cookie'))
     vi.stubGlobal('fetch', vi.fn(() => Promise.resolve({ status: 401 } as Response)))
 
     const res = await authFetch('/x')
     expect(res.status).toBe(401)
-    expect(H.refreshPost).not.toHaveBeenCalled()
-    expect(localStorage.getItem(TOKEN_KEY)).toBeNull()
-    expect(localStorage.getItem(REFRESH_KEY)).toBeNull()
+    expect(getAccessToken()).toBeNull()
+    expect(localStorage.getItem('sv_access')).toBeNull()
+    await flushMacrotask()
   })
 })
 

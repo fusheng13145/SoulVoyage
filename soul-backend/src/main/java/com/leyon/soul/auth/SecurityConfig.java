@@ -81,8 +81,10 @@ public class SecurityConfig {
         cfg.setAllowedOriginPatterns(java.util.Arrays.stream(allowedOrigins.split(","))
                 .map(String::trim).toList());
         cfg.setAllowedMethods(java.util.List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
-        cfg.setAllowedHeaders(java.util.List.of("Authorization", "Content-Type", "Last-Event-ID"));
-        cfg.setAllowCredentials(false);   // 凭证走 Authorization 头，不依赖 Cookie
+        // X-Client-Type：原生客户端标记（决定 refresh 走 body 还是 HttpOnly Cookie）
+        cfg.setAllowedHeaders(java.util.List.of("Authorization", "Content-Type", "Last-Event-ID", "X-Client-Type"));
+        // 2026-11-20：refresh 改 HttpOnly Cookie，跨域必须允许凭证；白名单已显式（不会退化成 *）
+        cfg.setAllowCredentials(true);
         cfg.setMaxAge(3600L);
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/api/**", cfg);

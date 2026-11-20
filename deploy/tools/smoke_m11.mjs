@@ -1,3 +1,4 @@
+import { PW } from './env.mjs';
 // M11 冒烟（dev 真机 MySQL + Redis）：语音日记——转写网关、输入源标记、护栏复用与真协议链路。
 // 用法：
 //   node deploy/tools/smoke_m11.mjs          # 门禁段（SV_ASR_PROVIDER=mock 的后端即可）
@@ -13,7 +14,6 @@ const BASE = 'http://localhost:8080/api/v1';
 const ACT = 'http://localhost:8080/actuator';
 const STUB = 'http://127.0.0.1:8788';
 const ASR = process.argv.includes('--asr');
-const PW = 'Passw0rd!2026';
 const MAX_BYTES = 5 * 1024 * 1024;
 const CRISIS_TEXT = '感觉一切都完了，真的撑不下去，活着没意思。';
 const SAMPLE =

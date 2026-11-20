@@ -1,3 +1,4 @@
+import { PW } from './env.mjs';
 // M12 真机走查：群体看板的界面不变量（无头 Edge，dev 真机 MySQL）
 //   ① 用户侧：设置页"群体统计参与"开关默认关、点开必发一次 PUT /preferences、刷新后仍在（真源是库不是组件态）
 //   ② 管理端：授权 <10 时看板卡片显示抑制态——没有 KPI、没有曲线，只有结论与红线说明
@@ -14,7 +15,6 @@ const puppeteer = require('puppeteer-core')
 const BASE = 'http://localhost:8080/api/v1'
 const APP = 'http://localhost:5173'
 const SHOTS = 'docs/screenshots'
-const PW = 'Passw0rd!2026'
 const SECRET_NOTE = '走查密文原文绝不该出现在看板'
 
 mkdirSync(SHOTS, { recursive: true })

@@ -16,15 +16,25 @@ export interface ApiError extends Error {
 
 type Method = 'GET' | 'POST' | 'PUT' | 'DELETE'
 
+/** uni-app 编译期注入的平台标识；声明成可选，避免为了它引入 @types/node */
+declare const process: { env: Record<string, string | undefined> } | undefined
+/** H5 构建其实是浏览器：refresh 走 HttpOnly Cookie（见后端 AuthController#shape）；
+ *  真机/小程序端没有 Cookie 罐，继续用 body 令牌。 */
+const COOKIE_CAPABLE = typeof process !== 'undefined' && process.env.UNI_PLATFORM === 'h5'
+/** 原生客户端标记：后端只在"带这个头且没有 Origin"时下发 body refresh */
+const NATIVE_CLIENT = !COOKIE_CAPABLE
+
 export function getToken(): string {
   return (uni.getStorageSync(TOKEN_KEY) as string) || ''
 }
 export function getRefreshToken(): string {
   return (uni.getStorageSync(REFRESH_KEY) as string) || ''
 }
-export function setTokens(t: { accessToken: string; refreshToken: string }) {
+/** 浏览器端 refresh 恒为 null（在 Cookie 里），此时不写 storage，避免存进一个假令牌 */
+export function setTokens(t: { accessToken: string; refreshToken?: string | null }) {
   uni.setStorageSync(TOKEN_KEY, t.accessToken)
-  uni.setStorageSync(REFRESH_KEY, t.refreshToken)
+  if (t.refreshToken) uni.setStorageSync(REFRESH_KEY, t.refreshToken)
+  else uni.removeStorageSync(REFRESH_KEY)
 }
 export function clearTokens() {
   uni.removeStorageSync(TOKEN_KEY)
@@ -50,6 +60,7 @@ function rawCall<T>(method: Method, path: string, body?: unknown): Promise<RawRe
       timeout: 30000,
       header: {
         'Content-Type': 'application/json',
+        ...(NATIVE_CLIENT ? { 'X-Client-Type': 'miniprogram' } : {}),
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
       // 非 2xx 也走 success：后端把业务码写在响应体里，401/403/429 同样要读出来才认得出是谁的错
@@ -70,10 +81,13 @@ export async function refreshOnce(): Promise<boolean> {
   if (!refreshing) {
     refreshing = (async () => {
       const rt = getRefreshToken()
-      if (!rt) return false
-      const r = await rawCall<{ accessToken: string; refreshToken: string }>('POST', '/auth/refresh', {
-        refreshToken: rt,
-      })
+      // 原生端必须自带 refresh；H5 端 refresh 在 HttpOnly Cookie 里，body 传空由后端回落到 Cookie
+      if (!rt && !COOKIE_CAPABLE) return false
+      const r = await rawCall<{ accessToken: string; refreshToken: string | null }>(
+        'POST',
+        '/auth/refresh',
+        rt ? { refreshToken: rt } : {},
+      )
       if (r.status !== 200 || !r.body || r.body.code !== 0) return false
       setTokens(r.body.data)
       return true
@@ -85,6 +99,13 @@ export async function refreshOnce(): Promise<boolean> {
   return refreshing
 }
 
+/** 冷启动：H5 端页面刷新后内存 access 已丢，用 Cookie 换一次；原生端 storage 里就有 */
+export async function ensureSession(): Promise<boolean> {
+  if (getToken()) return true
+  if (!COOKIE_CAPABLE) return false
+  return refreshOnce()
+}
+
 /** 登录/注册/刷新自己的 401 不该触发"全局掉线→reLaunch"，否则输错口令会把人踢回登录页 */
 export function isAuthEntry(path: string): boolean {
   return path.startsWith('/auth/')
@@ -94,7 +115,12 @@ export async function request<T>(method: Method, path: string, body?: unknown): 
   let r = await rawCall<T>(method, path, body)
   if (r.status === 0) throw apiError('网络不太顺，检查一下网络再试')
 
-  if (r.status === 401 && !isAuthEntry(path) && getRefreshToken() && (await refreshOnce())) {
+  if (
+    r.status === 401 &&
+    !isAuthEntry(path) &&
+    (getRefreshToken() || COOKIE_CAPABLE) &&
+    (await refreshOnce())
+  ) {
     r = await rawCall<T>(method, path, body) // 只重试一次：再 401 就是真过期
   }
   if (r.status === 401 && !isAuthEntry(path)) {
